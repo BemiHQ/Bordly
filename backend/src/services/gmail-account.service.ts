@@ -21,8 +21,10 @@ export class GmailAccountService {
     return orm.em.findOneOrFail(GmailAccount, { id }, { populate });
   }
 
-  static findAllAccounts() {
-    return orm.em.find(GmailAccount, {});
+  static findAllAccounts<Hint extends string = never>(
+    { populate }: { populate?: Populate<GmailAccount, Hint> } = { populate: [] },
+  ) {
+    return orm.em.find(GmailAccount, {}, { populate });
   }
 
   static async refreshAccessToken(

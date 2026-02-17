@@ -2,48 +2,57 @@ import { RequestContext } from '@mikro-orm/postgresql';
 import type { Job, Queue } from 'pg-boss';
 
 import { EmailMessageService } from '@/services/email-message.service';
-import { GmailAccountService } from '@/services/gmail-account.service';
 import { orm } from '@/utils/orm';
 import { pgBossInstance } from '@/utils/pg-boss';
 
 export const QUEUES = {
   CREATE_INITIAL_EMAIL_MESSAGES: 'create-initial-email-messages',
-  CREATE_NEW_EMAIL_MESSAGES: 'create-new-email-messages',
-  SCHEDULER_CREATE_NEW_EMAIL_MESSAGES: 'scheduler-create-new-email-messages',
+  SCHEDULED_CREATE_NEW_EMAIL_MESSAGES: 'scheduled-create-new-email-messages',
 } as const;
 
 interface QueueDataMap {
   [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: { gmailAccountId: string };
-  [QUEUES.CREATE_NEW_EMAIL_MESSAGES]: { gmailAccountId: string };
-  [QUEUES.SCHEDULER_CREATE_NEW_EMAIL_MESSAGES]: {};
+  [QUEUES.SCHEDULED_CREATE_NEW_EMAIL_MESSAGES]: {};
 }
 
 const CONFIG_BY_QUEUE = {
   [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: {
-    options: { retryLimit: 5, retryDelay: 5, retryBackoff: true, policy: 'standard' },
+    options: { retryLimit: 5, retryDelay: 5, retryBackoff: true },
+    schedule: null,
     handler: async (job) => {
       const { gmailAccountId } = job.data;
       await EmailMessageService.createInitialEmailMessages(gmailAccountId);
     },
   },
-  [QUEUES.CREATE_NEW_EMAIL_MESSAGES]: {
-    options: { retryLimit: 5, retryDelay: 5, retryBackoff: true, policy: 'standard' },
-    handler: async (job) => {
-      const { gmailAccountId } = job.data;
-      await EmailMessageService.createNewEmailMessages(gmailAccountId);
-    },
-  },
-  [QUEUES.SCHEDULER_CREATE_NEW_EMAIL_MESSAGES]: {
-    options: { policy: 'exclusive' },
+  [QUEUES.SCHEDULED_CREATE_NEW_EMAIL_MESSAGES]: {
+    options: { retryLimit: 5, retryDelay: 5 },
+    schedule: '* * * * *', // every minute
     handler: async () => {
-      const gmailAccounts = await GmailAccountService.findAllAccounts();
-      for (const gmailAccount of gmailAccounts) {
-        await enqueue(QUEUES.CREATE_NEW_EMAIL_MESSAGES, { gmailAccountId: gmailAccount.id });
+      const LOCK_KEY = 12345; // arbitrary unique key
+
+      const boss = await pgBossInstance();
+      const result = await boss.getDb().executeSql('SELECT pg_try_advisory_lock($1) AS acquired', [LOCK_KEY]);
+
+      if (!result.rows[0].acquired) {
+        console.log(
+          `[PG-BOSS] Skipping job: another instance is processing ${QUEUES.SCHEDULED_CREATE_NEW_EMAIL_MESSAGES} queue`,
+        );
+        return;
+      }
+
+      try {
+        await EmailMessageService.loopCreateNewEmailMessages();
+      } finally {
+        await boss.getDb().executeSql('SELECT pg_advisory_unlock($1)', [LOCK_KEY]);
       }
     },
   },
 } as {
-  [Q in keyof QueueDataMap]: { options: Omit<Queue, 'name'>; handler: (job: Job<QueueDataMap[Q]>) => Promise<void> };
+  [Q in keyof QueueDataMap]: {
+    options: Omit<Queue, 'name'>;
+    schedule: string | null;
+    handler: (job: Job<QueueDataMap[Q]>) => Promise<void>;
+  };
 };
 
 export const listenToQueues = async () => {
@@ -52,12 +61,15 @@ export const listenToQueues = async () => {
   console.log('[PG-BOSS] Creating queues...');
   for (const queueName of Object.values(QUEUES)) {
     await boss.createQueue(queueName, CONFIG_BY_QUEUE[queueName].options);
+
+    const schedule = CONFIG_BY_QUEUE[queueName].schedule;
+    if (schedule) {
+      console.log(`[PG-BOSS] Scheduling recurring job for "${queueName}" with "${schedule}"`);
+      await boss.schedule(queueName, schedule);
+    }
   }
 
-  console.log('[PG-BOSS] Setting up shedules...');
-  await boss.schedule(QUEUES.SCHEDULER_CREATE_NEW_EMAIL_MESSAGES, '* * * * *');
-
-  console.log('[PG-BOSS] Starting workers...');
+  console.log(`[PG-BOSS] Starting workers...`);
   for (const queueName of Object.values(QUEUES)) {
     await startWorker(
       queueName,

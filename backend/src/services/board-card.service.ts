@@ -1,3 +1,5 @@
+import type { Populate } from '@mikro-orm/postgresql';
+
 import type { Board } from '@/entities/board';
 import { BoardCard, State } from '@/entities/board-card';
 import type { User } from '@/entities/user';

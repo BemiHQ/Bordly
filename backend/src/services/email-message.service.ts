@@ -15,10 +15,12 @@ import { gmailAttachmentsData, gmailBody, gmailHeaderValue, newGmail } from '@/u
 import { unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
+import { sleep } from '@/utils/time';
 
 const CREATE_INITIAL_EMAIL_MESSAGES_LIMIT = 50;
-const OVERLAP_EMAIL_MESSAGES_MS = 2 * 60 * 1_000; // 2 minutes
+const OVERLAP_EMAIL_MESSAGES_MS = 1 * 60 * 1_000; // 1 minute
 const MAX_INITIAL_BOARD_COUNT = 5;
+const CREATE_NEW_EMAIL_MESSAGES_INTERVAL_MS = 20 * 1_000; // 20 seconds
 
 const CATEGORIES = {
   ENGINEERING: 'Engineering',
@@ -45,138 +47,161 @@ Only output one of the above categories without any explanation.`,
 };
 
 export class EmailMessageService {
-  static async createNewEmailMessages(gmailAccountId: string) {
-    const gmailAccount = await GmailAccountService.findById(gmailAccountId, { populate: ['board.boardColumns'] });
-    if (!gmailAccount.board?.initialized) {
-      console.log(`[GMAIL] Skipping ${gmailAccount.email} new emails fetch as board is not initialized.`);
-      return;
-    }
+  static async loopCreateNewEmailMessages() {
+    const lastExistingEmailMessageByGmailAccountId: Record<string, EmailMessage | null> = {};
 
-    const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
-    const gmail = newGmail(oauth2Client);
+    while (true) {
+      const gmailAccounts = await GmailAccountService.findAllAccounts({ populate: ['board.boardColumns'] });
 
-    // Find the last inserted email message as cursor
-    const lastEmailMessage = await orm.em.findOne(
-      EmailMessage,
-      { gmailAccount },
-      { orderBy: { externalCreatedAt: 'DESC' } },
-    );
-    const query = lastEmailMessage
-      ? `after:${Math.floor((lastEmailMessage.externalCreatedAt.getTime() - OVERLAP_EMAIL_MESSAGES_MS) / 1000)}`
-      : undefined;
-
-    const emailMessagesDescByThreadId: Record<string, EmailMessage[]> = {};
-    let pageToken: string | undefined;
-    let foundPreviousMessage = false;
-
-    do {
-      console.log(
-        `[GMAIL] Fetching ${gmailAccount.email} new emails${query ? ` with "${query}"` : ''}${pageToken ? ' (via pageToken)' : ''}...`,
-      );
-      const listResponse = await gmail.users.messages.list({
-        userId: 'me',
-        q: query,
-        maxResults: CREATE_INITIAL_EMAIL_MESSAGES_LIMIT,
-        includeSpamTrash: true,
-        pageToken,
-      });
-
-      let messages = listResponse.data.messages || [];
-      if (messages.length === 0) break;
-
-      if (lastEmailMessage && !foundPreviousMessage) {
-        messages = messages.filter((message) => {
-          if (message.id === lastEmailMessage.externalId) {
-            foundPreviousMessage = true;
-            return false;
-          }
-          return !foundPreviousMessage; // Exclude messages after the last known message
-        });
-      }
-
-      for (const message of messages) {
-        if (!message.id) continue;
-
-        console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${message.id}...`);
-        const messageDetails = await gmail.users.messages.get({ userId: 'me', id: message.id, format: 'full' });
-        const { emailMessage, attachments } = EmailMessageService.parseEmailMessage({
-          gmailAccount,
-          messageData: messageDetails.data,
-        });
-        orm.em.persist([emailMessage, ...attachments]);
-        (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
-      }
-
-      pageToken = listResponse.data.nextPageToken || undefined;
-
-      if (foundPreviousMessage) break; // Stop pagination if we found the previous message
-    } while (pageToken);
-
-    // Categorize email threads and create board cards
-    const boardColumns = gmailAccount.board.boardColumns.getItems().sort((a, b) => a.position - b.position);
-    const agent = AgentService.createAgent({
-      name: AGENT_CATEGORIZATION.name,
-      instructions: renderTemplate(AGENT_CATEGORIZATION.instructionsTemplate, {
-        categories: boardColumns.map((col) => col.name).join('\n- '),
-      }),
-    });
-    for (const [threadId, emailMessagesDesc] of Object.entries(emailMessagesDescByThreadId)) {
-      let boardCard = await BoardCardService.tryFindByBoardAndExternalThreadId({
-        board: gmailAccount.board,
-        externalThreadId: threadId,
-      });
-
-      const state = EmailMessageService.boardCardStateFromEmailMessages(emailMessagesDesc);
-      const participantNames = unique([
-        ...(boardCard?.participantNames || []),
-        ...EmailMessageService.participantNames({ emailMessagesDesc, gmailAccount }),
-      ]);
-      const unreadEmailMessageIds = [
-        ...(boardCard?.unreadEmailMessageIds || []),
-        ...EmailMessageService.unreadEmailMessageIds(emailMessagesDesc),
-      ];
-      const firstEmailMessage = emailMessagesDesc[emailMessagesDesc.length - 1]!;
-      const lastEmailMessage = emailMessagesDesc[0]!;
-
-      if (boardCard) {
-        boardCard.update({
-          state,
-          snippet: lastEmailMessage.snippet,
-          participantNames,
-          lastEventAt: lastEmailMessage.externalCreatedAt,
-          unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
-          movedToTrashAt: state === State.TRASHED ? new Date() : boardCard.movedToTrashAt,
-        });
-        console.log(`[GMAIL] Updated board card for thread ${threadId}`);
-      } else {
-        const category = await EmailMessageService.categorizeEmailThread({ agent, emailMessages: emailMessagesDesc });
-        let boardColumn = boardColumns.find((col) => col.name === category);
-        if (!boardColumn) {
-          console.warn(`[GMAIL] No board column found "${category}", using first column ${boardColumns[0]!.name}`);
-          boardColumn = boardColumns[0]!;
+      for (const gmailAccount of gmailAccounts) {
+        if (!gmailAccount.board?.initialized) {
+          console.log(`[GMAIL] Skipping ${gmailAccount.email} new emails fetch as board is not initialized.`);
+          continue;
         }
-        const domain = await DomainService.findOrInitDomainWithIcon(EmailMessageService.domainName(emailMessagesDesc));
-        boardCard = new BoardCard({
-          board: gmailAccount.board,
-          boardColumn: boardColumn!,
-          domain,
-          externalThreadId: threadId,
-          state,
-          subject: firstEmailMessage.subject,
-          snippet: lastEmailMessage.snippet,
-          participantNames,
-          lastEventAt: lastEmailMessage.externalCreatedAt,
-          unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
-          movedToTrashAt: state === State.TRASHED ? new Date() : undefined,
-        });
-        console.log(`[GMAIL] Created board card for thread ${threadId} in column ${boardColumn!.name}`);
+
+        const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
+        const gmail = newGmail(oauth2Client);
+
+        const lastExistingEmailMessage =
+          lastExistingEmailMessageByGmailAccountId[gmailAccount.id] ||
+          (await orm.em.findOne(EmailMessage, { gmailAccount }, { orderBy: { externalCreatedAt: 'DESC' } }));
+
+        const query = lastExistingEmailMessage
+          ? `after:${Math.floor((lastExistingEmailMessage.externalCreatedAt.getTime() - OVERLAP_EMAIL_MESSAGES_MS) / 1000)}`
+          : undefined;
+
+        const emailMessagesDescByThreadId: Record<string, EmailMessage[]> = {};
+        let pageToken: string | undefined;
+        let foundPreviousMessage = false;
+
+        // Create EmailMessages and Attachments
+        do {
+          console.log(
+            `[GMAIL] Fetching ${gmailAccount.email} new emails${query ? ` with "${query}"` : ''}${pageToken ? ' (via pageToken)' : ''}...`,
+          );
+          const listResponse = await gmail.users.messages.list({
+            userId: 'me',
+            q: query,
+            maxResults: CREATE_INITIAL_EMAIL_MESSAGES_LIMIT,
+            includeSpamTrash: true,
+            pageToken,
+          });
+
+          let messages = listResponse.data.messages || [];
+          if (messages.length === 0) break;
+
+          if (lastExistingEmailMessage && !foundPreviousMessage) {
+            messages = messages.filter((message) => {
+              if (message.id === lastExistingEmailMessage!.externalId) {
+                foundPreviousMessage = true;
+                return false;
+              }
+              return !foundPreviousMessage; // Exclude messages after the last known message
+            });
+          }
+
+          for (const message of messages) {
+            if (!message.id) continue;
+
+            console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${message.id}...`);
+            const messageDetails = await gmail.users.messages.get({ userId: 'me', id: message.id, format: 'full' });
+            const { emailMessage, attachments } = EmailMessageService.parseEmailMessage({
+              gmailAccount,
+              messageData: messageDetails.data,
+            });
+            orm.em.persist([emailMessage, ...attachments]);
+            (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
+          }
+
+          pageToken = listResponse.data.nextPageToken || undefined;
+
+          if (foundPreviousMessage) break; // Stop pagination if we found the previous message
+        } while (pageToken);
+
+        // Update or Create BoardCards
+        const boardColumnsAsc = gmailAccount.board.boardColumns.getItems().sort((a, b) => a.position - b.position);
+        for (const [threadId, emailMessagesDesc] of Object.entries(emailMessagesDescByThreadId)) {
+          let boardCard = await BoardCardService.tryFindByBoardAndExternalThreadId({
+            board: gmailAccount.board,
+            externalThreadId: threadId,
+          });
+
+          const state = EmailMessageService.boardCardStateFromEmailMessages(emailMessagesDesc);
+          const participantNames = unique([
+            ...(boardCard?.participantNames || []),
+            ...EmailMessageService.participantNames({ emailMessagesDesc, gmailAccount }),
+          ]);
+          const unreadEmailMessageIds = [
+            ...(boardCard?.unreadEmailMessageIds || []),
+            ...EmailMessageService.unreadEmailMessageIds(emailMessagesDesc),
+          ];
+          const firstEmailMessage = emailMessagesDesc[emailMessagesDesc.length - 1]!;
+          const lastEmailMessage = emailMessagesDesc[0]!;
+
+          if (boardCard) {
+            boardCard.update({
+              state,
+              snippet: lastEmailMessage.snippet,
+              participantNames,
+              lastEventAt: lastEmailMessage.externalCreatedAt,
+              unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
+              movedToTrashAt: state === State.TRASHED ? new Date() : boardCard.movedToTrashAt,
+            });
+            console.log(`[GMAIL] Updated board card for thread ${threadId}`);
+          } else {
+            const agent = AgentService.createAgent({
+              name: AGENT_CATEGORIZATION.name,
+              instructions: renderTemplate(AGENT_CATEGORIZATION.instructionsTemplate, {
+                categories: boardColumnsAsc.map((col) => col.name).join('\n- '),
+              }),
+            });
+            const category = await EmailMessageService.categorizeEmailThread({
+              agent,
+              emailMessages: emailMessagesDesc,
+            });
+            let boardColumn = boardColumnsAsc.find((col) => col.name === category);
+            if (!boardColumn) {
+              console.warn(
+                `[GMAIL] No board column found "${category}", using first column ${boardColumnsAsc[0]!.name}`,
+              );
+              boardColumn = boardColumnsAsc[0]!;
+            }
+            const domain = await DomainService.findOrInitDomainWithIcon(
+              EmailMessageService.domainName(emailMessagesDesc),
+            );
+            boardCard = new BoardCard({
+              board: gmailAccount.board,
+              boardColumn: boardColumn!,
+              domain,
+              externalThreadId: threadId,
+              state,
+              subject: firstEmailMessage.subject,
+              snippet: lastEmailMessage.snippet,
+              participantNames,
+              lastEventAt: lastEmailMessage.externalCreatedAt,
+              unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
+              movedToTrashAt: state === State.TRASHED ? new Date() : undefined,
+            });
+            console.log(`[GMAIL] Created board card for thread ${threadId} in column ${boardColumn!.name}`);
+          }
+
+          orm.em.persist(boardCard);
+        }
+
+        await orm.em.flush();
+        console.log(`[GMAIL] Finished fetching emails for ${gmailAccount.email}`);
+
+        if (Object.keys(emailMessagesDescByThreadId).length > 0) {
+          lastExistingEmailMessageByGmailAccountId[gmailAccount.id] = await orm.em.findOne(
+            EmailMessage,
+            { gmailAccount },
+            { orderBy: { externalCreatedAt: 'DESC' } },
+          );
+        }
       }
 
-      orm.em.persist(boardCard);
+      await sleep(CREATE_NEW_EMAIL_MESSAGES_INTERVAL_MS);
     }
-
-    await orm.em.flush();
-    console.log(`[GMAIL] Finished fetching emails for ${gmailAccount.email}`);
   }
 
   static async createInitialEmailMessages(gmailAccountId: string) {
