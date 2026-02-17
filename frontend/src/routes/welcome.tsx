@@ -1,6 +1,6 @@
 import { SiGithub, SiX } from '@icons-pack/react-simple-icons';
 import { useMutation } from '@tanstack/react-query';
-import { createFileRoute, Link, redirect } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { ERRORS } from 'bordly-backend/utils/shared';
 import { ArrowRight } from 'lucide-react';
 import { useState } from 'react';
@@ -12,22 +12,12 @@ import { H1 } from '@/components/ui/h1';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { ensureLoggedIn } from '@/loaders/authentication';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/welcome')({
   component: Welcome,
-  loader: async ({ context }) => {
-    const { currentUser, boards } = await context.queryClient.ensureQueryData(
-      context.trpc.user.getCurrentUser.queryOptions(),
-    );
-    if (!currentUser) {
-      throw redirect({ to: ROUTES.AUTH });
-    }
-    if (boards.length > 0) {
-      throw redirect({ to: ROUTES.BOARD.replace('$boardId', boards[0].friendlyId) });
-    }
-    return { currentUser };
-  },
+  loader: ensureLoggedIn(ROUTES.WELCOME),
 });
 
 const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => {

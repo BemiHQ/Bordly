@@ -1,8 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query';
-import { createServerFn } from '@tanstack/react-start';
-import { getRequest } from '@tanstack/react-start/server';
 import { createTRPCClient, httpBatchStreamLink, loggerLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
@@ -13,22 +11,9 @@ import { ENV } from '@/utils/env';
 import { isSsr } from '@/utils/ssr';
 import { API_ENDPOINTS } from '@/utils/urls';
 import '@/utils/error-tracking';
-
-const SESSION_COOKIE_NAME = 'sId';
+import { fetchSessionCookie } from '@/loaders/authentication';
 
 let BROWSER_QUERY_CLIENT: QueryClient | undefined;
-
-const fetchSessionCookie = createServerFn({ method: 'GET' }).handler(async () => {
-  const request = getRequest();
-  const cookieHeader = request.headers.get('cookie') || '';
-  const sessionIdMatch = cookieHeader.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`));
-  const sessionCookie = sessionIdMatch ? `${SESSION_COOKIE_NAME}=${sessionIdMatch[1]}` : null;
-
-  console.log(
-    `[TRPC client] fetch from "${request.url.split(request.headers.get('host') || 'unknown-host')[1]}" ${sessionCookie ? 'with' : 'without'} session cookie`,
-  );
-  return sessionCookie;
-});
 
 const createTrpcClient = () =>
   createTRPCClient<TRPCRouter>({

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
 import { BoardCardDialogNavbar } from '@/components/board-card/board-card-dialog-navbar';
 import { EmailMessageCard } from '@/components/board-card/email-message-card';
@@ -8,20 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Spinner } from '@/components/ui/spinner';
 import { usePrefetchQuery } from '@/hooks/use-prefetch-query';
 import { RouteProvider } from '@/hooks/use-route-context';
+import { ensureLoggedIn } from '@/loaders/authentication';
 import { cn, extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
   component: BoardCardComponent,
-  beforeLoad: async ({ context: { queryClient, trpc } }) => {
-    const { currentUser, boards } = await queryClient.ensureQueryData(trpc.user.getCurrentUser.queryOptions());
-    if (!currentUser) {
-      throw redirect({ to: ROUTES.AUTH });
-    }
-    if (boards.length === 0) {
-      throw redirect({ to: ROUTES.WELCOME });
-    }
-  },
+  beforeLoad: ensureLoggedIn(ROUTES.BOARD_CARD),
 });
 
 function BoardCardComponent() {

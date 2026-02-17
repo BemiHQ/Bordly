@@ -1,23 +1,13 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 
 import { Button } from '@/components/ui/button';
 import { H1 } from '@/components/ui/h1';
-import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
+import { ensureNotLoggedIn } from '@/loaders/authentication';
+import { API_ENDPOINTS } from '@/utils/urls';
 
 export const Route = createFileRoute('/auth')({
   component: Auth,
-  beforeLoad: async ({ context }) => {
-    const { currentUser, boards } = await context.queryClient.ensureQueryData(
-      context.trpc.user.getCurrentUser.queryOptions(),
-    );
-    if (!currentUser) return;
-
-    if (boards.length > 0) {
-      throw redirect({ to: ROUTES.BOARD.replace('$boardId', boards[0].friendlyId) });
-    } else {
-      throw redirect({ to: ROUTES.WELCOME });
-    }
-  },
+  beforeLoad: ensureNotLoggedIn,
 });
 
 function Auth() {

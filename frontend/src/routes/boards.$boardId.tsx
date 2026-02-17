@@ -2,7 +2,7 @@ import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortable';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { createFileRoute, Outlet, redirect, useMatches } from '@tanstack/react-router';
+import { createFileRoute, Outlet, useMatches } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
@@ -24,6 +24,7 @@ import { useBoardFilters } from '@/hooks/use-board-filters';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { RouteProvider, useRouteContext } from '@/hooks/use-route-context';
+import { ensureLoggedIn } from '@/loaders/authentication';
 import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
@@ -40,16 +41,7 @@ type BoardCardType = BoardCardsData['boardCardsDesc'][number];
 
 export const Route = createFileRoute('/boards/$boardId')({
   component: BoardComponent,
-  loader: async ({ context: { queryClient, trpc } }) => {
-    const { currentUser, boards } = await queryClient.ensureQueryData(trpc.user.getCurrentUser.queryOptions());
-    if (!currentUser) {
-      throw redirect({ to: ROUTES.AUTH });
-    }
-    if (boards.length === 0) {
-      throw redirect({ to: ROUTES.WELCOME });
-    }
-    return { currentUser };
-  },
+  loader: ensureLoggedIn(ROUTES.BOARD),
 });
 
 const EmptyState = () => (
