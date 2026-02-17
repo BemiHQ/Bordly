@@ -1,6 +1,8 @@
 import DOMPurify from 'dompurify';
-import { type RefObject, useEffect } from 'react';
+import { type RefObject, useEffect, useRef } from 'react';
 import emailIframeStyles from '@/email-iframe.css?inline';
+
+const MAX_RESIZE_COUNT = 5;
 
 export const useEmailIframe = (
   iframeRef: RefObject<HTMLIFrameElement | null>,
@@ -14,6 +16,8 @@ export const useEmailIframe = (
     enabled?: boolean;
   },
 ) => {
+  const resizeCount = useRef(0);
+
   useEffect(() => {
     if (!enabled || !iframeRef.current || !html) return;
 
@@ -43,6 +47,11 @@ export const useEmailIframe = (
     });
 
     const resizeObserver = new ResizeObserver(() => {
+      if (resizeCount.current >= MAX_RESIZE_COUNT) {
+        resizeObserver.disconnect();
+        return;
+      }
+
       const iframeHtmlScrollHeight = iframeDoc.documentElement.scrollHeight;
       const bodyRectHeight = iframeDoc.body.getBoundingClientRect().height;
       const bodyChildrenRectHeight = [...iframeDoc.body.children].reduce(
@@ -51,7 +60,9 @@ export const useEmailIframe = (
       );
 
       const height = Math.max(iframeHtmlScrollHeight, bodyRectHeight, bodyChildrenRectHeight);
+
       iframe.style.height = `${Math.ceil(height)}px`;
+      resizeCount.current += 1;
     });
     resizeObserver.observe(iframeDoc.body);
 

@@ -27,7 +27,7 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
   const { currentUser } = Route.useLoaderData();
 
   const { data: emailAddressesData } = useQuery({
-    ...trpc.senderEmailAddress.getUserAddresses.queryOptions(),
+    ...trpc.senderEmailAddress.getGmailAccountAddresses.queryOptions(),
   });
   const senderEmailAddresses = emailAddressesData?.senderEmailAddresses;
 

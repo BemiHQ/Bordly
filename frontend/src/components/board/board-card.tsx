@@ -37,7 +37,7 @@ export const BoardCardContent = ({
   const soloBoard = solo(boardMembers);
   const participantMembers = boardMembers.filter((m) => boardCard.participantUserIds?.includes(m.user.id)) || [];
   const assignedMember = boardMembers.find((m) => m.id === boardCard.assignedBoardMemberId);
-  const firstParticipantMember = boardMembers.find((m) => m.user.email === firstParticipant.email);
+  const firstParticipantMember = boardMembers.find((m) => m.senderEmails.includes(firstParticipant.email));
 
   return (
     <div className={cn('flex flex-col transition-filter duration-200', grayscale ? 'grayscale-100' : '')}>
@@ -107,55 +107,60 @@ export const BoardCardContent = ({
         {boardCard.subject}
       </div>
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
-      <div className="flex items-center gap-3 mt-1 text-2xs text-muted-foreground">
-        {(assignedMember || (!soloBoard && participantMembers.length > 0)) && (
-          <AvatarGroup
-            avatars={[
-              assignedMember && (
-                <Avatar size="2xs">
-                  <AvatarImage
-                    src={assignedMember.user.photoUrl}
-                    alt={assignedMember.user.fullName}
-                    className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
-                  />
-                  <AvatarFallback
-                    hashForBgColor={assignedMember.user.fullName}
-                    className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
-                  >
-                    {assignedMember.user.fullName.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              ),
-              ...(soloBoard
-                ? []
-                : participantMembers
-                    .filter((m) => m.id !== assignedMember?.id)
-                    .map((member) => (
-                      <Avatar key={member.user.id} size="2xs">
-                        <AvatarImage
-                          src={member.user.photoUrl}
-                          alt={member.user.fullName}
-                          className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
-                        />
-                        <AvatarFallback
-                          hashForBgColor={member.user.fullName}
-                          className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
-                        >
-                          {member.user.fullName.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    ))),
-            ]}
-          />
-        )}
-        {boardCard.hasAttachments && <Paperclip className="size-3" />}
-        {boardCard.emailMessageCount > 1 && (
-          <div className="flex items-center gap-1">
-            <Mails className="size-3.5" />
-            <span>{boardCard.emailMessageCount}</span>
-          </div>
-        )}
-      </div>
+      {(assignedMember ||
+        (!soloBoard && participantMembers.length > 0) ||
+        boardCard.hasAttachments ||
+        boardCard.emailMessageCount > 1) && (
+        <div className="flex items-center gap-3 mt-1.5 text-2xs text-muted-foreground">
+          {(assignedMember || (!soloBoard && participantMembers.length > 0)) && (
+            <AvatarGroup
+              avatars={[
+                assignedMember && (
+                  <Avatar size="2xs">
+                    <AvatarImage
+                      src={assignedMember.user.photoUrl}
+                      alt={assignedMember.user.fullName}
+                      className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
+                    />
+                    <AvatarFallback
+                      hashForBgColor={assignedMember.user.fullName}
+                      className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
+                    >
+                      {assignedMember.user.fullName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                ),
+                ...(soloBoard
+                  ? []
+                  : participantMembers
+                      .filter((m) => m.id !== assignedMember?.id)
+                      .map((member) => (
+                        <Avatar key={member.user.id} size="2xs">
+                          <AvatarImage
+                            src={member.user.photoUrl}
+                            alt={member.user.fullName}
+                            className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
+                          />
+                          <AvatarFallback
+                            hashForBgColor={member.user.fullName}
+                            className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
+                          >
+                            {member.user.fullName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))),
+              ]}
+            />
+          )}
+          {boardCard.emailMessageCount > 1 && (
+            <div className="flex items-center gap-1">
+              <Mails className="size-3.5" />
+              <span>{boardCard.emailMessageCount}</span>
+            </div>
+          )}
+          {boardCard.hasAttachments && <Paperclip className="size-3" />}
+        </div>
+      )}
     </div>
   );
 };

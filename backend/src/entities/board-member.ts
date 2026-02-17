@@ -49,6 +49,9 @@ export class BoardMember extends BaseEntity {
     return {
       id: this.id,
       user: this.loadedUser.toJson(),
+      senderEmails: this.loadedUser.isBordly
+        ? []
+        : this.loadedUser.gmailAccount.senderEmailAddresses.map((a) => a.email),
       role: this.role,
       isAgent: this.isAgent,
     };

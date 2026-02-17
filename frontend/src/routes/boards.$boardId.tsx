@@ -291,8 +291,8 @@ function BoardComponent() {
   // Dynamic page title
   const boardName = boardData?.board.name;
   const unreadBoardCardCount = Object.values(boardCardsData?.boardCardsDesc || []).filter((card) => card.unread).length;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: add matches.length to update on nested route changes
   useEffect(() => {
+    if (matches.length > 2) return; // Not direct board route
     if (!boardName) {
       document.title = `Bordly`;
     } else if (unreadBoardCardCount === 0) {

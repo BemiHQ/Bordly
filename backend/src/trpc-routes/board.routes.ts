@@ -11,7 +11,9 @@ export const BOARD_ROUTES = {
     get: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       const { board } = authAsBoardMember({ ctx, input });
       await BoardService.populate(board, ['boardColumns', 'boardAccounts.gmailAccount']);
-      const boardMembers = await BoardMemberService.findMembers(board, { populate: ['user'] });
+      const boardMembers = await BoardMemberService.findMembers(board, {
+        populate: ['user.gmailAccount.senderEmailAddresses'],
+      });
       return {
         board: board.toJson(),
         boardColumnsAsc: [...board.boardColumns].sort((a, b) => a.position - b.position).map((col) => col.toJson()),

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useMatches, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BoardCardDialogNavbar } from '@/components/board-card/board-card-dialog-navbar';
 import { CommentInput } from '@/components/board-card/comment-input';
@@ -21,6 +21,7 @@ export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
 
 function BoardCardComponent() {
   const { currentUser } = Route.useLoaderData();
+  const matches = useMatches();
   const params = Route.useParams();
   const navigate = useNavigate();
   const context = Route.useRouteContext();
@@ -74,7 +75,7 @@ function BoardCardComponent() {
     if (boardCard?.emailDraft && !boardCard.emailDraft.generated) {
       setShowReply(true);
     }
-  }, [boardCard, boardId, boardCardId]);
+  }, [boardCard, boardId, boardCardId, matches.length]);
 
   // Track scroll position for DialogHeader shadow
   useEffect(() => {
@@ -104,7 +105,7 @@ function BoardCardComponent() {
   };
 
   // Prefetch email addresses for ReplyCard
-  usePrefetchQuery(queryClient, { ...trpc.senderEmailAddress.getAddresses.queryOptions({ boardId }) });
+  usePrefetchQuery(queryClient, { ...trpc.senderEmailAddress.getAddressesForBoardMember.queryOptions({ boardId }) });
 
   return (
     <RouteProvider value={{ trpc, queryClient, currentUser }}>
@@ -136,7 +137,7 @@ function BoardCardComponent() {
                   boardMembers={boardMembers}
                 />
               </DialogHeader>
-              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 mb-14">
+              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 mb-10 pb-4">
                 <DialogTitle className="mb-3 mt-2">{boardCard?.subject}</DialogTitle>
                 <div className="flex flex-col gap-4">
                   <TimelineMessages

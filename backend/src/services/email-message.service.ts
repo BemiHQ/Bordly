@@ -101,7 +101,7 @@ export class EmailMessageService {
     const boardAccount = await BoardAccountService.findById(boardAccountId, {
       populate: ['board.boardMembers', 'gmailAccount'],
     });
-    const { board, gmailAccount } = boardAccount;
+    const { loadedBoard: board, loadedGmailAccount: gmailAccount } = boardAccount;
 
     const gmail = await GmailAccountService.initGmail(gmailAccount);
     console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
@@ -208,7 +208,7 @@ export class EmailMessageService {
       for (const threadId of threadIds) {
         // Update or create Domains, create EmailMessages
         for (const emailMessage of emailMessagesDescByThreadId[threadId]!) {
-          emailMessage.domain = await persistDomainOnce(emailMessage.domain);
+          emailMessage.domain = await persistDomainOnce(emailMessage.loadedDomain);
           orm.em.persist(emailMessage);
         }
 
@@ -486,16 +486,16 @@ export class EmailMessageService {
       if (alreadDeletedExternalMessageIds.has(externalMessageId)) continue; // Skip already deleted messages (404)
       if (draftExternalMessageIds.has(externalMessageId)) continue; // Skip drafts
 
-      const emailMessage = affectedEmailMessageByExternalId[externalMessageId]!;
+      const emailMessage = affectedEmailMessageByExternalId[externalMessageId];
+      if (!emailMessage) continue; // Skipped message
+
       const threadId = emailMessage.externalThreadId;
       const boardCard = boardCardByThreadId[threadId];
       const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;
 
       // Update or create Domains, create EmailMessages
-      for (const emailMessage of emailMessagesDesc) {
-        emailMessage.domain = await persistDomainOnce(emailMessage.domain);
-        orm.em.persist(emailMessage);
-      }
+      emailMessage.domain = await persistDomainOnce(emailMessage.loadedDomain);
+      orm.em.persist(emailMessage);
 
       if (boardCard) {
         const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc });

@@ -10,6 +10,7 @@ const SKIP_CONSUMER_DOMAINS = [
   'gmail.com',
   'outlook.com',
   'yahoo.com',
+  'yahoo.fr',
   'hotmail.com',
   'icloud.com',
   'protonmail.com',

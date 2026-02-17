@@ -168,7 +168,7 @@ export class EmailDraftService {
     if (domain) {
       emailMessage.domain = domain;
     } else {
-      await DomainService.fetchIcon(emailMessage.domain);
+      await DomainService.fetchIcon(emailMessage.loadedDomain);
       orm.em.persist(emailMessage.domain);
     }
     orm.em.persist(emailMessage);

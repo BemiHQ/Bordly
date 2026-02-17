@@ -11,12 +11,7 @@ export const BOARD_MEMBER_ROUTES = {
       .input(z.object({ boardId: z.uuid(), userId: z.uuid(), role: z.enum(Object.values(Role)) }))
       .mutation(async ({ input, ctx }) => {
         const { board, user } = authAsBoardAdmin({ ctx, input });
-        const boardMember = await BoardMemberService.setRole(board, {
-          userId: input.userId,
-          role: input.role,
-          currentUser: user,
-        });
-        return { boardMember: boardMember.toJson() };
+        await BoardMemberService.setRole(board, { userId: input.userId, role: input.role, currentUser: user });
       }),
     delete: publicProcedure
       .input(z.object({ boardId: z.uuid(), userId: z.uuid() }))

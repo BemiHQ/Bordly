@@ -73,7 +73,9 @@ export const ReplyCard = ({
   const [bcc, setBcc] = useState(emailDraft ? participantsToInput(emailDraft.bcc) : '');
 
   // Set default "From" address using loaded email addresses
-  const { data: emailAddressesData } = useQuery({ ...trpc.senderEmailAddress.getAddresses.queryOptions({ boardId }) });
+  const { data: emailAddressesData } = useQuery({
+    ...trpc.senderEmailAddress.getAddressesForBoardMember.queryOptions({ boardId }),
+  });
   const lastEmailMessage = emailMessagesAsc[emailMessagesAsc.length - 1];
   const fromEmailAddresses = emailAddressesData?.senderEmailAddresses || [];
   useEffect(() => {

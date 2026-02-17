@@ -97,11 +97,11 @@ export const BoardColumn = ({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'bg-secondary flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-2 rounded-lg p-2 border border-border transition-colors',
+        'bg-secondary flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-2 rounded-lg border border-border transition-colors',
         isOver && !isDraggingColumn ? 'border-semi-muted' : '',
       )}
     >
-      <div className="flex items-center gap-2 px-1 min-h-7" {...attributes} {...listeners}>
+      <div className="flex items-center gap-2 p-2 mt-1.5 h-7" {...attributes} {...listeners}>
         {isEditing ? (
           <Input
             inputSize="sm"
@@ -127,7 +127,10 @@ export const BoardColumn = ({
         )}
       </div>
       <div
-        className={cn('flex flex-col gap-2 overflow-y-auto scrollbar-thin', isOver && !isDraggingColumn && 'opacity-0')}
+        className={cn(
+          'flex flex-col gap-2 overflow-y-auto scrollbar-thin px-2 pb-2',
+          isOver && !isDraggingColumn && 'opacity-0',
+        )}
       >
         {children}
       </div>

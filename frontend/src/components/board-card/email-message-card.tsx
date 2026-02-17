@@ -140,7 +140,7 @@ export const EmailMessageCard = ({
 
   const firstParticipant = participants[0]!;
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
-  const firstParticipantMember = boardMembers.find((m) => m.user.email === firstParticipant.email);
+  const firstParticipantMember = boardMembers.find((m) => m.senderEmails.includes(firstParticipant.email));
 
   let shortAddresses = '';
   if (emailMessage.to && emailMessage.to.length > 0) {

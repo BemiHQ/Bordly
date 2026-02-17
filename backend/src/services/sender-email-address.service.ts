@@ -37,7 +37,7 @@ export class SenderEmailAddressService {
   }
 
   static async findAddressesByBoard(user: User, board: Board) {
-    const boardAccounts = await BoardAccountService.findAccountsByBoard(board);
+    const boardAccounts = await BoardAccountService.findAccountsByBoard(board, { populate: ['gmailAccount'] });
     const boardAccountsByGmailAccountId = groupBy(boardAccounts, (ba) => ba.gmailAccount.id);
 
     const senderEmailAddresses = await orm.em.find(SenderEmailAddress, {
@@ -46,7 +46,7 @@ export class SenderEmailAddressService {
 
     return senderEmailAddresses.filter((emailAddress) => {
       // Current user's email addresses
-      if (emailAddress.gmailAccount.user.id === user.id) return true;
+      if (emailAddress.loadedGmailAccount.user.id === user.id) return true;
 
       // Board accounts' email addresses
       const boardAccounts = boardAccountsByGmailAccountId[emailAddress.gmailAccount.id]!;
