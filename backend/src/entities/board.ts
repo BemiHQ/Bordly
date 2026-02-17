@@ -1,7 +1,6 @@
 import { Collection, Entity, ManyToMany, OneToMany, Property } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
-import type { BoardCard } from '@/entities/board-card';
 import { type BoardColumn, MAX_USER_COLUMN_POSITION } from '@/entities/board-column';
 import type { BoardInvite } from '@/entities/board-invite';
 import type { BoardMember } from '@/entities/board-member';
@@ -17,8 +16,6 @@ export class Board extends BaseEntity {
   boardMembers = new Collection<BoardMember>(this);
   @OneToMany({ mappedBy: (boardColumn: BoardColumn) => boardColumn.board })
   boardColumns = new Collection<BoardColumn>(this);
-  @OneToMany({ mappedBy: (boardCard: BoardCard) => boardCard.board })
-  boardCards = new Collection<BoardCard>(this);
   @OneToMany({ mappedBy: (boardInvite: BoardInvite) => boardInvite.board })
   boardInvites = new Collection<BoardInvite>(this);
   @ManyToMany({ mappedBy: (user: User) => user.boards })

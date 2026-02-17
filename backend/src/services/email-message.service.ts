@@ -12,7 +12,6 @@ import { BoardCardService } from '@/services/board-card.service';
 import { DomainService } from '@/services/domain.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { gmailAttachmentsData, gmailBody, gmailHeaderValue, newGmail } from '@/utils/google-api';
-import { unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
@@ -121,15 +120,15 @@ export class EmailMessageService {
         // Update or Create BoardCards
         const boardColumnsAsc = gmailAccount.board.boardColumns.getItems().sort((a, b) => a.position - b.position);
         for (const [threadId, emailMessagesDesc] of Object.entries(emailMessagesDescByThreadId)) {
-          let boardCard = await BoardCardService.tryFindByBoardAndExternalThreadId({
-            board: gmailAccount.board,
+          let boardCard = await BoardCardService.tryFindByGmailAccountAndExternalThreadId({
+            gmailAccount,
             externalThreadId: threadId,
           });
 
           const state = EmailMessageService.boardCardStateFromEmailMessages(emailMessagesDesc);
-          const participantNames = unique([
-            ...(boardCard?.participantNames || []),
-            ...EmailMessageService.participantNames({ emailMessagesDesc, gmailAccount }),
+          const participants = EmailMessageService.uniqueParticipantsAsc([
+            ...(boardCard?.participants || []),
+            ...EmailMessageService.participantsAsc({ emailMessagesDesc, gmailAccount }),
           ]);
           const unreadEmailMessageIds = [
             ...(boardCard?.unreadEmailMessageIds || []),
@@ -142,7 +141,7 @@ export class EmailMessageService {
             boardCard.update({
               state,
               snippet: lastEmailMessage.snippet,
-              participantNames,
+              participants,
               lastEventAt: lastEmailMessage.externalCreatedAt,
               unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
               movedToTrashAt: state === State.TRASHED ? new Date() : boardCard.movedToTrashAt,
@@ -170,14 +169,14 @@ export class EmailMessageService {
               EmailMessageService.domainName(emailMessagesDesc),
             );
             boardCard = new BoardCard({
-              board: gmailAccount.board,
+              gmailAccount,
               boardColumn: boardColumn!,
               domain,
               externalThreadId: threadId,
               state,
               subject: firstEmailMessage.subject,
               snippet: lastEmailMessage.snippet,
-              participantNames,
+              participants,
               lastEventAt: lastEmailMessage.externalCreatedAt,
               unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
               movedToTrashAt: state === State.TRASHED ? new Date() : undefined,
@@ -291,21 +290,23 @@ export class EmailMessageService {
       for (const threadId of threadIds) {
         const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;
         const state = EmailMessageService.boardCardStateFromEmailMessages(emailMessagesDesc);
-        const participantNames = EmailMessageService.participantNames({ emailMessagesDesc, gmailAccount });
+        const participants = EmailMessageService.uniqueParticipantsAsc(
+          EmailMessageService.participantsAsc({ emailMessagesDesc, gmailAccount }),
+        );
         const unreadEmailMessageIds = EmailMessageService.unreadEmailMessageIds(emailMessagesDesc);
         const domain = await DomainService.findOrInitDomainWithIcon(EmailMessageService.domainName(emailMessagesDesc));
         const lastEmailMessage = emailMessagesDesc[0]!;
         const firstEmailMessage = emailMessagesDesc[emailMessagesDesc.length - 1]!;
 
         const boardCard = new BoardCard({
-          board: gmailAccount.board!,
+          gmailAccount,
           boardColumn: boardColumnsByCategory[category]!,
           domain,
           externalThreadId: threadId,
           state,
           subject: firstEmailMessage.subject,
           snippet: lastEmailMessage.snippet,
-          participantNames,
+          participants,
           lastEventAt: lastEmailMessage.externalCreatedAt,
           unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
           movedToTrashAt: state === State.TRASHED ? new Date() : undefined,
@@ -319,14 +320,14 @@ export class EmailMessageService {
 
   // -------------------------------------------------------------------------------------------------------------------
 
-  private static participantNames({
+  private static participantsAsc({
     emailMessagesDesc,
     gmailAccount,
   }: {
     emailMessagesDesc: EmailMessage[];
     gmailAccount: GmailAccount;
   }) {
-    const participants = emailMessagesDesc
+    return emailMessagesDesc
       .reverse()
       .flatMap((msg) =>
         msg.sent
@@ -334,8 +335,28 @@ export class EmailMessageService {
           : [msg.from, ...(msg.to || []), ...(msg.cc || [])],
       )
       .filter((p) => p.email !== gmailAccount.email);
+  }
 
-    return unique(participants.map((p) => (p.name ? p.name : p.email)));
+  // Make unique by email, preferring participants with names
+  private static uniqueParticipantsAsc(participantsAsc: Participant[]) {
+    const participantsByEmail: { [email: string]: Participant } = {};
+    const uniqueParticipants: Participant[] = [];
+
+    for (const participant of participantsAsc) {
+      const existing = participantsByEmail[participant.email];
+      if (!existing) {
+        participantsByEmail[participant.email] = participant;
+        uniqueParticipants.push(participant);
+      } else if (participant.name && !existing.name) {
+        participantsByEmail[participant.email] = participant;
+        const index = uniqueParticipants.findIndex((p) => p.email === participant.email);
+        if (index !== -1) {
+          uniqueParticipants[index] = participant;
+        }
+      }
+    }
+
+    return uniqueParticipants;
   }
 
   private static boardCardStateFromEmailMessages(emailMessages: EmailMessage[]) {

@@ -6,10 +6,10 @@ init:
 create:
 	devbox run "createdb -p 5433 bordly_dev && createuser -p 5433 --superuser postgres" &&  make migrate
 
-drop:
+reset:
 	devbox run "dropdb -p 5433 bordly_dev && createdb -p 5433 bordly_dev"
 
-reset: drop migrate
+recreate: reset migrate
 
 sh:
 	devbox --env-file backend/.env shell

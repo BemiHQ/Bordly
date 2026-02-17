@@ -53,10 +53,14 @@ const ROUTES = {
   board: {
     getBoard: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       if (!ctx.user) throw new Error('Not authenticated');
-      const board = await BoardService.findByIdForUser(input.boardId, { user: ctx.user, populate: ['boardColumns'] });
+      const board = await BoardService.findByIdForUser(input.boardId, {
+        user: ctx.user,
+        populate: ['boardColumns', 'gmailAccounts'],
+      });
       return {
         board: board.toJson(),
         boardColumns: board.userColumns.map((col) => col.toJson()),
+        gmailAccounts: board.gmailAccounts.map((acc) => acc.toJson()),
       };
     }),
     createFirstBoard: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input, ctx }) => {

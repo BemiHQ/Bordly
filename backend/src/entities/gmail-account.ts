@@ -3,6 +3,7 @@ import { Collection, Entity, Index, ManyToOne, OneToMany, Property, Unique } fro
 import type { Attachment } from '@/entities/attachment';
 import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
+import type { BoardCard } from '@/entities/board-card';
 import type { EmailMessage } from '@/entities/email-message';
 import type { User } from '@/entities/user';
 import { Encryption } from '@/utils/encryption';
@@ -16,6 +17,8 @@ export class GmailAccount extends BaseEntity {
   @ManyToOne()
   user: User;
 
+  @OneToMany({ mappedBy: (boardCard: BoardCard) => boardCard.gmailAccount })
+  boardCards = new Collection<BoardCard>(this);
   @OneToMany({ mappedBy: (emailMessage: EmailMessage) => emailMessage.gmailAccount })
   emailMessages = new Collection<EmailMessage>(this);
   @OneToMany({ mappedBy: (attachment: Attachment) => attachment.gmailAccount })
