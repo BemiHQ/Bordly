@@ -140,7 +140,7 @@ const parseTrailingBackquotes = (text: string): { mainText: string; backquotesTe
     return { mainText, backquotesText };
   }
 
-  return { mainText: text, backquotesText: '' };
+  return { mainText: text.trimEnd(), backquotesText: '' };
 };
 
 const setIframeContent = (
@@ -232,31 +232,29 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
     setEmailStyles(styles);
   }, [emailMessage.bodyHtml]);
 
+  // HTML body
   useEffect(() => {
-    if (!bodyIframeRef.current || !cleanedHtml) return;
-
+    if (!bodyIframeRef.current || (!cleanedHtml && emailMessage.bodyText)) return;
     const resizeObserver = setIframeContent(bodyIframeRef.current, {
       styles: emailStyles,
       body: cleanedHtml,
     });
-
     return () => resizeObserver.disconnect();
-  }, [cleanedHtml, emailStyles]);
+  }, [cleanedHtml, emailMessage.bodyText, emailStyles]);
 
+  // HTML trailing blockquotes
   useEffect(() => {
     if (!backquotesIframeRef.current || !trailingBlockquotesHtml || !blockquotesExpanded) return;
-
     const resizeObserver = setIframeContent(backquotesIframeRef.current, {
       styles: emailStyles,
       body: trailingBlockquotesHtml,
     });
-
     return () => resizeObserver.disconnect();
   }, [trailingBlockquotesHtml, blockquotesExpanded, emailStyles]);
 
+  // Text body
   useEffect(() => {
-    if (!emailMessage.bodyText || emailMessage.bodyHtml) return;
-
+    if (emailMessage.bodyHtml || !emailMessage.bodyText) return;
     const { mainText: parsedMainText, backquotesText: parsedBackquotesText } = parseTrailingBackquotes(
       emailMessage.bodyText,
     );

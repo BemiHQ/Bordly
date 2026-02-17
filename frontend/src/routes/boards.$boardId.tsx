@@ -188,13 +188,13 @@ const BoardCardContent = ({
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
       {(boardCard.hasSent || boardCard.emailMessageCount > 1) && (
         <div className="flex items-center gap-3 mt-1 text-2xs text-muted-foreground">
+          {boardCard.hasSent && <Send className="size-3" />}
           {boardCard.emailMessageCount > 1 && (
             <div className="flex items-center gap-1">
               <Mails className="size-3.5" />
               <span>{boardCard.emailMessageCount}</span>
             </div>
           )}
-          {boardCard.hasSent && <Send className="size-3" />}
         </div>
       )}
     </div>
