@@ -5,10 +5,10 @@ events {}
 http {
   server {
     listen 443 ssl;
-    server_name app.bordly.dev;
+    server_name bordly.dev;
 
-    ssl_certificate app.bordly.dev.pem;
-    ssl_certificate_key app.bordly.dev-key.pem;
+    ssl_certificate bordly.dev.pem;
+    ssl_certificate_key bordly.dev-key.pem;
 
     error_log error.log error;
     access_log access.log;
