@@ -1,7 +1,9 @@
 import type { TRPCRouterRecord } from '@trpc/server';
 import { z } from 'zod';
+import { BoardCardService } from '@/services/board-card.service';
 import { EmailDraftService } from '@/services/email-draft.service';
 import { authAsBoardMember, publicProcedure } from '@/trpc-config';
+import { POPULATE as BOARD_CARD_POPULATE, toJson as boardCardToJson } from '@/trpc-routes/board-card.routes';
 
 export const EMAIL_DRAFT_ROUTES = {
   emailDraft: {
@@ -20,8 +22,13 @@ export const EMAIL_DRAFT_ROUTES = {
       )
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardMember({ ctx, input });
-        const emailDraft = await EmailDraftService.upsert(board, { ...input, generated: false });
-        return { emailDraft: emailDraft.toJson() };
+        const user = ctx.user!;
+        const boardCard = await BoardCardService.findById(board, {
+          boardCardId: input.boardCardId,
+          populate: [...BOARD_CARD_POPULATE, 'boardColumn'],
+        });
+        const updatedBoardCard = await EmailDraftService.upsert(boardCard, { ...input, generated: false, user });
+        return { boardCard: boardCardToJson(updatedBoardCard, ctx) };
       }),
     delete: publicProcedure
       .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() }))
@@ -45,8 +52,19 @@ export const EMAIL_DRAFT_ROUTES = {
       )
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardMember({ ctx, input });
-        const { emailMessage, boardCard } = await EmailDraftService.send(board, input);
-        return { emailMessage: emailMessage.toJson(), boardCard: boardCard.toJson() };
+        const boardCard = await BoardCardService.findById(board, {
+          boardCardId: input.boardCardId,
+          populate: [...BOARD_CARD_POPULATE, 'gmailAccount.emailAddresses'],
+        });
+
+        const { emailMessage, boardCard: updatedBoardCard } = await EmailDraftService.send(boardCard, {
+          ...input,
+          user: ctx.user!,
+        });
+        return {
+          emailMessage: emailMessage.toJson(),
+          boardCard: boardCardToJson(updatedBoardCard, ctx),
+        };
       }),
   } satisfies TRPCRouterRecord,
 };

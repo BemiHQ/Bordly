@@ -1,12 +1,23 @@
-import { Entity, Enum, Index, ManyToOne, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
-
+import {
+  Collection,
+  Entity,
+  Enum,
+  Index,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  Property,
+  Unique,
+} from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardColumn } from '@/entities/board-column';
+import type { Comment } from '@/entities/comment';
 import type { Domain } from '@/entities/domain';
 import type { EmailDraft } from '@/entities/email-draft';
 import type { Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardCardState as State } from '@/utils/shared';
+import type { BoardCardReadPosition } from './board-card-read-position';
 
 export { State };
 
@@ -27,8 +38,13 @@ export class BoardCard extends BaseEntity {
   boardColumn: BoardColumn;
   @ManyToOne()
   domain: Domain;
+
   @OneToOne({ mappedBy: (emailDraft: EmailDraft) => emailDraft.boardCard, nullable: true })
   emailDraft?: EmailDraft;
+  @OneToMany({ mappedBy: (comment: Comment) => comment.boardCard })
+  comments = new Collection<Comment>(this);
+  @OneToMany({ mappedBy: (readPosition: BoardCardReadPosition) => readPosition.boardCard })
+  boardCardReadPositions = new Collection<BoardCardReadPosition>(this);
 
   @Property()
   externalThreadId: string;
@@ -40,18 +56,14 @@ export class BoardCard extends BaseEntity {
   @Property()
   snippet: string;
   @Property({ type: 'jsonb' })
-  participants: Participant[];
+  participants: Participant[]; // TODO: rename to externalParticipantsAsc
   @Property()
   lastEventAt: Date;
 
   @Property()
-  hasSent: boolean;
-  @Property()
   hasAttachments: boolean;
   @Property()
   emailMessageCount: number;
-  @Property({ type: 'jsonb' })
-  unreadEmailMessageIds?: string[];
 
   @Property()
   pinnedPosition?: number;
@@ -68,10 +80,8 @@ export class BoardCard extends BaseEntity {
     snippet,
     participants,
     lastEventAt,
-    hasSent,
     hasAttachments,
     emailMessageCount,
-    unreadEmailMessageIds,
     pinnedPosition,
     movedToTrashAt,
   }: {
@@ -84,10 +94,8 @@ export class BoardCard extends BaseEntity {
     snippet: string;
     participants: Participant[];
     lastEventAt: Date;
-    hasSent: boolean;
     hasAttachments: boolean;
     emailMessageCount: number;
-    unreadEmailMessageIds?: string[];
     pinnedPosition?: number;
     movedToTrashAt?: Date;
   }) {
@@ -101,10 +109,8 @@ export class BoardCard extends BaseEntity {
     this.snippet = snippet;
     this.participants = participants;
     this.lastEventAt = lastEventAt;
-    this.hasSent = hasSent;
     this.hasAttachments = hasAttachments;
     this.emailMessageCount = emailMessageCount;
-    this.unreadEmailMessageIds = unreadEmailMessageIds;
     this.pinnedPosition = pinnedPosition;
     this.movedToTrashAt = movedToTrashAt;
     this.validate();
@@ -115,36 +121,25 @@ export class BoardCard extends BaseEntity {
     snippet,
     participants,
     lastEventAt,
-    hasSent,
     hasAttachments,
     emailMessageCount,
-    unreadEmailMessageIds,
     movedToTrashAt,
   }: {
     state: State;
     snippet: string;
     participants: Participant[];
     lastEventAt: Date;
-    hasSent: boolean;
     hasAttachments: boolean;
     emailMessageCount: number;
-    unreadEmailMessageIds?: string[];
     movedToTrashAt?: Date;
   }) {
     this.state = state;
     this.snippet = snippet;
     this.participants = participants;
     this.lastEventAt = lastEventAt;
-    this.hasSent = hasSent;
     this.hasAttachments = hasAttachments;
     this.emailMessageCount = emailMessageCount;
-    this.unreadEmailMessageIds = unreadEmailMessageIds;
     this.movedToTrashAt = movedToTrashAt;
-    this.validate();
-  }
-
-  setUnreadEmailMessageIds(unreadEmailMessageIds: string[] | undefined) {
-    this.unreadEmailMessageIds = unreadEmailMessageIds;
     this.validate();
   }
 
@@ -163,6 +158,11 @@ export class BoardCard extends BaseEntity {
     this.validate();
   }
 
+  setLastEventAt(lastEventAt: Date) {
+    this.lastEventAt = lastEventAt;
+    this.validate();
+  }
+
   toJson() {
     return {
       id: this.id,
@@ -176,10 +176,8 @@ export class BoardCard extends BaseEntity {
       snippet: this.snippet,
       participants: this.participants,
       lastEventAt: this.lastEventAt,
-      hasSent: this.hasSent,
       hasAttachments: this.hasAttachments,
       emailMessageCount: this.emailMessageCount,
-      unreadEmailMessageIds: this.unreadEmailMessageIds,
       pinnedPosition: this.pinnedPosition,
     };
   }
@@ -195,13 +193,10 @@ export class BoardCard extends BaseEntity {
     if (!this.participants || this.participants.length === 0)
       throw new Error('Participants is required and cannot be empty');
     if (!this.lastEventAt) throw new Error('LastEventAt is required');
-    if (this.hasSent === undefined || this.hasSent === null) throw new Error('HasSent is required');
     if (this.hasAttachments === undefined || this.hasAttachments === null)
       throw new Error('HasAttachments is required');
     if (this.emailMessageCount !== undefined && this.emailMessageCount !== null && this.emailMessageCount < 0)
       throw new Error('EmailMessageCount must be non-negative');
-    if (this.unreadEmailMessageIds && this.unreadEmailMessageIds.length === 0)
-      throw new Error('UnreadEmailMessageIds cannot be an empty array');
     if (this.pinnedPosition !== undefined && this.pinnedPosition !== null && this.pinnedPosition < 0)
       throw new Error('Position must be non-negative');
     if (this.state === State.TRASH && !this.movedToTrashAt)

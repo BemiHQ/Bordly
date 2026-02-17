@@ -1,16 +1,17 @@
 import type { Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
 import { BoardCard, State } from '@/entities/board-card';
+import { BoardCardReadPosition } from '@/entities/board-card-read-position';
 import type { BoardColumn } from '@/entities/board-column';
 import { Domain } from '@/entities/domain';
 import type { EmailMessage, Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardColumnService } from '@/services/board-column.service';
-import { EmailMessageService } from '@/services/email-message.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { mapBy } from '@/utils/lists';
 import { orm } from '@/utils/orm';
+import { msAgoFrom } from '@/utils/time';
 
 export class BoardCardService {
   static async findAndBuildBoardCardByThreadId<Hint extends string = never>(args: {
@@ -29,13 +30,13 @@ export class BoardCardService {
     return mapBy(boardCards, (boardCard) => boardCard.externalThreadId);
   }
 
-  static async findCardsByBoard<Hint extends string = never>(
-    board: Board,
-    { state = State.INBOX, populate = [] }: { state?: State; populate?: Populate<BoardCard, Hint> },
+  static async findInboxCardsByBoardId<Hint extends string = never>(
+    boardId: string,
+    { populate = [] }: { populate?: Populate<BoardCard, Hint> } = {},
   ) {
     const boardCardsDesc = await orm.em.find(
       BoardCard,
-      { state, boardColumn: { board: { id: board.id } } },
+      { state: State.INBOX, boardColumn: { board: { id: boardId } } },
       { populate, orderBy: { lastEventAt: 'DESC' } },
     );
     return { boardCardsDesc };
@@ -54,14 +55,19 @@ export class BoardCardService {
   ) {
     const boardCard = await BoardCardService.findById(board, {
       boardCardId,
-      populate: ['gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
+      populate: ['gmailAccount', 'boardCardReadPositions', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
 
-    console.log('[GMAIL] Marking thread as read:', boardCard.externalThreadId);
-    const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
-    await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
+    for (const boardCardReadPosition of boardCard.boardCardReadPositions) {
+      boardCardReadPosition.setLastReadAt(boardCard.lastEventAt);
+      orm.em.persist(boardCardReadPosition);
+    }
 
-    boardCard.setUnreadEmailMessageIds(undefined);
+    if (board.solo) {
+      console.log('[GMAIL] Marking thread as read:', boardCard.externalThreadId);
+      const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
+      await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
+    }
     await orm.em.flush();
 
     return boardCard;
@@ -75,13 +81,17 @@ export class BoardCardService {
       boardCardId,
       populate: ['gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
-    const lastEmailMessage = await EmailMessageService.findLastByExternalThreadId(boardCard.externalThreadId);
 
-    console.log('[GMAIL] Marking thread as unread:', boardCard.externalThreadId);
-    const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
-    await GmailApi.markThreadAsUnread(gmail, boardCard.externalThreadId);
+    for (const boardCardReadPosition of boardCard.boardCardReadPositions) {
+      boardCardReadPosition.setLastReadAt(msAgoFrom(boardCard.lastEventAt));
+      orm.em.persist(boardCardReadPosition);
+    }
 
-    boardCard.setUnreadEmailMessageIds([lastEmailMessage.id]);
+    if (board.solo) {
+      console.log('[GMAIL] Marking thread as unread:', boardCard.externalThreadId);
+      const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
+      await GmailApi.markThreadAsUnread(gmail, boardCard.externalThreadId);
+    }
     await orm.em.flush();
 
     return boardCard;
@@ -140,13 +150,14 @@ export class BoardCardService {
     boardColumn: BoardColumn;
     emailMessagesDesc: EmailMessage[];
   }) {
+    if (!gmailAccount.board) throw new Error('GmailAccount must be linked to a Board');
     if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
 
-    const state = BoardCardService.stateFromEmailMessages(emailMessagesDesc);
-    const unreadEmailMessageIds = emailMessagesDesc.filter((m) => m.labels.includes(LABEL.UNREAD)).map((m) => m.id);
+    const state = gmailAccount.board.solo ? BoardCardService.stateFromEmailMessages(emailMessagesDesc) : State.INBOX;
     const lastEmailMessage = emailMessagesDesc[0]!;
     const firstEmailMessage = emailMessagesDesc[emailMessagesDesc.length - 1]!;
-    const participants = BoardCardService.uniqueParticipantsAsc({ emailMessagesDesc, gmailAccount });
+    const participants = BoardCardService.externalParticipantsAsc({ emailMessagesDesc, gmailAccount });
+    const lastEventAt = lastEmailMessage.externalCreatedAt;
 
     const boardCard = new BoardCard({
       gmailAccount,
@@ -157,13 +168,26 @@ export class BoardCardService {
       subject: firstEmailMessage.subject,
       snippet: lastEmailMessage.snippet,
       participants,
-      lastEventAt: lastEmailMessage.externalCreatedAt,
-      hasSent: emailMessagesDesc.some((msg) => msg.sent),
+      lastEventAt,
       hasAttachments: emailMessagesDesc.some((msg) => msg.gmailAttachments.length > 0),
       emailMessageCount: emailMessagesDesc.length,
-      unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
       movedToTrashAt: state === State.TRASH ? new Date() : undefined,
     });
+
+    let lastReadAt: Date;
+    if (gmailAccount.board.solo) {
+      // Solo: inherit unread status from gmail
+      const firstUnreadEmailMessage = emailMessagesDesc.reverse().find((m) => m.labels.includes(LABEL.UNREAD));
+      lastReadAt = firstUnreadEmailMessage ? msAgoFrom(firstUnreadEmailMessage.externalCreatedAt) : lastEventAt;
+    } else {
+      // Multi-member: always mark as unread
+      lastReadAt = msAgoFrom(lastEventAt);
+    }
+    for (const boardMember of gmailAccount.board.boardMembers) {
+      boardCard.boardCardReadPositions.add(
+        new BoardCardReadPosition({ boardCard, user: boardMember.user, lastReadAt }),
+      );
+    }
 
     return boardCard;
   }
@@ -177,39 +201,66 @@ export class BoardCardService {
     gmailAccount: GmailAccount;
     emailMessagesDesc: EmailMessage[];
   }) {
+    if (!gmailAccount.board) throw new Error('GmailAccount must be linked to a Board');
     if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
 
     const lastEmailMessage = emailMessagesDesc[0]!;
-    const unreadEmailMessageIds = emailMessagesDesc.filter((m) => m.labels.includes(LABEL.UNREAD)).map((m) => m.id);
+    const lastEventAt = lastEmailMessage.externalCreatedAt;
 
-    let state = BoardCardService.stateFromEmailMessages(emailMessagesDesc);
-    if (boardCard.state === State.ARCHIVED && state === State.INBOX && unreadEmailMessageIds.length > 0) {
-      state = State.INBOX;
+    let state: State;
+    if (gmailAccount.board.solo) {
+      // Solo: inherit unread status from gmail
+      const firstUnreadEmailMessage = emailMessagesDesc.reverse().find((m) => m.labels.includes(LABEL.UNREAD));
+      const lastReadAt = firstUnreadEmailMessage ? msAgoFrom(firstUnreadEmailMessage.externalCreatedAt) : lastEventAt;
+      for (const boardCardReadPosition of boardCard.boardCardReadPositions) {
+        boardCardReadPosition.setLastReadAt(lastReadAt);
+      }
+
+      // Update state based on Gmail status
+      state = BoardCardService.stateFromEmailMessages(emailMessagesDesc);
+      if (boardCard.state === State.ARCHIVED && state === State.INBOX && firstUnreadEmailMessage) {
+        state = State.INBOX;
+      }
+    } else {
+      // Multi-member: do not change read positions
+
+      // Use INBOX or ARCHIVED (avoid moving back from SPAM or TRASH)
+      state = boardCard.state;
+      if (state === State.ARCHIVED) {
+        state = State.INBOX;
+      }
     }
 
     boardCard.update({
       state,
       snippet: lastEmailMessage.snippet,
-      participants: BoardCardService.uniqueParticipantsAsc({ emailMessagesDesc, gmailAccount }),
-      lastEventAt: lastEmailMessage.externalCreatedAt,
-      hasSent: emailMessagesDesc.some((msg) => msg.sent),
+      participants: BoardCardService.externalParticipantsAsc({ emailMessagesDesc, gmailAccount }),
+      lastEventAt,
       hasAttachments: emailMessagesDesc.some((msg) => msg.gmailAttachments.length > 0),
       emailMessageCount: emailMessagesDesc.length,
-      unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
       movedToTrashAt: boardCard.movedToTrashAt || (state === State.TRASH ? new Date() : undefined),
     });
 
     return boardCard;
   }
 
-  static emailMessageParticipantsAsc(emailMessage: EmailMessage) {
-    return emailMessage.sent
-      ? [...(emailMessage.to || []), ...(emailMessage.cc || []), ...(emailMessage.bcc || [])]
-      : [emailMessage.from, ...(emailMessage.to || []), ...(emailMessage.cc || [])];
+  static externalParticipants({
+    emailMessage,
+    gmailAccountEmails,
+  }: {
+    emailMessage: EmailMessage;
+    gmailAccountEmails: Set<string>;
+  }) {
+    return [
+      emailMessage.from,
+      ...(emailMessage.to || []),
+      ...(emailMessage.cc || []),
+      ...(emailMessage.bcc || []),
+    ].filter((p) => !gmailAccountEmails.has(p.email));
   }
 
   // Make unique by email, preferring participants with names
-  private static uniqueParticipantsAsc({
+  private static externalParticipantsAsc({
     emailMessagesDesc,
     gmailAccount,
   }: {
@@ -217,15 +268,12 @@ export class BoardCardService {
     gmailAccount: GmailAccount;
   }) {
     const gmailAccountEmails = new Set<string>(gmailAccount.emailAddresses.map((a) => a.email));
-
     const participantsAsc = emailMessagesDesc
       .reverse()
-      .flatMap(BoardCardService.emailMessageParticipantsAsc)
-      .filter((p) => !gmailAccountEmails.has(p.email));
+      .flatMap((emailMessage) => BoardCardService.externalParticipants({ emailMessage, gmailAccountEmails }));
 
     const participantsByEmail: { [email: string]: Participant } = {};
     const uniqueParticipants: Participant[] = [];
-
     for (const participant of participantsAsc) {
       const existing = participantsByEmail[participant.email];
       if (!existing) {

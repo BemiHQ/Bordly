@@ -51,7 +51,7 @@ export class EmailMessage extends BaseEntity {
   bcc?: Participant[];
 
   @Property()
-  sent: boolean;
+  sent: boolean; // Not really needed
   @Property()
   labels: string[];
 
@@ -140,7 +140,6 @@ export class EmailMessage extends BaseEntity {
       to: this.to,
       cc: this.cc,
       bcc: this.bcc,
-      sent: this.sent,
       externalCreatedAt: this.externalCreatedAt,
       bodyHtml: this.bodyHtml,
       bodyText: this.bodyHtml ? undefined : this.bodyText,

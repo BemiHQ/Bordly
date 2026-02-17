@@ -80,13 +80,6 @@ const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
               </Label>
               <Label className="flex items-center gap-2">
                 <Checkbox
-                  checked={filters.sent}
-                  onCheckedChange={(checked) => setFilters({ ...filters, sent: !!checked })}
-                />
-                <span>Sent</span>
-              </Label>
-              <Label className="flex items-center gap-2">
-                <Checkbox
                   checked={filters.hasAttachments}
                   onCheckedChange={(checked) => setFilters({ ...filters, hasAttachments: !!checked })}
                 />
@@ -176,7 +169,6 @@ export const BoardNavbar = ({
 }) => {
   const [filters, setFilters] = useState<BoardFilters>({
     unread: false,
-    sent: false,
     hasAttachments: false,
     draft: false,
     gmailAccountIds: [],

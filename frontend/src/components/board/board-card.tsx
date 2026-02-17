@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
-import { Mail, MailCheck, Mails, Paperclip, Send } from 'lucide-react';
+import { Mail, MailCheck, Mails, Paperclip } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -24,12 +24,10 @@ export const DRAG_TYPE = 'board-card';
 
 export const BoardCardContent = ({
   boardCard,
-  unread,
   isHovered,
   onToggleReadStatus,
 }: {
   boardCard: BoardCardType;
-  unread: boolean;
   isHovered?: boolean;
   onToggleReadStatus?: (e: React.MouseEvent) => void;
 }) => {
@@ -37,6 +35,7 @@ export const BoardCardContent = ({
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
   const { iconUrl } = boardCard.domain;
   const draft = boardCard.emailDraft && !boardCard.emailDraft.generated;
+  const { unread } = boardCard;
   const grayscale = !unread && !draft && !isHovered && isHovered !== undefined;
 
   return (
@@ -102,9 +101,8 @@ export const BoardCardContent = ({
         {boardCard.subject}
       </div>
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
-      {(boardCard.hasSent || boardCard.hasAttachments || boardCard.emailMessageCount > 1) && (
+      {(boardCard.hasAttachments || boardCard.emailMessageCount > 1) && (
         <div className="flex items-center gap-3 mt-1 text-2xs text-muted-foreground">
-          {boardCard.hasSent && <Send className="size-3" />}
           {boardCard.hasAttachments && <Paperclip className="size-3" />}
           {boardCard.emailMessageCount > 1 && (
             <div className="flex items-center gap-1">
@@ -122,7 +120,6 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
   const { queryClient, trpc } = useRouteContext();
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
-  const unread = !!boardCard.unreadEmailMessageIds;
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: boardCard.id,
@@ -139,9 +136,7 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
         if (!oldData) return oldData;
         return {
           ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((c) =>
-            c.id === boardCardId ? { ...c, unreadEmailMessageIds: undefined } : c,
-          ),
+          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, unread: false } : c)),
         } satisfies typeof oldData;
       });
     },
@@ -157,18 +152,7 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
         if (!oldData) return oldData;
         return {
           ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((c) =>
-            c.id === boardCardId ? { ...c, unreadEmailMessageIds: ['temp-id'] } : c,
-          ),
-        } satisfies typeof oldData;
-      });
-    },
-    onSuccess: ({ boardCard }: { boardCard: BoardCardType }) => {
-      queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }), (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((card) => (card.id === boardCard.id ? boardCard : card)),
+          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, unread: true } : c)),
         } satisfies typeof oldData;
       });
     },
@@ -178,7 +162,7 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
 
   const handleToggleReadStatus = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (unread) {
+    if (boardCard.unread) {
       optimisticallyMarkAsRead({ boardId: board.id, boardCardId: boardCard.id });
     } else {
       optimisticallyMarkAsUnread({ boardId: board.id, boardCardId: boardCard.id });
@@ -201,12 +185,7 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleCardClick}
     >
-      <BoardCardContent
-        boardCard={boardCard}
-        unread={unread}
-        isHovered={isHovered}
-        onToggleReadStatus={handleToggleReadStatus}
-      />
+      <BoardCardContent boardCard={boardCard} isHovered={isHovered} onToggleReadStatus={handleToggleReadStatus} />
     </Card>
   );
 };

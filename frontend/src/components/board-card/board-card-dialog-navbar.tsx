@@ -13,7 +13,6 @@ import type { RouteContext } from '@/hooks/use-route-context';
 import { ROUTES } from '@/utils/urls';
 
 type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
-type BoardCard = EmailMessagesData['boardCard'];
 type BoardColumn = EmailMessagesData['boardColumn'];
 
 export const BoardCardDialogNavbar = ({
@@ -64,18 +63,7 @@ export const BoardCardDialogNavbar = ({
         if (!oldData) return oldData;
         return {
           ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((c) =>
-            c.id === boardCardId ? { ...c, unreadEmailMessageIds: ['temp-id'] } : c,
-          ),
-        } satisfies typeof oldData;
-      });
-    },
-    onSuccess: ({ boardCard }: { boardCard: BoardCard }) => {
-      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((card) => (card.id === boardCard.id ? boardCard : card)),
+          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, unread: true } : c)),
         } satisfies typeof oldData;
       });
     },

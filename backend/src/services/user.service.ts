@@ -43,11 +43,7 @@ export class UserService {
     });
     orm.em.persist([user, gmailAccount]);
 
-    const invitesAndMembers = await BoardInviteService.acceptPendingInvites({ email, user });
-    for (const { boardInvite, boardMember } of invitesAndMembers) {
-      orm.em.persist([boardInvite, boardMember]);
-    }
-
+    await BoardInviteService.acceptPendingInvites({ email, user });
     await EmailAddressService.createAddresses(gmailAccount);
     await orm.em.flush();
 

@@ -10,7 +10,7 @@ import { ToggleQuotesButton } from '@/components/board-card/toggle-quotes-button
 import { Attachment, UploadingAttachment } from '@/components/editor/attachment';
 import { Editor, editorConfig } from '@/components/editor/editor';
 import { MenuBar } from '@/components/editor/menu-bar';
-import { Participants } from '@/components/editor/participants';
+import { Participants, participantToInput } from '@/components/editor/participants';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
@@ -32,9 +32,6 @@ type EmailDraft = EmailMessagesData['boardCard']['emailDraft'];
 type Participant = NonNullable<EmailDraft>['from'];
 type EmailMessage = EmailMessagesData['emailMessagesAsc'][number];
 type FileAttachment = NonNullable<EmailDraft>['fileAttachments'][number];
-
-const participantToInput = (participant: Participant) =>
-  participant.name ? `${participant.name} <${participant.email}>` : participant.email;
 
 const participantsToInput = (participants?: Participant[]) =>
   participants?.map((participant) => participantToInput(participant)).join(', ') ?? '';
@@ -61,50 +58,39 @@ export const ReplyCard = ({
   onDiscard: () => void;
 }) => {
   const { queryClient, trpc } = useRouteContext();
-
-  const lastEmailMessage = emailMessagesAsc[emailMessagesAsc.length - 1];
-  let defaultFrom = '';
-  let defaultTo = '';
-  let defaultCc = '';
-  let defaultBcc = '';
-  if (emailDraft) {
-    defaultFrom = participantToInput(emailDraft.from);
-    defaultTo = participantsToInput(emailDraft.to);
-    defaultCc = participantsToInput(emailDraft.cc);
-    defaultBcc = participantsToInput(emailDraft.bcc);
-  } else if (lastEmailMessage) {
-    defaultTo = lastEmailMessage.sent
-      ? participantsToInput(lastEmailMessage.to)
-      : participantToInput(lastEmailMessage.from);
-    defaultCc = participantsToInput(lastEmailMessage.cc);
-  }
-
-  const [from, setFrom] = useState(defaultFrom);
-  const [to, setTo] = useState(defaultTo);
-  const [cc, setCc] = useState(defaultCc);
-  const [bcc, setBcc] = useState(defaultBcc);
+  const [from, setFrom] = useState(emailDraft ? participantToInput(emailDraft.from) : '');
+  const [to, setTo] = useState(emailDraft ? participantsToInput(emailDraft.to) : '');
+  const [cc, setCc] = useState(emailDraft ? participantsToInput(emailDraft.cc) : '');
+  const [bcc, setBcc] = useState(emailDraft ? participantsToInput(emailDraft.bcc) : '');
 
   // Set default "From" address using loaded email addresses
   const { data: emailAddressesData } = useQuery({ ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
+  const lastEmailMessage = emailMessagesAsc[emailMessagesAsc.length - 1];
   const fromEmailAddresses = emailAddressesData?.emailAddresses || [];
   useEffect(() => {
-    if (fromEmailAddresses.length === 0) return;
+    if (emailDraft || fromEmailAddresses.length === 0) return;
+
     const lastEmailParticipantEmails = new Set<string>([
       lastEmailMessage?.from.email,
       ...(lastEmailMessage?.to?.map((p) => p.email) ?? []),
       ...(lastEmailMessage?.cc?.map((p) => p.email) ?? []),
       ...(lastEmailMessage?.bcc?.map((p) => p.email) ?? []),
     ]);
-    setFrom((prev) => {
-      if (prev) return prev;
-      return (
-        fromEmailAddresses.find((addr) => lastEmailParticipantEmails.has(addr.email))?.email ||
-        fromEmailAddresses.find((addr) => addr.isDefault)?.email ||
-        fromEmailAddresses[0]?.email ||
-        ''
+    const fromEmailAddress =
+      fromEmailAddresses.find((addr) => lastEmailParticipantEmails.has(addr.email)) ||
+      fromEmailAddresses.find((addr) => addr.isDefault) ||
+      fromEmailAddresses[0];
+    setFrom(participantToInput(fromEmailAddress));
+
+    if (lastEmailMessage) {
+      setTo(
+        lastEmailMessage!.from.email === fromEmailAddress.email
+          ? participantsToInput(lastEmailMessage.to)
+          : participantToInput(lastEmailMessage.from),
       );
-    });
-  }, [lastEmailMessage, fromEmailAddresses]);
+      setCc(participantsToInput(lastEmailMessage.cc));
+    }
+  }, [emailDraft, lastEmailMessage, fromEmailAddresses]);
 
   const [hasChanges, setHasChanges] = useState(!emailDraft);
   const autosaveIntervalRef = useRef<number | null>(null);
@@ -116,16 +102,16 @@ export const ReplyCard = ({
 
   const emailDraftUpsertMutation = useMutation(
     trpc.emailDraft.upsert.mutationOptions({
-      onSuccess: ({ emailDraft }) => {
+      onSuccess: ({ boardCard }) => {
         queryClient.setQueryData(trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId }), (oldData) => {
           if (!oldData) return oldData;
-          return { ...oldData, boardCard: { ...oldData.boardCard, emailDraft } } satisfies typeof oldData;
+          return { ...oldData, boardCard } satisfies typeof oldData;
         });
         queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
           if (!oldData) return oldData;
           return {
             ...oldData,
-            boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, emailDraft } : c)),
+            boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCard.id ? boardCard : c)),
           } satisfies typeof oldData;
         });
       },
@@ -224,9 +210,7 @@ export const ReplyCard = ({
       });
       setHasChanges(false);
     }, AUTO_SAVE_INTERVAL_MS);
-
     autosaveIntervalRef.current = intervalId;
-
     return () => {
       window.clearInterval(intervalId);
       autosaveIntervalRef.current = null;

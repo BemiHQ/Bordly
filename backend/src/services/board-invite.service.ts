@@ -1,7 +1,9 @@
 import type { Board } from '@/entities/board';
+import { BoardCardReadPosition } from '@/entities/board-card-read-position';
 import { BoardInvite, Role, State } from '@/entities/board-invite';
 import { BoardMember } from '@/entities/board-member';
 import type { User } from '@/entities/user';
+import { BoardCardService } from '@/services/board-card.service';
 import { Emailer, NO_REPLY_EMAIL } from '@/utils/emailer';
 import { ENV } from '@/utils/env';
 import { orm } from '@/utils/orm';
@@ -26,7 +28,16 @@ export class BoardInviteService {
       for (const boardInvite of boardInvites) {
         const boardMember = new BoardMember({ board: boardInvite.board, user, role: boardInvite.role });
         boardInvite.markAsAccepted();
-        invitesAndMembers.push({ boardInvite, boardMember });
+
+        const { boardCardsDesc } = await BoardCardService.findInboxCardsByBoardId(boardInvite.board.id);
+        for (const boardCard of boardCardsDesc) {
+          boardCard.boardCardReadPositions.add(
+            new BoardCardReadPosition({ boardCard, user, lastReadAt: boardCard.lastEventAt }),
+          );
+          orm.em.persist(boardCard);
+        }
+
+        orm.em.persist([boardInvite, boardMember]);
       }
     }
 

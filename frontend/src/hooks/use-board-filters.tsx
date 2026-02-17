@@ -2,7 +2,6 @@ import { createContext, useContext } from 'react';
 
 export interface BoardFilters {
   unread: boolean;
-  sent: boolean;
   hasAttachments: boolean;
   draft: boolean;
   gmailAccountIds: string[];

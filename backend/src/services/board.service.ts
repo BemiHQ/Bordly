@@ -1,7 +1,6 @@
 import type { AutoPath, PopulatePath } from '@mikro-orm/postgresql';
 import { Board } from '@/entities/board';
 import { BoardMember, Role } from '@/entities/board-member';
-import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { GmailAccountService } from '@/services/gmail-account.service';
@@ -37,12 +36,9 @@ export class BoardService {
     const board = new Board({ name });
     const boardMember = new BoardMember({ board, user, role: Role.ADMIN });
 
-    await orm.em.populate(user, ['gmailAccounts']);
-    if (user.gmailAccounts.length !== 1) {
-      throw new Error('User must have exactly one Gmail account to create a board');
-    }
+    await orm.em.populate(user, ['gmailAccount']);
 
-    const gmailAccount = user.gmailAccounts[0] as GmailAccount;
+    const { gmailAccount } = user;
     if (!(await GmailAccountService.hasGmailAccess(gmailAccount))) {
       return { board: undefined, error: ERRORS.NO_GMAIL_ACCESS };
     }

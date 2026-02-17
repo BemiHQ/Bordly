@@ -63,7 +63,7 @@ function BoardCardComponent() {
   // Mark as read on open if there are unread messages and set document title to email subject
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignore markAsReadMutation to avoid infinite loop
   useEffect(() => {
-    if (boardCard?.unreadEmailMessageIds?.length) {
+    if (boardCard?.unread) {
       markAsReadMutation.mutate({ boardId, boardCardId });
     }
 

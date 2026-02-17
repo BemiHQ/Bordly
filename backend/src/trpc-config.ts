@@ -11,10 +11,10 @@ const DEVELOPMENT_MAX_DELAY_MS = 1_000;
 
 export const createContext = async ({ req }: CreateFastifyContextOptions) => {
   const userId = req.session.get('userId') as string | undefined;
-  const user = await UserService.tryFindById(userId, { populate: ['boardMembers.board'] });
+  const user = await UserService.tryFindById(userId, { populate: ['boardMembers.board.boardMembers'] });
   return { user };
 };
-type Context = Awaited<ReturnType<typeof createContext>>;
+export type Context = Awaited<ReturnType<typeof createContext>>;
 
 const t = initTRPC.context<Context>().create({ transformer: superjson });
 

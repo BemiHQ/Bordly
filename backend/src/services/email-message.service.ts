@@ -54,7 +54,9 @@ export class EmailMessageService {
 
     while (true) {
       const gmailAccounts = (
-        await GmailAccountService.findAllAccountsWithBoards({ populate: ['board.boardColumns', 'emailAddresses'] })
+        await GmailAccountService.findAllAccountsWithBoards({
+          populate: ['board.boardColumns', 'board.boardMembers', 'emailAddresses'],
+        })
       ).filter((acc) => acc.loadedBoard?.initialized);
 
       const gmailAccountIds = new Set(gmailAccounts.map((acc) => acc.id));
@@ -95,13 +97,17 @@ export class EmailMessageService {
 
   // Creates: EmailMessage, Attachment, *BoardColumn*, Domain, BoardCard
   static async createInitialBoardEmailMessages(gmailAccountId: string) {
-    const gmailAccount = await GmailAccountService.findById(gmailAccountId, { populate: ['board', 'emailAddresses'] });
+    const gmailAccount = await GmailAccountService.findById(gmailAccountId, {
+      populate: ['board.boardMembers', 'emailAddresses'],
+    });
     if (!gmailAccount.board) throw new Error('Gmail account does not have an associated board');
 
     const gmail = await GmailAccountService.initGmail(gmailAccount);
     console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
     const messages = await GmailApi.listMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
     if (messages.length === 0) return;
+
+    const gmailAccountEmails = new Set(gmailAccount.emailAddresses.map((e) => e.email));
 
     // Collect EmailMessages and Attachments
     let lastExternalHistoryId: string | undefined;
@@ -116,8 +122,10 @@ export class EmailMessageService {
       const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
       (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
       domainNames.add(emailMessage.loadedDomain.name);
-      // We also want to read domain names for board cards (they don't use the "From" field for sent emails)
-      domainNames.add(BoardCardService.emailMessageParticipantsAsc(emailMessage)[0]!.email.split('@')[1]!);
+      // We also want to read domain names for board cards (they use external participants)
+      domainNames.add(
+        BoardCardService.externalParticipants({ emailMessage, gmailAccountEmails })[0]!.email.split('@')[1]!,
+      );
 
       if (!lastExternalHistoryId && messageData.historyId) {
         lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message
@@ -327,6 +335,7 @@ export class EmailMessageService {
 
   // Creates: EmailMessage, Attachment, Domain, BoardCard
   private static async syncEmailMessagesForGmailAccount(gmailAccount: GmailAccount) {
+    const gmailAccountEmails = new Set(gmailAccount.emailAddresses.map((e) => e.email));
     const gmail = await GmailAccountService.initGmail(gmailAccount);
 
     // Fetch changes via Gmail API
@@ -372,11 +381,12 @@ export class EmailMessageService {
       (msg) => msg.externalThreadId,
     ) as Record<string, EmailMessage[]>;
     // - Board cards
-    const boardCardByThreadId = await BoardCardService.findAndBuildBoardCardByThreadId({
-      gmailAccount,
-      externalThreadIds,
-      populate: ['domain'],
-    });
+    const boardCardByThreadId: { [threadId: string]: BoardCard } =
+      await BoardCardService.findAndBuildBoardCardByThreadId({
+        gmailAccount,
+        externalThreadIds,
+        populate: ['domain', 'boardCardReadPositions'],
+      });
     // - Board columns
     const boardColumnsAsc = [...gmailAccount.loadedBoard!.boardColumns].sort((a, b) => a.position - b.position);
 
@@ -406,7 +416,9 @@ export class EmailMessageService {
 
         domainNames.add(emailMessage.loadedDomain.name);
         // We also want to read domain names for board cards (they don't use the "From" field for sent emails)
-        domainNames.add(BoardCardService.emailMessageParticipantsAsc(emailMessage)[0]!.email.split('@')[1]!);
+        domainNames.add(
+          BoardCardService.externalParticipants({ emailMessage, gmailAccountEmails })[0]!.email.split('@')[1]!,
+        );
 
         if (!lastExternalHistoryId && messageData.historyId) {
           lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message if not set from history
@@ -499,7 +511,7 @@ export class EmailMessageService {
       }
     }
 
-    // Handle label changes: update EmailMessages, update BoardCards
+    // Handle label changes (read / unread / trash / spam): update EmailMessages, update BoardCards
     console.log(`[GMAIL] Processing label changes for ${gmailAccount.email}...`);
     for (const labelChange of labelChanges) {
       const { externalMessageId } = labelChange;

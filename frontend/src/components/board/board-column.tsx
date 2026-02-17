@@ -186,7 +186,7 @@ export const BoardColumnContent = ({
     {boardCards.map((boardCard) =>
       isDragOverlay ? (
         <BoardCardParentDragged key={boardCard.id}>
-          <BoardCardContent boardCard={boardCard} unread={!!boardCard.unreadEmailMessageIds} />
+          <BoardCardContent boardCard={boardCard} />
         </BoardCardParentDragged>
       ) : (
         <BoardCard key={boardCard.id} board={board} boardCard={boardCard} />

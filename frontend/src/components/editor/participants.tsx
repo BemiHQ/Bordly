@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 
 type EmailAddress = inferRouterOutputs<TRPCRouter>['emailAddress']['getEmailAddresses']['emailAddresses'][number];
 
+export const participantToInput = (participant: { name?: string | null; email: string }) =>
+  participant.name ? `${participant.name} <${participant.email}>` : participant.email;
+
 export const Participants = ({
   from,
   setFrom,
@@ -55,8 +58,8 @@ export const Participants = ({
             <SelectContent>
               <SelectGroup>
                 {fromEmailAddresses.map((address: EmailAddress) => (
-                  <SelectItem size="sm" key={address.email} value={address.email}>
-                    {address.name ? `${address.name} <${address.email}>` : address.email}
+                  <SelectItem size="sm" key={address.email} value={participantToInput(address)}>
+                    {participantToInput(address)}
                   </SelectItem>
                 ))}
               </SelectGroup>

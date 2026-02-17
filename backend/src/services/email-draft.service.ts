@@ -1,5 +1,7 @@
 import type { Board } from '@/entities/board';
+import type { BoardCard } from '@/entities/board-card';
 import { EmailDraft, type Participant } from '@/entities/email-draft';
+import type { User } from '@/entities/user';
 import { BoardCardService } from '@/services/board-card.service';
 import { DomainService } from '@/services/domain.service';
 import { EmailMessageService } from '@/services/email-message.service';
@@ -11,9 +13,9 @@ import { S3Client } from '@/utils/s3-client';
 
 export class EmailDraftService {
   static async upsert(
-    board: Board,
+    boardCard: BoardCard,
     {
-      boardCardId,
+      user,
       generated,
       from,
       to,
@@ -22,7 +24,7 @@ export class EmailDraftService {
       subject,
       bodyHtml,
     }: {
-      boardCardId: string;
+      user: User;
       generated: boolean;
       from: string;
       to?: string[];
@@ -31,20 +33,14 @@ export class EmailDraftService {
       subject?: string;
       bodyHtml?: string;
     },
-  ): Promise<EmailDraft> {
-    const boardCard = await BoardCardService.findById(board, {
-      boardCardId,
-      populate: ['gmailAccount', 'emailDraft.fileAttachments'],
-    });
-
+  ) {
     const fromParticipant = EmailMessageService.parseParticipant(from)!;
     const toParticipants = to?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
     const ccParticipants = cc?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
     const bccParticipants = bcc?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
 
-    let emailDraft = boardCard.emailDraft as EmailDraft | undefined;
-    if (emailDraft) {
-      emailDraft.update({
+    if (boardCard.emailDraft) {
+      boardCard.emailDraft.update({
         generated,
         from: fromParticipant,
         to: toParticipants,
@@ -54,7 +50,7 @@ export class EmailDraftService {
         bodyHtml,
       });
     } else {
-      emailDraft = new EmailDraft({
+      boardCard.emailDraft = new EmailDraft({
         boardCard,
         generated,
         from: fromParticipant,
@@ -65,11 +61,15 @@ export class EmailDraftService {
         bodyHtml,
       });
     }
+    boardCard.setLastEventAt(new Date());
+    orm.em.persist([boardCard.emailDraft, boardCard]);
 
-    orm.em.persist(emailDraft);
+    const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
+    userBoardCardReadPosition.setLastReadAt(boardCard.lastEventAt);
+    orm.em.persist(userBoardCardReadPosition);
+
     await orm.em.flush();
-
-    return emailDraft;
+    return boardCard;
   }
 
   static async delete(board: Board, { boardCardId }: { boardCardId: string }) {
@@ -84,9 +84,9 @@ export class EmailDraftService {
   }
 
   static async send(
-    board: Board,
+    boardCard: BoardCard,
     {
-      boardCardId,
+      user,
       from,
       to,
       cc,
@@ -94,7 +94,7 @@ export class EmailDraftService {
       subject,
       bodyHtml,
     }: {
-      boardCardId: string;
+      user: User;
       from: string;
       to?: string[];
       cc?: string[];
@@ -103,11 +103,6 @@ export class EmailDraftService {
       bodyHtml?: string;
     },
   ) {
-    const boardCard = await BoardCardService.findById(board, {
-      boardCardId,
-      populate: ['emailDraft.fileAttachments', 'gmailAccount.emailAddresses', 'domain'],
-    });
-
     const emailMessagesDesc = await EmailMessageService.findEmailMessageByBoardCard(boardCard, {
       populate: ['gmailAttachments'],
       orderBy: { externalCreatedAt: 'DESC' },
@@ -126,11 +121,9 @@ export class EmailDraftService {
     const gmailAccount = boardCard.loadedGmailAccount;
     const gmail = await GmailAccountService.initGmail(gmailAccount);
 
-    const { emailDraft } = boardCard;
-
-    const attachments = emailDraft
+    const attachments = boardCard.emailDraft
       ? await Promise.all(
-          emailDraft.fileAttachments.map(async (attachment) => {
+          boardCard.emailDraft.fileAttachments.map(async (attachment) => {
             const data = await S3Client.getFile({ key: attachment.s3Key });
             return { filename: attachment.filename, mimeType: attachment.mimeType, data };
           }),
@@ -160,16 +153,24 @@ export class EmailDraftService {
       await DomainService.fetchIcon(emailMessage.domain);
       orm.em.persist(emailMessage.domain);
     }
+    orm.em.persist(emailMessage);
 
     const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({
       boardCard,
       gmailAccount,
       emailMessagesDesc: [emailMessage, ...emailMessagesDesc],
     });
+    orm.em.persist(rebuiltBoardCard);
 
-    orm.em.persist([emailMessage, rebuiltBoardCard]);
-    if (emailDraft) {
+    const userBoardCardReadPosition = rebuiltBoardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
+    userBoardCardReadPosition.setLastReadAt(rebuiltBoardCard.lastEventAt);
+    orm.em.persist(userBoardCardReadPosition);
+
+    if (rebuiltBoardCard.emailDraft) {
+      const { emailDraft } = rebuiltBoardCard;
+      rebuiltBoardCard.emailDraft = undefined;
       orm.em.remove(emailDraft);
+
       await FileAttachmentService.deleteAllForDraft(emailDraft);
     }
     await orm.em.flush();

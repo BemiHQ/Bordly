@@ -31,6 +31,10 @@ export class Board extends BaseEntity {
     return this.boardColumns.length > 0;
   }
 
+  get solo() {
+    return this.boardMembers.length === 1;
+  }
+
   setName(name: string) {
     this.name = name;
     this.validate();

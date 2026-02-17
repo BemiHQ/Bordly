@@ -210,13 +210,12 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
             const boardCards = boardCardsDesc.filter((card) => card.boardColumnId === boardColumn.id);
 
             const filteredBoardCards = boardCards?.filter((card) => {
-              const hasActiveFilters = filters.unread || filters.sent || filters.hasAttachments || filters.draft;
+              const hasActiveFilters = filters.unread || filters.hasAttachments || filters.draft;
               if (hasActiveFilters) {
-                const matchesUnread = filters.unread && card.unreadEmailMessageIds;
-                const matchesSent = filters.sent && card.hasSent;
+                const matchesUnread = filters.unread && card.unread;
                 const matchesHasAttachments = filters.hasAttachments && card.hasAttachments;
                 const matchesHasDraft = filters.draft && card.emailDraft && !card.emailDraft.generated;
-                if (!matchesUnread && !matchesSent && !matchesHasAttachments && !matchesHasDraft) return false;
+                if (!matchesUnread && !matchesHasAttachments && !matchesHasDraft) return false;
               }
 
               if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
@@ -225,7 +224,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
               return true;
             });
 
-            const unreadBoardCards = boardCards?.filter((card) => card.unreadEmailMessageIds);
+            const unreadBoardCards = boardCards?.filter((card) => card.unread);
 
             return (
               <BoardColumn
@@ -244,13 +243,13 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
       <DragOverlay dropAnimation={null}>
         {activeBoardCard ? (
           <BoardCardDragged>
-            <BoardCardContent boardCard={activeBoardCard} unread={!!activeBoardCard.unreadEmailMessageIds} />
+            <BoardCardContent boardCard={activeBoardCard} />
           </BoardCardDragged>
         ) : activeBoardColumn ? (
           <BoardColumnDragged
             boardColumn={activeBoardColumn}
             unreadBoardCardCount={
-              boardCardsDesc.filter((c) => c.boardColumnId === activeBoardColumn.id && c.unreadEmailMessageIds).length
+              boardCardsDesc.filter((c) => c.boardColumnId === activeBoardColumn.id && c.unread).length
             }
           >
             <BoardColumnContent
@@ -306,9 +305,7 @@ function BoardComponent() {
 
   // Dynamic page title
   const boardName = boardData?.board.name;
-  const unreadBoardCardCount = Object.values(boardCardsData?.boardCardsDesc || []).filter(
-    (card) => !!card.unreadEmailMessageIds,
-  ).length;
+  const unreadBoardCardCount = Object.values(boardCardsData?.boardCardsDesc || []).filter((card) => card.unread).length;
   // biome-ignore lint/correctness/useExhaustiveDependencies: add matches.length to update on nested route changes
   useEffect(() => {
     if (!boardName) {
