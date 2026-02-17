@@ -1,4 +1,5 @@
 import type { Populate } from '@mikro-orm/postgresql';
+import { RequestContext } from '@mikro-orm/postgresql';
 import * as cheerio from 'cheerio';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 import { Attachment } from '@/entities/attachment';
@@ -12,11 +13,15 @@ import { BoardCardService } from '@/services/board-card.service';
 import { DomainService } from '@/services/domain.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { ENV } from '@/utils/env';
+import { reportError } from '@/utils/error-tracking';
 import { GoogleApi, LABEL } from '@/utils/google-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
+import { sleep } from '@/utils/time';
 
+const CREATE_NEW_EMAIL_MESSAGES_READ_DB_INTERVAL_MS = 60 * 1_000; // 60 seconds
+const CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS = 5 * 1_000; // 5 seconds
 const CREATE_EMAIL_MESSAGES_BATCH_LIMIT = ENV.NODE_ENV === 'production' ? 30 : 10;
 const MAX_INITIAL_BOARD_COUNT = 5;
 
@@ -43,9 +48,47 @@ Only output one of the above categories without any explanation.`,
 
 export class EmailMessageService {
   static async createNewEmailMessages() {
-    const gmailAccounts = await GmailAccountService.findAllAccountsWithBoards({ populate: ['board.boardColumns'] });
-    for (const gmailAccount of gmailAccounts) {
-      await EmailMessageService.syncEmailMessagesForGmailAccount(gmailAccount);
+    const promiseDataByGmailAccountId: Record<string, { promise: Promise<void>; abortController: AbortController }> =
+      {};
+
+    while (true) {
+      const gmailAccounts = (
+        await GmailAccountService.findAllAccountsWithBoards({ populate: ['board.boardColumns'] })
+      ).filter((acc) => acc.board?.initialized);
+
+      const gmailAccountIds = new Set(gmailAccounts.map((acc) => acc.id));
+
+      gmailAccounts.forEach((gmailAccount, i) => {
+        if (promiseDataByGmailAccountId[gmailAccount.id]) return; // Already processing
+
+        const abortController = new AbortController();
+        const promise = RequestContext.create(orm.em, async () => {
+          await sleep((i * CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS) / (gmailAccounts.length || 1));
+
+          try {
+            while (!abortController.signal.aborted) {
+              await EmailMessageService.syncEmailMessagesForGmailAccount(gmailAccount);
+              await sleep(CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS);
+            }
+          } catch (error) {
+            reportError(error);
+          } finally {
+            console.log(`[GMAIL] Finished processing new emails for ${gmailAccount.email}.`);
+            delete promiseDataByGmailAccountId[gmailAccount.id];
+          }
+        });
+        promiseDataByGmailAccountId[gmailAccount.id] = { promise, abortController };
+      });
+
+      for (const gmailAccountId of Object.keys(promiseDataByGmailAccountId)) {
+        if (gmailAccountIds.has(gmailAccountId)) continue; // Still exists
+
+        console.log(`[GMAIL] Cancelling sync for account ${gmailAccountId} as it no longer exists.`);
+        promiseDataByGmailAccountId[gmailAccountId]!.abortController.abort();
+        delete promiseDataByGmailAccountId[gmailAccountId];
+      }
+
+      await sleep(CREATE_NEW_EMAIL_MESSAGES_READ_DB_INTERVAL_MS);
     }
   }
 
@@ -174,10 +217,6 @@ export class EmailMessageService {
 
   // Creates: EmailMessage, Attachment, Domain, BoardCard
   private static async syncEmailMessagesForGmailAccount(gmailAccount: GmailAccount) {
-    if (!gmailAccount.board?.initialized) {
-      console.log(`[GMAIL] Skipping ${gmailAccount.email} new emails fetch as board is not initialized.`);
-      return;
-    }
     const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
     const gmail = GoogleApi.newGmail(oauth2Client);
 
@@ -227,10 +266,10 @@ export class EmailMessageService {
       populate: ['domain'],
     });
     // - Board columns
-    const boardColumnsAsc = gmailAccount.board.boardColumns.getItems().sort((a, b) => a.position - b.position);
+    const boardColumnsAsc = gmailAccount.board!.boardColumns.getItems().sort((a, b) => a.position - b.position);
 
     // Handle add: create EmailMessages & Attachments
-    console.log('[GMAIL] Processing additions...');
+    console.log(`[GMAIL] Processing additions for ${gmailAccount.email}...`);
     const domainNames: string[] = [];
     const alreadDeletedExternalMessageIds = new Set();
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
@@ -310,7 +349,7 @@ export class EmailMessageService {
     }
 
     // Handle delete: delete EmailMessages, update/delete BoardCards
-    console.log('[GMAIL] Processing deletions...');
+    console.log(`[GMAIL] Processing deletions for ${gmailAccount.email}...`);
     for (const externalMessageId of externalEmailMessageIdsToDelete) {
       const emailMessageToDelete = affectedEmailMessageByExternalId[externalMessageId];
       if (!emailMessageToDelete) continue; // Already deleted
@@ -337,7 +376,7 @@ export class EmailMessageService {
     }
 
     // Handle label changes: update EmailMessages, update BoardCards
-    console.log('[GMAIL] Processing label changes...');
+    console.log(`[GMAIL] Processing label changes for ${gmailAccount.email}...`);
     for (const labelChange of labelChanges) {
       const { externalMessageId } = labelChange;
       const emailMessage = affectedEmailMessageByExternalId[externalMessageId];
