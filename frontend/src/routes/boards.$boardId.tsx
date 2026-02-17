@@ -346,7 +346,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
     if (!boardCard) return;
 
     if (over.id === ARCHIVE_DROP_ZONE_ID) {
-      optimisticallyArchive({ boardId: boardData.board.id, boardCardId, status: BoardCardState.ARCHIVED });
+      optimisticallyArchive({ boardId: boardData.board.id, boardCardId, state: BoardCardState.ARCHIVED });
     } else {
       const boardColumnId = over.id as string;
       if (boardCard.boardColumnId !== boardColumnId) {

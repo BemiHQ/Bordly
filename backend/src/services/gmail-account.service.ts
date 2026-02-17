@@ -8,7 +8,7 @@ import { BoardInvite } from '@/entities/board-invite';
 import { BoardMember, Role } from '@/entities/board-member';
 import { EmailMessage } from '@/entities/email-message';
 import { GmailAccount } from '@/entities/gmail-account';
-import { newOauth2Client } from '@/utils/google-api';
+import { GoogleApi } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
 
 export class GmailAccountService {
@@ -73,7 +73,7 @@ export class GmailAccountService {
   static async refreshAccessToken(
     gmailAccount: GmailAccount,
   ): Promise<{ gmailAccount: GmailAccount; oauth2Client: Auth.OAuth2Client }> {
-    const oauth2Client = newOauth2Client({
+    const oauth2Client = GoogleApi.newOauth2Client({
       accessToken: gmailAccount.accessToken,
       accessTokenExpiresAt: gmailAccount.accessTokenExpiresAt,
       refreshToken: gmailAccount.refreshToken,

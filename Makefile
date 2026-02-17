@@ -35,6 +35,9 @@ down-services:
 ps:
 	devbox services ls
 
+console:
+	devbox run --env-file backend/.env "cd backend && pnpm run repl"
+
 format:
 	devbox run "pnpm run check"
 

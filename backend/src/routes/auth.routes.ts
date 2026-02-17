@@ -5,7 +5,7 @@ import { BoardService } from '@/services/board.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
-import { newOauth2, newOauth2Client } from '@/utils/google-api';
+import { GoogleApi } from '@/utils/google-api';
 import { QUERY_PARAMS } from '@/utils/shared';
 import { APP_ENDPOINTS } from '@/utils/urls';
 
@@ -18,7 +18,7 @@ const GOOGLE_SCOPES = [
 export const authRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/auth/google', async (request, reply) => {
     const { boardId } = request.query as { boardId?: string };
-    const authUrl = newOauth2Client().generateAuthUrl({
+    const authUrl = GoogleApi.newOauth2Client().generateAuthUrl({
       access_type: 'offline',
       scope: GOOGLE_SCOPES,
       prompt: 'consent',
@@ -34,10 +34,10 @@ export const authRoutes = async (fastify: FastifyInstance) => {
     }
 
     try {
-      const oauth2Client = newOauth2Client();
+      const oauth2Client = GoogleApi.newOauth2Client();
       const { tokens } = await oauth2Client.getToken(code);
       oauth2Client.setCredentials(tokens);
-      const userInfo = await newOauth2(oauth2Client).userinfo.get();
+      const userInfo = await GoogleApi.newOauth2(oauth2Client).userinfo.get();
 
       let gmailAccount = await GmailAccountService.tryFindByGoogleId(userInfo.data.id, { populate: ['user'] });
       let user = gmailAccount?.user as User;

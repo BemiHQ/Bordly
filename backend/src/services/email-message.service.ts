@@ -12,7 +12,7 @@ import { AgentService } from '@/services/agent.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { DomainService } from '@/services/domain.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
-import { gmailAttachmentsData, gmailBody, gmailHeaderValue, newGmail } from '@/utils/google-api';
+import { GoogleApi } from '@/utils/google-api';
 import { presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
@@ -76,7 +76,7 @@ export class EmailMessageService {
     if (!gmailAccount.board) throw new Error('Gmail account does not have an associated board');
 
     const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
-    const gmail = newGmail(oauth2Client);
+    const gmail = GoogleApi.newGmail(oauth2Client);
 
     console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
     const listResponse = await gmail.users.messages.list({
@@ -205,7 +205,7 @@ export class EmailMessageService {
     }
 
     const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
-    const gmail = newGmail(oauth2Client);
+    const gmail = GoogleApi.newGmail(oauth2Client);
 
     const lastExistingEmailMessage =
       lastEmailMessageCache ||
@@ -487,16 +487,16 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
     const labels = messageData.labelIds || [];
     const headers = messageData.payload?.headers || [];
 
-    const toEmails = gmailHeaderValue(headers, 'to')
+    const toEmails = GoogleApi.gmailHeaderValue(headers, 'to')
       ?.split(',')
       .map((e) => e.trim());
-    const ccEmails = gmailHeaderValue(headers, 'cc')
+    const ccEmails = GoogleApi.gmailHeaderValue(headers, 'cc')
       ?.split(',')
       .map((e) => e.trim());
-    const bccEmails = gmailHeaderValue(headers, 'bcc')
+    const bccEmails = GoogleApi.gmailHeaderValue(headers, 'bcc')
       ?.split(',')
       .map((e) => e.trim());
-    const { bodyText, bodyHtml } = gmailBody(messageData.payload);
+    const { bodyText, bodyHtml } = GoogleApi.gmailBody(messageData.payload);
 
     // Gmail sometimes returns future dates
     const parsedInternalDate = new Date(parseInt(messageData.internalDate as string, 10));
@@ -507,13 +507,13 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
       externalId: messageData.id as string,
       externalThreadId: messageData.threadId as string,
       externalCreatedAt: parsedInternalDate > now ? now : parsedInternalDate,
-      from: EmailMessageService.parseParticipant(gmailHeaderValue(headers, 'from'))!,
-      subject: gmailHeaderValue(headers, 'subject') as string,
+      from: EmailMessageService.parseParticipant(GoogleApi.gmailHeaderValue(headers, 'from'))!,
+      subject: GoogleApi.gmailHeaderValue(headers, 'subject') as string,
       snippet: cheerio.load(messageData.snippet!).text(),
       sent: labels.includes(LABELS.SENT),
       labels,
       to: presence(toEmails?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p)),
-      replyTo: EmailMessageService.parseParticipant(gmailHeaderValue(headers, 'reply-to')),
+      replyTo: EmailMessageService.parseParticipant(GoogleApi.gmailHeaderValue(headers, 'reply-to')),
       cc: presence(ccEmails?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p)),
       bcc: presence(bccEmails?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p)),
       bodyText,
@@ -522,7 +522,7 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
 
     const attachments: Attachment[] = [];
 
-    for (const attachmentData of gmailAttachmentsData(messageData.payload)) {
+    for (const attachmentData of GoogleApi.gmailAttachmentsData(messageData.payload)) {
       const attachment = new Attachment({
         gmailAccount,
         emailMessage,
@@ -537,8 +537,8 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
     return { emailMessage, attachments };
   }
 
-  static async findFirstByExternalThreadId(externalThreadId: string) {
-    return orm.em.findOneOrFail(EmailMessage, { externalThreadId }, { orderBy: { externalCreatedAt: 'ASC' } });
+  static async findLastByExternalThreadId(externalThreadId: string) {
+    return orm.em.findOneOrFail(EmailMessage, { externalThreadId }, { orderBy: { externalCreatedAt: 'DESC' } });
   }
 
   private static parseParticipant(emailAddress?: string) {

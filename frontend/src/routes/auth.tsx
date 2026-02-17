@@ -14,7 +14,7 @@ export const Route = createFileRoute('/auth')({
     if (!currentUser) return;
 
     if (boards.length > 0) {
-      throw redirect({ to: ROUTES.BOARD.replace('$boardId', currentUser.boards[0].friendlyId) });
+      throw redirect({ to: ROUTES.BOARD.replace('$boardId', boards[0].friendlyId) });
     } else {
       throw redirect({ to: ROUTES.WELCOME });
     }

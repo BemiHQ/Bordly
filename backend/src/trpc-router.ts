@@ -118,13 +118,13 @@ const ROUTES = {
         return { boardCard: boardCard.toJson() };
       }),
     setState: publicProcedure
-      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid(), status: z.enum(Object.values(State)) }))
+      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid(), state: z.enum(Object.values(State)) }))
       .mutation(async ({ input, ctx }) => {
         if (!ctx.user) throw new Error('Not authenticated');
         const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
         const boardCard = await BoardCardService.setState(board, {
           boardCardId: input.boardCardId,
-          status: input.status,
+          state: input.state,
           populate: ['domain'],
         });
         return { boardCard: boardCard.toJson() };
