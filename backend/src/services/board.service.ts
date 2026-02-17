@@ -5,6 +5,7 @@ import type { User } from '@/entities/user';
 import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { UserService } from '@/services/user.service';
+import { Emailer, HI_EMAIL } from '@/utils/emailer';
 import { orm } from '@/utils/orm';
 import { ERRORS } from '@/utils/shared';
 
@@ -53,5 +54,21 @@ export class BoardService {
     await enqueue(QUEUES.CREATE_INITIAL_EMAIL_MESSAGES, { gmailAccountId: gmailAccount.id });
 
     return { board, error: undefined };
+  }
+
+  static async sendWelcomeEmail(user: User) {
+    await Emailer.send({
+      from: HI_EMAIL,
+      to: [user.email],
+      subject: `Welcome to Bordly, ${user.firstName}!`,
+      bodyText: `Hi ${user.firstName},
+
+Welcome to Bordly! We're excited to have you on board.
+
+If you have any questions or feedback, feel free to reply to this email.
+
+Best,
+Bordly Team`,
+    });
   }
 }

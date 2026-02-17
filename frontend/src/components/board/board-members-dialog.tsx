@@ -23,20 +23,21 @@ import {
 
 const BoardMemberRoleSelect = ({
   board,
-  member,
+  boardMember,
   onRoleChange,
 }: {
   board: Board;
-  member: { user: { id: string; name: string; photoUrl: string }; role: string };
+  boardMember: BoardMember;
   onRoleChange: ({ userId, role }: { userId: string; role: BoardMemberRole }) => void;
 }) => {
   const { queryClient, trpc } = useRouteContext();
   const [showRemovePopover, setShowRemovePopover] = useState(false);
+  const { user } = boardMember;
 
   const deleteMemberMutation = useMutation(
     trpc.boardMember.delete.mutationOptions({
       onSuccess: () => {
-        removeBoardMemberData({ trpc, queryClient, params: { boardId: board.id, userId: member.user.id } });
+        removeBoardMemberData({ trpc, queryClient, params: { boardId: board.id, userId: user.id } });
         toast.success('Member removed successfully', { position: 'top-center' });
         setShowRemovePopover(false);
       },
@@ -49,14 +50,14 @@ const BoardMemberRoleSelect = ({
       <PopoverNonTrigger asChild>
         <NativeSelect
           size="sm"
-          value={member.role}
+          value={boardMember.role}
           onChange={(e) => {
             const value = e.target.value;
             if (value === 'REMOVE') {
               setShowRemovePopover(true);
-              e.target.value = member.role;
+              e.target.value = boardMember.role;
             } else {
-              onRoleChange({ userId: member.user.id, role: value as BoardMemberRole });
+              onRoleChange({ userId: user.id, role: value as BoardMemberRole });
             }
           }}
         >
@@ -70,14 +71,14 @@ const BoardMemberRoleSelect = ({
           <div className="flex flex-col gap-2">
             <h4 className="font-semibold text-sm">Remove member</h4>
             <p className="text-xs text-muted-foreground">
-              Are you sure you want to remove <strong>{member.user.name}</strong> from this board?
+              Are you sure you want to remove <strong>{user.fullName}</strong> from this board?
             </p>
           </div>
 
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => deleteMemberMutation.mutate({ boardId: board.id, userId: member.user.id })}
+            onClick={() => deleteMemberMutation.mutate({ boardId: board.id, userId: user.id })}
             disabled={deleteMemberMutation.isPending}
           >
             {deleteMemberMutation.isPending ? (
@@ -300,16 +301,16 @@ export const BoardMembersDialog = ({
                 <Item key={member.user.id} variant="outline" className="py-2">
                   <ItemMedia>
                     <Avatar>
-                      <AvatarImage src={member.user.photoUrl} alt={member.user.name} />
+                      <AvatarImage src={member.user.photoUrl} alt={member.user.fullName} />
                     </Avatar>
                   </ItemMedia>
                   <ItemContent className="gap-0">
-                    <ItemTitle>{`${member.user.name}${member.user.id === currentUser.id ? ' (you)' : ''}`}</ItemTitle>
+                    <ItemTitle>{`${member.user.fullName}${member.user.id === currentUser.id ? ' (you)' : ''}`}</ItemTitle>
                     <ItemDescription className="text-2xs">{member.user.email}</ItemDescription>
                   </ItemContent>
                   <ItemActions>
                     {isCurrentUserAdmin && member.user.id !== currentUser.id && !member.isAgent ? (
-                      <BoardMemberRoleSelect board={board} member={member} onRoleChange={handleRoleChange} />
+                      <BoardMemberRoleSelect board={board} boardMember={member} onRoleChange={handleRoleChange} />
                     ) : (
                       <div className="text-xs text-muted-foreground capitalize px-3">
                         {member.isAgent ? 'AI Agent' : member.role.toLowerCase()}

@@ -9,6 +9,7 @@ export type BoardColumn = BoardData['boardColumnsAsc'][number];
 export type GmailAccount = BoardData['gmailAccounts'][number];
 export type BoardMember = BoardData['boardMembers'][number];
 
+export type User = BoardMember['user'];
 export type BoardMemberRole = BoardMember['role'];
 
 const queryKey = (trpc: TrpcProxy, params: { boardId: string }) => {

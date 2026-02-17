@@ -20,7 +20,8 @@ export class UserService {
 
   static async createWithGmailAccount({
     email,
-    name,
+    fullName,
+    firstName,
     photoUrl,
     externalId,
     accessToken,
@@ -28,17 +29,18 @@ export class UserService {
     accessTokenExpiresAt,
   }: {
     email: string;
-    name: string;
+    fullName: string;
+    firstName: string;
     photoUrl: string;
     externalId: string;
     accessToken: string;
     refreshToken: string;
     accessTokenExpiresAt: Date;
   }) {
-    const user = new User({ email, name, photoUrl });
+    const user = new User({ email, fullName, firstName, photoUrl });
     const gmailAccount = new GmailAccount({
       user,
-      name,
+      name: fullName,
       email,
       externalId,
       accessToken,

@@ -50,7 +50,8 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       } else {
         const userWithGmailAccount = await UserService.createWithGmailAccount({
           email: userInfo.data.email as string,
-          name: userInfo.data.name as string,
+          fullName: userInfo.data.name as string,
+          firstName: userInfo.data.given_name as string,
           photoUrl: userInfo.data.picture as string,
           externalId: userInfo.data.id as string,
           accessToken: tokens.access_token as string,

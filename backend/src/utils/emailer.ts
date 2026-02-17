@@ -1,6 +1,7 @@
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import { ENV } from '@/utils/env';
 
+export const HI_EMAIL = `Bordly <hi@${ENV.ROOT_DOMAIN}>`;
 export const NO_REPLY_EMAIL = `Bordly <no-reply@${ENV.ROOT_DOMAIN}>`;
 
 export class Emailer {

@@ -9,7 +9,7 @@ import { ENV } from '@/utils/env';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
 
-const INVITE_EMAIL_TEMPLATE = `{{inviterName}} has invited you to collaborate on the board "{{boardName}}". To accept the invitation, please click the link below:
+const INVITE_EMAIL_TEMPLATE = `{{inviterFirstName}} has invited you to collaborate on the board "{{boardName}}". To accept the invitation, please click the link below:
 
 {{inviteLink}}
 
@@ -94,9 +94,9 @@ export class BoardInviteService {
     await Emailer.send({
       from: NO_REPLY_EMAIL,
       to: [boardInvite.email],
-      subject: `You are invited by ${boardInvite.loadedInvitedBy.name}`,
+      subject: `You are invited by ${boardInvite.loadedInvitedBy.fullName}`,
       bodyText: renderTemplate(INVITE_EMAIL_TEMPLATE, {
-        inviterName: boardInvite.loadedInvitedBy.name,
+        inviterFirstName: boardInvite.loadedInvitedBy.firstName!,
         boardName: boardInvite.loadedBoard.name,
         inviteLink: ENV.APP_ENDPOINT,
       }),

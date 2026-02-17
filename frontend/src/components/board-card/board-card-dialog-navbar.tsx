@@ -158,9 +158,9 @@ export const BoardCardDialogNavbar = ({
               className="mr-2"
               avatars={participantMembers.map((member) => (
                 <Avatar key={member.user.id} size="xs">
-                  <AvatarImage src={member.user.photoUrl} alt={member.user.name} />
-                  <AvatarFallback hashForBgColor={member.user.name}>
-                    {member.user.name.charAt(0).toUpperCase()}
+                  <AvatarImage src={member.user.photoUrl} alt={member.user.fullName} />
+                  <AvatarFallback hashForBgColor={member.user.fullName}>
+                    {member.user.fullName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               ))}
@@ -255,12 +255,12 @@ export const BoardCardDialogNavbar = ({
             {assignedMember ? (
               <div className="flex items-center gap-1.5">
                 <Avatar size="xs">
-                  <AvatarImage src={assignedMember.user.photoUrl} alt={assignedMember.user.name} />
-                  <AvatarFallback hashForBgColor={assignedMember.user.name}>
-                    {assignedMember.user.name.charAt(0).toUpperCase()}
+                  <AvatarImage src={assignedMember.user.photoUrl} alt={assignedMember.user.fullName} />
+                  <AvatarFallback hashForBgColor={assignedMember.user.fullName}>
+                    {assignedMember.user.fullName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <span>{assignedMember.user.name}</span>
+                <span>{assignedMember.user.fullName}</span>
               </div>
             ) : (
               <span>Unassigned</span>
@@ -273,12 +273,12 @@ export const BoardCardDialogNavbar = ({
                   <SelectItem value={assignedMember.id}>
                     <div className="flex items-center gap-2">
                       <Avatar size="xs">
-                        <AvatarImage src={assignedMember.user.photoUrl} alt={assignedMember.user.name} />
-                        <AvatarFallback hashForBgColor={assignedMember.user.name}>
-                          {assignedMember.user.name.charAt(0).toUpperCase()}
+                        <AvatarImage src={assignedMember.user.photoUrl} alt={assignedMember.user.fullName} />
+                        <AvatarFallback hashForBgColor={assignedMember.user.fullName}>
+                          {assignedMember.user.fullName.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span>{assignedMember.user.name}</span>
+                      <span>{assignedMember.user.fullName}</span>
                     </div>
                   </SelectItem>
                   <SelectSeparator />
@@ -291,12 +291,12 @@ export const BoardCardDialogNavbar = ({
                   <SelectItem value={currentUserMember.id}>
                     <div className="flex items-center gap-2">
                       <Avatar size="xs">
-                        <AvatarImage src={currentUserMember.user.photoUrl} alt={currentUserMember.user.name} />
-                        <AvatarFallback hashForBgColor={currentUserMember.user.name}>
-                          {currentUserMember.user.name.charAt(0).toUpperCase()}
+                        <AvatarImage src={currentUserMember.user.photoUrl} alt={currentUserMember.user.fullName} />
+                        <AvatarFallback hashForBgColor={currentUserMember.user.fullName}>
+                          {currentUserMember.user.fullName.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span>{currentUserMember.user.name}</span>
+                      <span>{currentUserMember.user.fullName}</span>
                     </div>
                   </SelectItem>
                 </>
@@ -307,12 +307,12 @@ export const BoardCardDialogNavbar = ({
                   <SelectItem key={member.id} value={member.id}>
                     <div className="flex items-center gap-2">
                       <Avatar size="xs">
-                        <AvatarImage src={member.user.photoUrl} alt={member.user.name} />
-                        <AvatarFallback hashForBgColor={member.user.name}>
-                          {member.user.name.charAt(0).toUpperCase()}
+                        <AvatarImage src={member.user.photoUrl} alt={member.user.fullName} />
+                        <AvatarFallback hashForBgColor={member.user.fullName}>
+                          {member.user.fullName.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span>{member.user.name}</span>
+                      <span>{member.user.fullName}</span>
                     </div>
                   </SelectItem>
                 ))}

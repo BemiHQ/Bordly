@@ -89,7 +89,7 @@ export const PostedComment = ({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2 ml-8.5">
-        <div className="text-xs font-medium">{comment.user.name}</div>
+        <div className="text-xs font-medium">{comment.user.fullName}</div>
         <div className="text-3xs text-muted-foreground">
           {formattedShortTime(new Date(comment.createdAt))}
           {comment.editedAt && ' (edited)'}
@@ -97,7 +97,7 @@ export const PostedComment = ({
       </div>
       <div className="flex flex-start gap-2 relative">
         <Avatar size="sm">
-          <AvatarImage src={comment.user.photoUrl} alt={comment.user.name} />
+          <AvatarImage src={comment.user.photoUrl} alt={comment.user.fullName} />
         </Avatar>
         {isEditing ? (
           <div className="flex-1">

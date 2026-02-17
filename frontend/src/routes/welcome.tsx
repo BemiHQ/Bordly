@@ -23,7 +23,7 @@ export const Route = createFileRoute('/welcome')({
 const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => {
   const { trpc, queryClient } = Route.useRouteContext();
   const { currentUser } = Route.useLoaderData();
-  const [boardName, setBoardName] = useState(`${currentUser.name.split(' ')[0]}'s Board`);
+  const [boardName, setBoardName] = useState(`${currentUser.firstName}'s Board`);
   const [error, setError] = useState<string | undefined>();
   const createBoardMutation = useMutation(
     trpc.board.createFirstBoard.mutationOptions({

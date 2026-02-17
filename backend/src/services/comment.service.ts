@@ -15,7 +15,7 @@ export class CommentService {
       boardCard.assignToBoardMember(boardMember);
     }
     boardCard.addParticipantUserId(user.id);
-    boardCard.setSnippet(`${user.name}: ${text}`);
+    boardCard.setSnippet(`${user.firstName}: ${text}`);
     boardCard.setLastEventAt(comment.createdAt);
 
     const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
@@ -38,7 +38,7 @@ export class CommentService {
     comment.update({ text });
     orm.em.persist(comment);
     if (wasLastBoardCardEvent) {
-      boardCard.setSnippet(`${comment.user.name}: ${text}`);
+      boardCard.setSnippet(`${comment.user.firstName}: ${text}`);
       orm.em.persist(boardCard);
     }
 
@@ -71,14 +71,14 @@ export class CommentService {
 
       if (lastComment && lastEmailMessage) {
         if (lastComment.createdAt.getTime() > lastEmailMessage.externalCreatedAt.getTime()) {
-          boardCard.setSnippet(`${lastComment.user.name}: ${lastComment.text}`);
+          boardCard.setSnippet(`${lastComment.user.firstName}: ${lastComment.text}`);
           boardCard.setLastEventAt(lastComment.createdAt);
         } else {
           boardCard.setSnippet(lastEmailMessage.snippet);
           boardCard.setLastEventAt(lastEmailMessage.externalCreatedAt);
         }
       } else if (lastComment) {
-        boardCard.setSnippet(`${lastComment.user.name}: ${lastComment.text}`);
+        boardCard.setSnippet(`${lastComment.user.firstName}: ${lastComment.text}`);
         boardCard.setLastEventAt(lastComment.createdAt);
       } else if (lastEmailMessage) {
         boardCard.setSnippet(lastEmailMessage.snippet);

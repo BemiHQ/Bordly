@@ -23,7 +23,9 @@ export class User extends BaseEntity {
   @Property()
   email: string;
   @Property()
-  name: string;
+  fullName: string;
+  @Property()
+  firstName?: string; // TODO: make it required after backfilling
   @Property({ columnType: 'text' })
   photoUrl: string;
   @Property()
@@ -31,16 +33,19 @@ export class User extends BaseEntity {
 
   constructor({
     email,
-    name,
+    fullName,
+    firstName,
     photoUrl,
   }: {
     email: string;
-    name: string;
+    fullName: string;
+    firstName: string;
     photoUrl: string;
   }) {
     super();
     this.email = email;
-    this.name = name;
+    this.fullName = fullName;
+    this.firstName = firstName;
     this.photoUrl = photoUrl;
     this.lastSessionAt = undefined;
     this.validate();
@@ -57,7 +62,8 @@ export class User extends BaseEntity {
   toJson() {
     return {
       id: this.id,
-      name: this.name,
+      fullName: this.fullName,
+      firstName: this.firstName,
       email: this.isBordly ? '' : this.email,
       photoUrl: this.photoUrl,
     };
@@ -65,6 +71,7 @@ export class User extends BaseEntity {
 
   private validate() {
     if (!this.email) throw new Error('Email is required');
-    if (!this.name) throw new Error('Name is required');
+    if (!this.fullName) throw new Error('Full name is required');
+    if (!this.firstName) throw new Error('First name is required');
   }
 }

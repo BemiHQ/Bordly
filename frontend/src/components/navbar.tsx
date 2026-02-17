@@ -28,17 +28,17 @@ export const Navbar = () => {
             <DropdownMenuTrigger className="focus-visible:ring-0" asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar size="sm">
-                  <AvatarImage src={currentUser.photoUrl} alt={currentUser.name} />
+                  <AvatarImage src={currentUser.photoUrl} alt={currentUser.fullName} />
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <div className="p-2 flex items-center gap-2.5">
                 <Avatar>
-                  <AvatarImage src={currentUser.photoUrl} alt={currentUser.name} />
+                  <AvatarImage src={currentUser.photoUrl} alt={currentUser.fullName} />
                 </Avatar>
                 <div className="flex flex-col gap-1">
-                  <span className="text-sm font-medium leading-none">{currentUser.name}</span>
+                  <span className="text-sm font-medium leading-none">{currentUser.fullName}</span>
                   <span className="text-xs text-muted-foreground leading-none">{currentUser.email}</span>
                 </div>
               </div>

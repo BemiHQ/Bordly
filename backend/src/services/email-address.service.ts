@@ -81,6 +81,8 @@ export class EmailAddressService {
           orm.em.persist(newEmailAddress);
         }
       }
+
+      await orm.em.flush();
     }
   }
 }

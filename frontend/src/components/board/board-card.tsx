@@ -112,14 +112,14 @@ export const BoardCardContent = ({
                 <Avatar size="2xs">
                   <AvatarImage
                     src={assignedMember.user.photoUrl}
-                    alt={assignedMember.user.name}
+                    alt={assignedMember.user.fullName}
                     className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
                   />
                   <AvatarFallback
-                    hashForBgColor={assignedMember.user.name}
+                    hashForBgColor={assignedMember.user.fullName}
                     className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
                   >
-                    {assignedMember.user.name.charAt(0).toUpperCase()}
+                    {assignedMember.user.fullName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               ),
@@ -131,14 +131,14 @@ export const BoardCardContent = ({
                       <Avatar key={member.user.id} size="2xs">
                         <AvatarImage
                           src={member.user.photoUrl}
-                          alt={member.user.name}
+                          alt={member.user.fullName}
                           className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
                         />
                         <AvatarFallback
-                          hashForBgColor={member.user.name}
+                          hashForBgColor={member.user.fullName}
                           className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
                         >
-                          {member.user.name.charAt(0).toUpperCase()}
+                          {member.user.fullName.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                     ))),
