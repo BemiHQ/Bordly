@@ -1,7 +1,5 @@
 {
-  "namespaces": [
-    "public"
-  ],
+  "namespaces": ["public"],
   "name": "public",
   "tables": [
     {
@@ -52,9 +50,7 @@
       "indexes": [
         {
           "keyName": "boards_pkey",
-          "columnNames": [
-            "id"
-          ],
+          "columnNames": ["id"],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -150,10 +146,7 @@
       "indexes": [
         {
           "keyName": "board_gmail_accounts_board_id_google_id_unique",
-          "columnNames": [
-            "board_id",
-            "google_id"
-          ],
+          "columnNames": ["board_id", "google_id"],
           "composite": true,
           "constraint": true,
           "primary": false,
@@ -161,9 +154,7 @@
         },
         {
           "keyName": "board_gmail_accounts_pkey",
-          "columnNames": [
-            "id"
-          ],
+          "columnNames": ["id"],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -174,13 +165,9 @@
       "foreignKeys": {
         "board_gmail_accounts_board_id_foreign": {
           "constraintName": "board_gmail_accounts_board_id_foreign",
-          "columnNames": [
-            "board_id"
-          ],
+          "columnNames": ["board_id"],
           "localTableName": "public.board_gmail_accounts",
-          "referencedColumnNames": [
-            "id"
-          ],
+          "referencedColumnNames": ["id"],
           "referencedTableName": "public.boards",
           "updateRule": "cascade"
         }
@@ -274,9 +261,7 @@
       "indexes": [
         {
           "keyName": "users_google_id_unique",
-          "columnNames": [
-            "google_id"
-          ],
+          "columnNames": ["google_id"],
           "composite": false,
           "constraint": true,
           "primary": false,
@@ -284,9 +269,7 @@
         },
         {
           "keyName": "users_email_unique",
-          "columnNames": [
-            "email"
-          ],
+          "columnNames": ["email"],
           "composite": false,
           "constraint": true,
           "primary": false,
@@ -294,9 +277,7 @@
         },
         {
           "keyName": "users_pkey",
-          "columnNames": [
-            "id"
-          ],
+          "columnNames": ["id"],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -363,9 +344,7 @@
       "indexes": [
         {
           "keyName": "board_members_user_id_index",
-          "columnNames": [
-            "user_id"
-          ],
+          "columnNames": ["user_id"],
           "composite": false,
           "constraint": false,
           "primary": false,
@@ -373,10 +352,7 @@
         },
         {
           "keyName": "board_members_board_id_user_id_unique",
-          "columnNames": [
-            "board_id",
-            "user_id"
-          ],
+          "columnNames": ["board_id", "user_id"],
           "composite": true,
           "constraint": true,
           "primary": false,
@@ -384,9 +360,7 @@
         },
         {
           "keyName": "board_members_pkey",
-          "columnNames": [
-            "id"
-          ],
+          "columnNames": ["id"],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -397,25 +371,17 @@
       "foreignKeys": {
         "board_members_board_id_foreign": {
           "constraintName": "board_members_board_id_foreign",
-          "columnNames": [
-            "board_id"
-          ],
+          "columnNames": ["board_id"],
           "localTableName": "public.board_members",
-          "referencedColumnNames": [
-            "id"
-          ],
+          "referencedColumnNames": ["id"],
           "referencedTableName": "public.boards",
           "updateRule": "cascade"
         },
         "board_members_user_id_foreign": {
           "constraintName": "board_members_user_id_foreign",
-          "columnNames": [
-            "user_id"
-          ],
+          "columnNames": ["user_id"],
           "localTableName": "public.board_members",
-          "referencedColumnNames": [
-            "id"
-          ],
+          "referencedColumnNames": ["id"],
           "referencedTableName": "public.users",
           "updateRule": "cascade"
         }
