@@ -16,12 +16,14 @@ import { ROUTES } from '@/utils/urls';
 export const Route = createFileRoute('/welcome')({
   component: Welcome,
   loader: async ({ context }) => {
-    const { currentUser } = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
+    const { currentUser, boards } = await context.queryClient.ensureQueryData(
+      context.trpc.user.getCurrentUser.queryOptions(),
+    );
     if (!currentUser) {
       throw redirect({ to: ROUTES.AUTH });
     }
-    if (currentUser.boards.length > 0) {
-      throw redirect({ to: ROUTES.BOARD.replace('$boardId', currentUser.boards[0].friendlyId) });
+    if (boards.length > 0) {
+      throw redirect({ to: ROUTES.BOARD.replace('$boardId', boards[0].friendlyId) });
     }
     return { currentUser };
   },

@@ -29,6 +29,13 @@ export class BoardMember extends BaseEntity {
     this.validate();
   }
 
+  toJson() {
+    return {
+      user: this.user.toJson(),
+      role: this.role,
+    };
+  }
+
   private validate() {
     if (!this.board) throw new Error('Board is required');
     if (!this.user) throw new Error('User is required');

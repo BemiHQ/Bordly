@@ -47,11 +47,11 @@ type BoardCard = BoardCardsData['boardCards'][number];
 export const Route = createFileRoute('/boards/$boardId')({
   component: Home,
   loader: async ({ context: { queryClient, trpc } }) => {
-    const { currentUser } = await queryClient.ensureQueryData(trpc.user.getCurrentUser.queryOptions());
+    const { currentUser, boards } = await queryClient.ensureQueryData(trpc.user.getCurrentUser.queryOptions());
     if (!currentUser) {
       throw redirect({ to: ROUTES.AUTH });
     }
-    if (currentUser.boards.length === 0) {
+    if (boards.length === 0) {
       throw redirect({ to: ROUTES.WELCOME });
     }
     return { currentUser };

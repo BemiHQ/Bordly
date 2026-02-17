@@ -1,8 +1,8 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
-import { Ellipsis, Link2, ListFilter } from 'lucide-react';
+import { Ellipsis, Link2, ListFilter, UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -177,8 +177,106 @@ const RemoveAccountPopover = ({
   );
 };
 
+const EmailAccountsDialog = ({
+  board,
+  gmailAccounts,
+  open,
+  onOpenChange,
+}: {
+  board: Board;
+  gmailAccounts: GmailAccount[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Email accounts</DialogTitle>
+          <DialogDescription className="text-xs">
+            Manage email accounts associated with this board. Add or remove accounts to control which emails appear in
+            your board.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2 pt-1 pb-2">
+          {gmailAccounts.map((account) => (
+            <Item key={account.id} variant="outline" className="py-2">
+              <ItemMedia variant="image">
+                <img src="/domain-icons/gmail.com.ico" alt={account.name} className="size-9 pb-0.5" />
+              </ItemMedia>
+              <ItemContent className="gap-0">
+                <ItemTitle>{account.name}</ItemTitle>
+                <ItemDescription className="text-2xs">{account.email}</ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <RemoveAccountPopover board={board} gmailAccount={account} isLastAccount={gmailAccounts.length === 1}>
+                  <Button variant="outline" size="sm">
+                    Remove
+                  </Button>
+                </RemoveAccountPopover>
+              </ItemActions>
+            </Item>
+          ))}
+          <div className="w-fit mt-3">
+            <Button variant="contrast" className="w-full" size="sm" asChild>
+              <a href={`${import.meta.env.VITE_API_ENDPOINT}/auth/google?boardId=${board.id}`}>Add new account</a>
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const BoardMembersDialog = ({
+  board,
+  open,
+  onOpenChange,
+}: {
+  board: Board;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  const { trpc } = useRouteContext();
+  const { data, isLoading } = useQuery({
+    ...trpc.boardMember.getBoardMembers.queryOptions({ boardId: board.id }),
+    enabled: open,
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Board members</DialogTitle>
+          <DialogDescription className="text-xs">View all members of this board and their roles.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2 pt-1 pb-2">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Spinner />
+            </div>
+          ) : (
+            data?.boardMembers.map((member) => (
+              <Item key={member.user.id} variant="outline" className="py-2">
+                <ItemMedia variant="image">
+                  <img src={member.user.photoUrl} alt={member.user.name} className="size-9 rounded-full" />
+                </ItemMedia>
+                <ItemContent className="gap-0">
+                  <ItemTitle>{member.user.name}</ItemTitle>
+                  <ItemDescription className="text-2xs capitalize">{member.role.toLowerCase()}</ItemDescription>
+                </ItemContent>
+              </Item>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const MenuButton = ({ board, gmailAccounts }: { board: Board; gmailAccounts: GmailAccount[] }) => {
   const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = useState(false);
 
   return (
     <>
@@ -193,50 +291,19 @@ const MenuButton = ({ board, gmailAccounts }: { board: Board; gmailAccounts: Gma
             <Link2 />
             Email accounts
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setMembersDialogOpen(true)}>
+            <UsersRound />
+            Board members
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {accountsDialogOpen && (
-        <Dialog open={accountsDialogOpen} onOpenChange={setAccountsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Email accounts</DialogTitle>
-              <DialogDescription className="text-xs">
-                Manage email accounts associated with this board. Add or remove accounts to control which emails appear
-                in your board.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-2 pt-1 pb-2">
-              {gmailAccounts.map((account) => (
-                <Item key={account.id} variant="outline" className="py-2">
-                  <ItemMedia variant="image">
-                    <img src="/domain-icons/gmail.com.ico" alt={account.name} className="size-9 pb-0.5" />
-                  </ItemMedia>
-                  <ItemContent className="gap-0">
-                    <ItemTitle>{account.name}</ItemTitle>
-                    <ItemDescription className="text-2xs">{account.email}</ItemDescription>
-                  </ItemContent>
-                  <ItemActions>
-                    <RemoveAccountPopover
-                      board={board}
-                      gmailAccount={account}
-                      isLastAccount={gmailAccounts.length === 1}
-                    >
-                      <Button variant="outline" size="sm">
-                        Remove
-                      </Button>
-                    </RemoveAccountPopover>
-                  </ItemActions>
-                </Item>
-              ))}
-              <div className="w-fit mt-3">
-                <Button variant="contrast" className="w-full" size="sm" asChild>
-                  <a href={`${import.meta.env.VITE_API_ENDPOINT}/auth/google?boardId=${board.id}`}>Add new account</a>
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <EmailAccountsDialog
+        board={board}
+        gmailAccounts={gmailAccounts}
+        open={accountsDialogOpen}
+        onOpenChange={setAccountsDialogOpen}
+      />
+      <BoardMembersDialog board={board} open={membersDialogOpen} onOpenChange={setMembersDialogOpen} />
     </>
   );
 };

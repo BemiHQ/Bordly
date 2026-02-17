@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { State } from '@/entities/board-card';
 import { BoardService } from '@/services/board.service';
 import { BoardInviteService } from '@/services/board-invite.service';
+import { BoardMemberService } from '@/services/board-member.service';
 import { UserService } from '@/services/user.service';
 import { BoardCardService } from './services/board-card.service';
 import { GmailAccountService } from './services/gmail-account.service';
@@ -44,7 +45,10 @@ const ROUTES = {
   user: {
     getCurrentUser: publicProcedure.query(({ ctx }) => {
       if (!ctx.user) return { currentUser: null };
-      return { currentUser: ctx.user.toJson() };
+      return {
+        currentUser: ctx.user.toJson(),
+        boards: ctx.user.boardMembers.getItems().map((bm) => bm.board.toJson()),
+      };
     }),
   } satisfies TRPCRouterRecord,
   board: {
@@ -127,6 +131,14 @@ const ROUTES = {
         const board = BoardService.findAsAdmin(input.boardId, { user: ctx.user });
         await BoardInviteService.createInvites({ board, emails: input.emails, invitedBy: ctx.user });
       }),
+  } satisfies TRPCRouterRecord,
+  boardMember: {
+    getBoardMembers: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
+      if (!ctx.user) throw new Error('Not authenticated');
+      const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+      const boardMembers = await BoardMemberService.findMembers(board, { populate: ['user'] });
+      return { boardMembers: boardMembers.map((member) => member.toJson()) };
+    }),
   } satisfies TRPCRouterRecord,
 };
 
