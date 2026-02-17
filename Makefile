@@ -1,7 +1,7 @@
 init:
 	devbox install && \
-	devbox run initdb && \
-		sed -i "s/#port = 5432/port = 5433/g" ./.devbox/virtenv/postgresql/data/postgresql.conf
+		devbox run initdb && sed -i "s/#port = 5432/port = 5433/g" ./.devbox/virtenv/postgresql/data/postgresql.conf && \
+		devbox run "cd devbox.d/nginx && mkcert bordly.dev && mkcert api.bordly.dev"
 
 create:
 	devbox run "createdb -p 5433 bordly_dev && createuser -p 5433 --superuser postgres" &&  make migrate && \

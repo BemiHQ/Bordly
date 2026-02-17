@@ -4,7 +4,8 @@
     "nodejs@latest",
     "nginx@latest",
     "postgresql@latest",
-    "minio@latest"
+    "minio@latest",
+    "mkcert@latest"
   ],
   "shell": {
     "init_hook": [
