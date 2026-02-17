@@ -234,12 +234,12 @@ export const BoardNavbar = ({
             onChange={(e) => setEditedName(e.target.value)}
             onBlur={handleNameSubmit}
             onKeyDown={handleKeyDown}
-            className="bg-background text-base font-semibold rounded-sm focus-visible:ring-1 w-fit px-2 ml-[-9px] mt-[-1px] bg-white"
+            className="bg-background text-base font-semibold rounded-sm focus-visible:ring-1 w-fit px-2 ml-[-9px] mt-[-1px] bg-white min-w-sm"
             autoFocus
           />
         ) : (
           <h1 className="font-semibold cursor-pointer hover:text-primary" onClick={handleNameClick}>
-            {board.name}
+            {editedName}
           </h1>
         )}
         <div className="flex items-center gap-2">

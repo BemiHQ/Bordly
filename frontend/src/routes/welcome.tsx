@@ -284,7 +284,7 @@ const FinalStep = () => {
       </Card>
 
       <Button size="lg" asChild>
-        <Link to={ROUTES.HOME}>
+        <Link to={ROUTES.INDEX}>
           Open board
           <ArrowRight data-icon="inline-end" />
         </Link>

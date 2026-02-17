@@ -35,7 +35,7 @@ export const ensureLoggedIn =
   async ({ context: { queryClient, trpc } }: { context: RouteContext }) => {
     const { currentUser, boards } = await queryClient.ensureQueryData(trpc.user.getCurrentUser.queryOptions());
     if (!currentUser) {
-      throw redirect({ to: ROUTES.AUTH });
+      throw redirect({ to: ROUTES.INDEX });
     }
 
     if (boards.length === 0 && currentRoute !== ROUTES.WELCOME) {

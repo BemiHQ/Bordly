@@ -262,7 +262,7 @@ function BoardComponent() {
     retry: false,
   });
   if (error && error.data?.code === 'NOT_FOUND') {
-    navigate({ to: ROUTES.HOME });
+    navigate({ to: ROUTES.INDEX });
   }
 
   useEffect(() => {

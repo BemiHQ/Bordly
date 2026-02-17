@@ -1,7 +1,7 @@
 import { ENV } from '@/utils/env';
 
 export const ROUTES = {
-  HOME: '/',
+  INDEX: '/',
   AUTH: '/auth',
   WELCOME: '/welcome',
   BOARD: '/boards/$boardId',

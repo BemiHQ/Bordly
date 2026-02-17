@@ -98,7 +98,7 @@ export const authRoutes = async (fastify: FastifyInstance) => {
   });
 
   fastify.get(ROUTES.AUTH_LOG_OUT, async (request, reply) => {
-    request.session.delete();
+    request.session.set('userId', undefined);
     return reply.redirect(ENV.APP_ENDPOINT);
   });
 };
