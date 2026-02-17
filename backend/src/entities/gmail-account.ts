@@ -10,6 +10,7 @@ import { Encryption } from '@/utils/encryption';
 
 @Entity({ tableName: 'gmail_accounts' })
 @Unique({ properties: ['googleId'] })
+@Unique({ properties: ['email'] })
 @Index({ properties: ['user'] })
 export class GmailAccount extends BaseEntity {
   @ManyToOne()
@@ -25,6 +26,8 @@ export class GmailAccount extends BaseEntity {
   attachments = new Collection<Attachment>(this);
 
   @Property()
+  name: string;
+  @Property()
   email: string;
   @Property()
   googleId: string;
@@ -37,6 +40,7 @@ export class GmailAccount extends BaseEntity {
 
   constructor({
     user,
+    name,
     email,
     googleId,
     accessToken,
@@ -44,6 +48,7 @@ export class GmailAccount extends BaseEntity {
     accessTokenExpiresAt,
   }: {
     user: User;
+    name: string;
     email: string;
     googleId: string;
     accessToken: string;
@@ -52,6 +57,7 @@ export class GmailAccount extends BaseEntity {
   }) {
     super();
     this.email = email;
+    this.name = name;
     this.user = user;
     this.googleId = googleId;
     this.accessTokenEncrypted = Encryption.encrypt(accessToken);
@@ -63,7 +69,6 @@ export class GmailAccount extends BaseEntity {
   get accessToken(): string {
     return Encryption.decrypt(this.accessTokenEncrypted);
   }
-
   get refreshToken(): string {
     return Encryption.decrypt(this.refreshTokenEncrypted);
   }
@@ -80,12 +85,14 @@ export class GmailAccount extends BaseEntity {
   toJson() {
     return {
       id: this.id,
+      name: this.name,
       email: this.email,
     };
   }
 
   private validate() {
     if (!this.user) throw new Error('User is required');
+    if (!this.name) throw new Error('Name is required');
     if (!this.email) throw new Error('Email is required');
     if (!this.googleId) throw new Error('Google ID is required');
     if (!this.accessTokenEncrypted) throw new Error('Access token is required');

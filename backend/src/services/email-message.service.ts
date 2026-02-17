@@ -19,7 +19,7 @@ import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
 
 const CREATE_INITIAL_EMAIL_MESSAGES_LIMIT = 50;
-const OVERLAP_EMAIL_MESSAGES_MS = 1 * 60 * 1_000; // 1 minute
+const OVERLAP_EMAIL_MESSAGES_MS = 1 * 60 * 1_000; // 1 minute, ~duration of a sync
 const MAX_INITIAL_BOARD_COUNT = 5;
 const CREATE_NEW_EMAIL_MESSAGES_INTERVAL_MS = 20 * 1_000; // 20 seconds
 

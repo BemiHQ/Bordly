@@ -1,6 +1,6 @@
 import { Migration } from '@mikro-orm/migrations';
 
-export class Migration20260130192842_squash_migrations extends Migration {
+export class Migration20260130223046_squash_migrations extends Migration {
   override async up(): Promise<void> {
     this.addSql(`create extension if not exists "uuid-ossp";`);
     this.addSql(
@@ -28,9 +28,10 @@ export class Migration20260130192842_squash_migrations extends Migration {
     this.addSql(`alter table "users" add constraint "users_email_unique" unique ("email");`);
 
     this.addSql(
-      `create table "gmail_accounts" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid null, "user_id" uuid not null, "email" varchar(255) not null, "google_id" varchar(255) not null, "access_token_encrypted" text not null, "access_token_expires_at" timestamptz not null, "refresh_token_encrypted" text not null, constraint "gmail_accounts_pkey" primary key ("id"));`,
+      `create table "gmail_accounts" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid null, "user_id" uuid not null, "name" varchar(255) not null, "email" varchar(255) not null, "google_id" varchar(255) not null, "access_token_encrypted" text not null, "access_token_expires_at" timestamptz not null, "refresh_token_encrypted" text not null, constraint "gmail_accounts_pkey" primary key ("id"));`,
     );
     this.addSql(`create index "gmail_accounts_user_id_index" on "gmail_accounts" ("user_id");`);
+    this.addSql(`alter table "gmail_accounts" add constraint "gmail_accounts_email_unique" unique ("email");`);
     this.addSql(`alter table "gmail_accounts" add constraint "gmail_accounts_google_id_unique" unique ("google_id");`);
 
     this.addSql(

@@ -395,6 +395,16 @@
           "nullable": false,
           "mappedType": "uuid"
         },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 255,
+          "mappedType": "string"
+        },
         "email": {
           "name": "email",
           "type": "varchar(255)",
@@ -454,6 +464,14 @@
           "constraint": false,
           "primary": false,
           "unique": false
+        },
+        {
+          "keyName": "gmail_accounts_email_unique",
+          "columnNames": ["email"],
+          "composite": false,
+          "constraint": true,
+          "primary": false,
+          "unique": true
         },
         {
           "keyName": "gmail_accounts_google_id_unique",

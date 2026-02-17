@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
-import { ListFilter } from 'lucide-react';
+import { AtSign, Ellipsis, Link2, ListFilter } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Navbar } from '@/components/navbar';
@@ -10,6 +10,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
@@ -75,6 +82,7 @@ const BoardNavbar = ({
   filters: BoardFilters;
   setFilters: (value: BoardFilters) => void;
 }) => {
+  const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
   const hasActiveFilters = !!filters.unread || filters.gmailAccountIds.length > 0;
   const toggleEmailAccount = (accountId: string) => {
     setFilters({
@@ -86,52 +94,104 @@ const BoardNavbar = ({
   };
 
   return (
-    <div className="border-b bg-background px-6 py-2.5 flex items-center justify-between">
-      <h1 className="font-semibold">{board.name}</h1>
-      <Popover>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon-sm" className={hasActiveFilters ? 'bg-border hover:bg-border' : ''}>
-                <ListFilter className="text-muted-foreground" />
-              </Button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="left">Filters</TooltipContent>
-        </Tooltip>
-        <PopoverContent align="end">
-          <div className="flex flex-col gap-4">
-            <h3 className="font-semibold text-sm text-center">Filters</h3>
+    <>
+      <div className="border-b bg-background px-6 py-2.5 flex items-center justify-between">
+        <h1 className="font-semibold">{board.name}</h1>
+        <div className="flex items-center gap-2">
+          <Popover>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className={hasActiveFilters ? 'bg-border hover:bg-border' : ''}
+                  >
+                    <ListFilter className="text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="left">Filters</TooltipContent>
+            </Tooltip>
+            <PopoverContent align="end">
+              <div className="flex flex-col gap-4 px-2 pb-2">
+                <h3 className="font-semibold text-sm text-center">Filters</h3>
 
-            <div className="flex flex-col gap-2">
-              <div className="text-xs font-medium text-muted-foreground">Card status</div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox
-                  checked={filters.unread}
-                  onCheckedChange={(checked) => setFilters({ ...filters, unread: !!checked })}
-                />
-                <span className="text-sm">Unread</span>
-              </label>
-            </div>
-
-            {gmailAccounts.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <div className="text-xs font-medium text-muted-foreground">Email accounts</div>
-                {gmailAccounts.map((account) => (
-                  <label key={account.id} className="flex items-center gap-2 cursor-pointer">
+                <div className="flex flex-col gap-2">
+                  <div className="text-2xs font-medium text-muted-foreground">Card status</div>
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox
-                      checked={filters.gmailAccountIds.includes(account.id)}
-                      onCheckedChange={() => toggleEmailAccount(account.id)}
+                      checked={filters.unread}
+                      onCheckedChange={(checked) => setFilters({ ...filters, unread: !!checked })}
                     />
-                    <span className="text-sm">{account.email}</span>
+                    <span className="text-xs">Unread</span>
                   </label>
-                ))}
+                </div>
+
+                {gmailAccounts.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <div className="text-2xs font-medium text-muted-foreground">Email accounts</div>
+                    {gmailAccounts.map((account) => (
+                      <label key={account.id} className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={filters.gmailAccountIds.includes(account.id)}
+                          onCheckedChange={() => toggleEmailAccount(account.id)}
+                        />
+                        <span className="text-xs">{account.email}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </PopoverContent>
+          </Popover>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm">
+                <Ellipsis className="text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setAccountsDialogOpen(true)}>
+                <Link2 />
+                Email accounts
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <Dialog open={accountsDialogOpen} onOpenChange={setAccountsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email accounts</DialogTitle>
+            <DialogDescription className="text-xs">
+              Manage email accounts associated with this board. Add or remove accounts to control which emails appear in
+              your board.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            {gmailAccounts.map((account) => (
+              <div key={account.id} className="flex items-center gap-3 px-3 py-2 border rounded-md">
+                <img src="/domain-icons/gmail.com.ico" alt={account.name} className="size-9 pt-0.5" />
+                <div className="flex-1 min-w-0 leading-3">
+                  <div className="font-medium text-sm">{account.name}</div>
+                  <div className="text-2xs text-muted-foreground">{account.email}</div>
+                </div>
+                <Button variant="outline" size="sm" disabled={gmailAccounts.length === 1}>
+                  Remove
+                </Button>
+              </div>
+            ))}
+            <div className="w-fit mt-3">
+              <Button variant="contrast" className="w-full" size="sm">
+                Add new account
+              </Button>
+            </div>
           </div>
-        </PopoverContent>
-      </Popover>
-    </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
