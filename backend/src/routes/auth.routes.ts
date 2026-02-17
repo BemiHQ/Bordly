@@ -68,7 +68,8 @@ export const authRoutes = async (fastify: FastifyInstance) => {
 
       if (currentUser && currentUser.id !== user.id && boardId) {
         // Add a new Gmail account to an existing board
-        const board = BoardService.findAsAdmin(boardId, { user: currentUser });
+        const board = BoardService.tryFindAsAdmin(boardId, { user: currentUser });
+        if (!board) return reply.status(403).send({ error: 'Board not found or insufficient permissions' });
         await GmailAccountService.addToBoard(gmailAccount!, { board });
         const boardEndpoint = APP_ENDPOINTS.BOARD.replace('$boardId', boardId);
         return reply.redirect(`${boardEndpoint}?${QUERY_PARAMS.ADDED_GMAIL_ACCOUNT}=1`);

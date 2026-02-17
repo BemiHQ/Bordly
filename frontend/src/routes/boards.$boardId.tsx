@@ -277,12 +277,17 @@ function BoardComponent() {
   const context = Route.useRouteContext();
   const params = Route.useParams();
   const matches = useMatches();
+  const navigate = Route.useNavigate();
 
-  const { data: boardData } = useQuery({
+  const { data: boardData, error } = useQuery({
     ...context.trpc.board.get.queryOptions({ boardId: extractUuid(params.boardId) }),
     refetchInterval: ({ state: { data } }) => (data?.boardColumnsAsc.length === 0 ? REFETCH_INTERVAL_MS : false),
     refetchIntervalInBackground: true,
+    retry: false,
   });
+  if (error && error.data?.code === 'NOT_FOUND') {
+    navigate({ to: ROUTES.HOME });
+  }
 
   const { data: boardCardsData } = useQuery({
     ...context.trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),

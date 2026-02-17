@@ -51,7 +51,10 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
         throw new Error(`User not found for ID: ${userId}`);
       }
 
-      const board = BoardService.findAsMember(boardId, { user });
+      const board = BoardService.tryFindAsMember(boardId, { user });
+      if (!board) {
+        throw new Error(`Board not found or user is not a member: ${boardId} (user ID: ${userId})`);
+      }
       const boardCard = await BoardCardService.findById(board, { boardCardId });
       const attachment = await AttachmentService.findByIdAndExternalThreadId(attachmentId, {
         externalThreadId: boardCard.externalThreadId,

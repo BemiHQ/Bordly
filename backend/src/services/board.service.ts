@@ -4,29 +4,18 @@ import { BoardMember, Role } from '@/entities/board-member';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { enqueue, QUEUES } from '@/pg-boss-queues';
+import { GmailAccountService } from '@/services/gmail-account.service';
 import { orm } from '@/utils/orm';
 import { ERRORS } from '@/utils/shared';
-import { GmailAccountService } from './gmail-account.service';
 
 export class BoardService {
-  static findAsAdmin(boardId: string, { user }: { user: User }) {
-    const board = user.boardMembers.find((bm) => bm.board.id === boardId && bm.role === Role.ADMIN)?.board;
-    if (!board) {
-      throw new Error(`User ${user.id} is not an admin of board ${boardId}`);
-    }
-
-    return board;
+  static tryFindAsAdmin(boardId: string, { user }: { user: User }) {
+    return user.boardMembers.find((bm) => bm.board.id === boardId && bm.role === Role.ADMIN)?.board;
   }
 
-  static findAsMember(boardId: string, { user }: { user: User }) {
-    const board = user.boardMembers.find(
-      (bm) => bm.board.id === boardId && [Role.ADMIN, Role.MEMBER].includes(bm.role),
-    )?.board;
-    if (!board) {
-      throw new Error(`User ${user.id} is not a member of board ${boardId}`);
-    }
-
-    return board;
+  static tryFindAsMember(boardId: string, { user }: { user: User }) {
+    return user.boardMembers.find((bm) => bm.board.id === boardId && [Role.ADMIN, Role.MEMBER].includes(bm.role))
+      ?.board;
   }
 
   static async populate<Hint extends string = never>(

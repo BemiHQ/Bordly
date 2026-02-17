@@ -38,9 +38,18 @@ function BoardCardComponent() {
     if (node) setScrollContainer(node);
   }, []);
 
-  const { data: emailMessagesData, isLoading } = useQuery({
+  const {
+    data: emailMessagesData,
+    isLoading,
+    error,
+  } = useQuery({
     ...context.trpc.emailMessage.getEmailMessages.queryOptions({ boardId, boardCardId }),
+    retry: false,
   });
+  if (error && error.data?.code === 'NOT_FOUND') {
+    navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+  }
+
   const boardCard = emailMessagesData?.boardCard;
   const boardColumn = emailMessagesData?.boardColumn;
   const emailMessagesAsc = emailMessagesData?.emailMessagesAsc;
