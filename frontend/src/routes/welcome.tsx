@@ -8,6 +8,7 @@ import { Field, FieldLabel } from '@/components/ui/field';
 import { H1 } from '@/components/ui/h1';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 
 import { useTRPC } from '@/trpc';
 import { ROUTES } from '@/utils/urls';
@@ -26,22 +27,18 @@ export const Route = createFileRoute('/welcome')({
   },
 });
 
-function Welcome() {
+const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => {
   const [boardName, setBoardName] = useState('');
   const trpc = useTRPC();
   const createBoardMutation = useMutation(
     trpc.board.createBoard.mutationOptions({
-      onSuccess: () => {
-        console.log('Successfully created board...');
-      },
+      onSuccess: (data) => setBoardId(data.id),
     }),
   );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (boardName.trim()) {
-      createBoardMutation.mutate({ name: boardName });
-    }
+    createBoardMutation.mutate({ name: boardName });
   };
 
   return (
@@ -56,8 +53,13 @@ function Welcome() {
         <Card>
           <CardContent>
             <Field>
-              <FieldLabel>Board Name</FieldLabel>
-              <Input placeholder="Company Board" value={boardName} onChange={(e) => setBoardName(e.target.value)} />
+              <FieldLabel htmlFor="board-name">Board Name</FieldLabel>
+              <Input
+                id="board-name"
+                placeholder="Company Board"
+                value={boardName}
+                onChange={(e) => setBoardName(e.target.value)}
+              />
             </Field>
           </CardContent>
           <CardFooter className="justify-center">
@@ -82,4 +84,67 @@ function Welcome() {
       </form>
     </div>
   );
+};
+
+const InviteMembers = ({ boardId }: { boardId: string }) => {
+  const [inviteEmails, setInviteEmails] = useState('');
+  const trpc = useTRPC();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+  };
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 max-w-md mx-auto px-4">
+      <H1>Invite your team</H1>
+
+      <span className="text-muted-foreground text-center">
+        Collaborate with your team by inviting members to your board.
+      </span>
+
+      <form onSubmit={handleSubmit} className="w-full">
+        <Card>
+          <CardContent>
+            <Field>
+              <FieldLabel htmlFor="invite-emails">Board Name</FieldLabel>
+              <Textarea
+                id="invite-emails"
+                placeholder="email@example.com, email2@example.com, ..."
+                value={inviteEmails}
+                onChange={(e) => setInviteEmails(e.target.value)}
+              />
+            </Field>
+          </CardContent>
+          <CardFooter className="justify-center">
+            <Button
+              type="submit"
+              size="lg"
+              variant="contrast"
+              disabled={!boardName.trim() || createBoardMutation.isPending}
+              className="flex items-center gap-2"
+            >
+              {createBoardMutation.isPending ? (
+                <>
+                  <Spinner data-icon="inline-start" />
+                  Creating...
+                </>
+              ) : (
+                'Create Board'
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      </form>
+    </div>
+  );
+};
+
+function Welcome() {
+  const [boardId, setBoardId] = useState<string>();
+
+  if (!boardId) {
+    return <NewBoard setBoardId={setBoardId} />;
+  }
+
+  return <InviteMembers boardId={boardId} />;
 }

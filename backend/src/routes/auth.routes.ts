@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { type Auth, google } from 'googleapis';
 
+import type { User } from '@/entities/user';
+import { GmailAccountService } from '@/services/gmail-account.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
 
@@ -35,13 +37,17 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       const oauth2 = google.oauth2({ version: 'v2', auth: OAUTH2_CLIENT });
       const userInfo = await oauth2.userinfo.get();
 
-      let user = await UserService.findByGoogleId(userInfo.data.id);
+      const gmailAccount = await GmailAccountService.findByGoogleId(userInfo.data.id, { populate: ['user'] });
+      let user = gmailAccount?.user as User;
       if (!user) {
-        user = await UserService.create({
+        user = await UserService.createWithGmailAccount({
           email: userInfo.data.email || '',
           name: userInfo.data.name || '',
           photoUrl: userInfo.data.picture || '',
           googleId: userInfo.data.id || '',
+          accessToken: tokens.access_token || '',
+          refreshToken: tokens.refresh_token || '',
+          accessTokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
         });
       }
       await UserService.updateLastSessionAt(user);

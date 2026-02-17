@@ -1,0 +1,14 @@
+import type { Populate } from '@mikro-orm/postgresql';
+
+import { GmailAccount } from '@/entities/gmail-account';
+import { orm } from '@/utils/orm';
+
+export class GmailAccountService {
+  static findByGoogleId(
+    googleId?: string | null,
+    { populate }: { populate?: Populate<GmailAccount, 'string'> } = { populate: [] },
+  ) {
+    if (!googleId) return null;
+    return orm.em.findOne(GmailAccount, { googleId }, { populate });
+  }
+}

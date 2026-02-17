@@ -3,9 +3,12 @@ import { Collection, Entity, ManyToMany, OneToMany, Property } from '@mikro-orm/
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardMember } from '@/entities/board-member';
 import type { User } from '@/entities/user';
+import type { GmailAccount } from './gmail-account';
 
 @Entity({ tableName: 'boards' })
 export class Board extends BaseEntity {
+  @OneToMany({ mappedBy: (gmailAccount: GmailAccount) => gmailAccount.board })
+  gmailAccounts = new Collection<GmailAccount>(this);
   @OneToMany({ mappedBy: (boardMember: BoardMember) => boardMember.board })
   boardMembers = new Collection<BoardMember>(this);
   @ManyToMany({ mappedBy: (user: User) => user.boards })

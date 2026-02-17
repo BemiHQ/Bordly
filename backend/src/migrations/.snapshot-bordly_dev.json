@@ -1,5 +1,7 @@
 {
-  "namespaces": ["public"],
+  "namespaces": [
+    "public"
+  ],
   "name": "public",
   "tables": [
     {
@@ -50,7 +52,9 @@
       "indexes": [
         {
           "keyName": "boards_pkey",
-          "columnNames": ["id"],
+          "columnNames": [
+            "id"
+          ],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -59,119 +63,6 @@
       ],
       "checks": [],
       "foreignKeys": {},
-      "nativeEnums": {}
-    },
-    {
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "default": "uuid_generate_v4()",
-          "mappedType": "uuid"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamptz",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 6,
-          "mappedType": "datetime"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamptz",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 6,
-          "mappedType": "datetime"
-        },
-        "board_id": {
-          "name": "board_id",
-          "type": "uuid",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "uuid"
-        },
-        "google_id": {
-          "name": "google_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 255,
-          "mappedType": "string"
-        },
-        "access_token_encrypted": {
-          "name": "access_token_encrypted",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "text"
-        },
-        "access_token_expires_at": {
-          "name": "access_token_expires_at",
-          "type": "timestamptz",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 6,
-          "mappedType": "datetime"
-        },
-        "refresh_token_encrypted": {
-          "name": "refresh_token_encrypted",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "text"
-        }
-      },
-      "name": "board_gmail_accounts",
-      "schema": "public",
-      "indexes": [
-        {
-          "keyName": "board_gmail_accounts_board_id_google_id_unique",
-          "columnNames": ["board_id", "google_id"],
-          "composite": true,
-          "constraint": true,
-          "primary": false,
-          "unique": true
-        },
-        {
-          "keyName": "board_gmail_accounts_pkey",
-          "columnNames": ["id"],
-          "composite": false,
-          "constraint": true,
-          "primary": true,
-          "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {
-        "board_gmail_accounts_board_id_foreign": {
-          "constraintName": "board_gmail_accounts_board_id_foreign",
-          "columnNames": ["board_id"],
-          "localTableName": "public.board_gmail_accounts",
-          "referencedColumnNames": ["id"],
-          "referencedTableName": "public.boards",
-          "updateRule": "cascade"
-        }
-      },
       "nativeEnums": {}
     },
     {
@@ -244,32 +135,16 @@
           "nullable": true,
           "length": 6,
           "mappedType": "datetime"
-        },
-        "google_id": {
-          "name": "google_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 255,
-          "mappedType": "string"
         }
       },
       "name": "users",
       "schema": "public",
       "indexes": [
         {
-          "keyName": "users_google_id_unique",
-          "columnNames": ["google_id"],
-          "composite": false,
-          "constraint": true,
-          "primary": false,
-          "unique": true
-        },
-        {
           "keyName": "users_email_unique",
-          "columnNames": ["email"],
+          "columnNames": [
+            "email"
+          ],
           "composite": false,
           "constraint": true,
           "primary": false,
@@ -277,7 +152,9 @@
         },
         {
           "keyName": "users_pkey",
-          "columnNames": ["id"],
+          "columnNames": [
+            "id"
+          ],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -326,11 +203,176 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "mappedType": "uuid"
         },
         "user_id": {
           "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "uuid"
+        },
+        "google_id": {
+          "name": "google_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 255,
+          "mappedType": "string"
+        },
+        "access_token_encrypted": {
+          "name": "access_token_encrypted",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        },
+        "access_token_expires_at": {
+          "name": "access_token_expires_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "mappedType": "datetime"
+        },
+        "refresh_token_encrypted": {
+          "name": "refresh_token_encrypted",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        }
+      },
+      "name": "gmail_accounts",
+      "schema": "public",
+      "indexes": [
+        {
+          "keyName": "gmail_accounts_user_id_index",
+          "columnNames": [
+            "user_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false
+        },
+        {
+          "keyName": "gmail_accounts_google_id_unique",
+          "columnNames": [
+            "google_id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "primary": false,
+          "unique": true
+        },
+        {
+          "keyName": "gmail_accounts_pkey",
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "gmail_accounts_board_id_foreign": {
+          "constraintName": "gmail_accounts_board_id_foreign",
+          "columnNames": [
+            "board_id"
+          ],
+          "localTableName": "public.gmail_accounts",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.boards",
+          "deleteRule": "set null",
+          "updateRule": "cascade"
+        },
+        "gmail_accounts_user_id_foreign": {
+          "constraintName": "gmail_accounts_user_id_foreign",
+          "columnNames": [
+            "user_id"
+          ],
+          "localTableName": "public.gmail_accounts",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.users",
+          "updateRule": "cascade"
+        }
+      },
+      "nativeEnums": {}
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "default": "uuid_generate_v4()",
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "mappedType": "datetime"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "uuid"
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "enumItems": [
+            "ADMIN"
+          ],
+          "mappedType": "enum"
+        },
+        "board_id": {
+          "name": "board_id",
           "type": "uuid",
           "unsigned": false,
           "autoincrement": false,
@@ -344,7 +386,9 @@
       "indexes": [
         {
           "keyName": "board_members_user_id_index",
-          "columnNames": ["user_id"],
+          "columnNames": [
+            "user_id"
+          ],
           "composite": false,
           "constraint": false,
           "primary": false,
@@ -352,7 +396,10 @@
         },
         {
           "keyName": "board_members_board_id_user_id_unique",
-          "columnNames": ["board_id", "user_id"],
+          "columnNames": [
+            "board_id",
+            "user_id"
+          ],
           "composite": true,
           "constraint": true,
           "primary": false,
@@ -360,7 +407,9 @@
         },
         {
           "keyName": "board_members_pkey",
-          "columnNames": ["id"],
+          "columnNames": [
+            "id"
+          ],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -369,20 +418,28 @@
       ],
       "checks": [],
       "foreignKeys": {
-        "board_members_board_id_foreign": {
-          "constraintName": "board_members_board_id_foreign",
-          "columnNames": ["board_id"],
-          "localTableName": "public.board_members",
-          "referencedColumnNames": ["id"],
-          "referencedTableName": "public.boards",
-          "updateRule": "cascade"
-        },
         "board_members_user_id_foreign": {
           "constraintName": "board_members_user_id_foreign",
-          "columnNames": ["user_id"],
+          "columnNames": [
+            "user_id"
+          ],
           "localTableName": "public.board_members",
-          "referencedColumnNames": ["id"],
+          "referencedColumnNames": [
+            "id"
+          ],
           "referencedTableName": "public.users",
+          "updateRule": "cascade"
+        },
+        "board_members_board_id_foreign": {
+          "constraintName": "board_members_board_id_foreign",
+          "columnNames": [
+            "board_id"
+          ],
+          "localTableName": "public.board_members",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.boards",
           "updateRule": "cascade"
         }
       },

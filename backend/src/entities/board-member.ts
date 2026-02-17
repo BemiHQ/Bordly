@@ -1,8 +1,12 @@
-import { Entity, Index, ManyToOne, Unique } from '@mikro-orm/postgresql';
+import { Entity, Enum, Index, ManyToOne, Unique } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
 import type { User } from '@/entities/user';
+
+export enum Role {
+  ADMIN = 'ADMIN',
+}
 
 @Entity({ tableName: 'board_members' })
 @Unique({ properties: ['board', 'user'] })
@@ -13,10 +17,14 @@ export class BoardMember extends BaseEntity {
   @ManyToOne()
   user: User;
 
+  @Enum(() => Role)
+  role: Role;
+
   constructor({ board, user }: { board: Board; user: User }) {
     super();
     this.board = board;
     this.user = user;
+    this.role = Role.ADMIN;
     this.validate();
   }
 
