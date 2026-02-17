@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import { Domain } from '@/entities/domain';
 import { orm } from '@/utils/orm';
 
-const REQUEST_TIMEOUT_MS = 5_000;
+const REQUEST_TIMEOUT_MS = 3_000;
 
 const SKIP_CONSUMER_DOMAINS = [
   'gmail.com',
@@ -56,26 +56,25 @@ const DOUBLE_DOMAIN_NAMESPACES = [
 ];
 
 export class DomainService {
-  static async findDomainIconUrlByName(domainNames: string[]) {
+  static async findAndBuildDomainByName(domainNames: string[]) {
     const domains = await orm.em.find(Domain, { name: { $in: domainNames } });
-    const domainIconUrlByName: Record<string, string> = {};
+    const domainByName: Record<string, Domain> = {};
     for (const domain of domains) {
-      if (domain.iconUrl) {
-        domainIconUrlByName[domain.name] = domain.iconUrl;
-      }
+      domainByName[domain.name] = domain;
     }
-    return domainIconUrlByName;
+    return domainByName;
   }
 
-  static async findOrInitDomainWithIcon(domainName: string) {
-    const existingDomain = await orm.em.findOne(Domain, { name: domainName });
-    if (existingDomain?.iconUrl) return existingDomain;
+  static async fetchIconUrl(domain: Domain) {
+    if (domain.iconUrl) {
+      return domain.iconUrl;
+    }
 
     let foundIconUrl: string | undefined;
 
-    const rootDomainName = domainName
+    const rootDomainName = domain.name
       .split('.')
-      .slice(DOUBLE_DOMAIN_NAMESPACES.some((ns) => domainName.endsWith(`.${ns}`)) ? -3 : -2)
+      .slice(DOUBLE_DOMAIN_NAMESPACES.some((ns) => domain.name.endsWith(`.${ns}`)) ? -3 : -2)
       .join('.'); // e.g., sub.example.com -> example.com, sub.example.co.uk -> example.co.uk
 
     if (SKIP_CONSUMER_DOMAINS.includes(rootDomainName)) {
@@ -110,12 +109,8 @@ export class DomainService {
         } catch (_error) {} // Could not fetch or parse HTML
       }
     }
-    const domain = existingDomain || new Domain({ name: domainName });
-    if (foundIconUrl) {
-      domain.setIconUrl(foundIconUrl);
-    }
 
-    return domain;
+    return foundIconUrl;
   }
 
   private static async sendGet(url: string) {

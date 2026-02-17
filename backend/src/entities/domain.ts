@@ -17,8 +17,10 @@ export class Domain extends BaseEntity {
     this.validate();
   }
 
-  setIconUrl(iconUrl: string) {
-    this.iconUrl = iconUrl;
+  setIconUrl(iconUrl?: string) {
+    if (iconUrl) {
+      this.iconUrl = iconUrl;
+    }
   }
 
   toJson() {

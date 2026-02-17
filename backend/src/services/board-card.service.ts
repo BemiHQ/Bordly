@@ -6,14 +6,22 @@ import type { User } from '@/entities/user';
 import { orm } from '@/utils/orm';
 
 export class BoardCardService {
-  static tryFindByGmailAccountAndExternalThreadId({
-    gmailAccount,
-    externalThreadId,
-  }: {
+  static async findAndBuildBoardCardByThreadId<Hint extends string = never>(args: {
     gmailAccount: GmailAccount;
-    externalThreadId: string;
+    externalThreadIds: string[];
+    populate?: Populate<BoardCard, Hint>;
   }) {
-    return orm.em.findOne(BoardCard, { gmailAccount, externalThreadId });
+    const { gmailAccount, externalThreadIds, populate = [] } = args;
+    const boardCards = await orm.em.find(
+      BoardCard,
+      { gmailAccount, externalThreadId: { $in: externalThreadIds } },
+      { populate },
+    );
+    const boardCardByThreadId: Record<string, BoardCard> = {};
+    for (const boardCard of boardCards) {
+      boardCardByThreadId[boardCard.externalThreadId] = boardCard;
+    }
+    return boardCardByThreadId;
   }
 
   static findCardsByBoardId<Hint extends string = never>(

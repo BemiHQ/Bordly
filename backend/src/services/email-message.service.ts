@@ -5,6 +5,7 @@ import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 import { Attachment } from '@/entities/attachment';
 import { BoardCard, State } from '@/entities/board-card';
 import { BoardColumn, SPAM_POSITION, TRASH_POSITION } from '@/entities/board-column';
+import { Domain } from '@/entities/domain';
 import { EmailMessage, LABELS, type Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { AgentService } from '@/services/agent.service';
@@ -12,6 +13,7 @@ import { BoardCardService } from '@/services/board-card.service';
 import { DomainService } from '@/services/domain.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { gmailAttachmentsData, gmailBody, gmailHeaderValue, newGmail } from '@/utils/google-api';
+import { unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
@@ -117,13 +119,30 @@ export class EmailMessageService {
           if (foundPreviousMessage) break; // Stop pagination if we found the previous message
         } while (pageToken);
 
-        // Update or Create BoardCards
-        const boardColumnsAsc = gmailAccount.board.boardColumns.getItems().sort((a, b) => a.position - b.position);
+        // Find existing BoardCards
+        const boardCardByThreadId = await BoardCardService.findAndBuildBoardCardByThreadId({
+          gmailAccount,
+          externalThreadIds: Object.keys(emailMessagesDescByThreadId),
+          populate: ['domain'],
+        });
+
+        // Collect domain names
+        const domainNameByThreadId: Record<string, string> = {};
         for (const [threadId, emailMessagesDesc] of Object.entries(emailMessagesDescByThreadId)) {
-          let boardCard = await BoardCardService.tryFindByGmailAccountAndExternalThreadId({
-            gmailAccount,
-            externalThreadId: threadId,
-          });
+          const boardCard = boardCardByThreadId[threadId];
+          if (boardCard) {
+            domainNameByThreadId[threadId] = boardCard.domain.name;
+          } else {
+            domainNameByThreadId[threadId] = EmailMessageService.domainName(emailMessagesDesc);
+          }
+        }
+        const domainByName = await DomainService.findAndBuildDomainByName(unique(Object.values(domainNameByThreadId)));
+
+        const boardColumnsAsc = gmailAccount.board.boardColumns.getItems().sort((a, b) => a.position - b.position);
+
+        // Update or Create BoardCards
+        for (const [threadId, emailMessagesDesc] of Object.entries(emailMessagesDescByThreadId)) {
+          let boardCard = boardCardByThreadId[threadId];
 
           const state = EmailMessageService.boardCardStateFromEmailMessages(emailMessagesDesc);
           const participants = EmailMessageService.uniqueParticipantsAsc([
@@ -165,9 +184,17 @@ export class EmailMessageService {
               );
               boardColumn = boardColumnsAsc[0]!;
             }
-            const domain = await DomainService.findOrInitDomainWithIcon(
-              EmailMessageService.domainName(emailMessagesDesc),
-            );
+
+            const domainName = domainNameByThreadId[threadId]!;
+            const domain = domainByName[domainName] || new Domain({ name: domainName });
+            if (!domain.iconUrl) {
+              domain.setIconUrl(await DomainService.fetchIconUrl(domain));
+            }
+            if (!domainByName[domainName]) {
+              orm.em.persist(domain);
+              domainByName[domainName] = domain;
+            }
+
             boardCard = new BoardCard({
               gmailAccount,
               boardColumn: boardColumn!,
@@ -259,6 +286,13 @@ export class EmailMessageService {
       .slice(0, MAX_INITIAL_BOARD_COUNT - 1);
     topCategories.push(CATEGORIES.OTHERS);
 
+    // Collect domain names
+    const domainNameByThreadId: Record<string, string> = {};
+    for (const [threadId, emailMessagesDesc] of Object.entries(emailMessagesDescByThreadId)) {
+      domainNameByThreadId[threadId] = EmailMessageService.domainName(emailMessagesDesc);
+    }
+    const domainByName = await DomainService.findAndBuildDomainByName(unique(Object.values(domainNameByThreadId)));
+
     // Create BoardColumns and BoardCards
     const boardColumnsByCategory: Record<string, BoardColumn> = {};
     for (const [initialCategory, threadIds] of Object.entries(emailThreadIdsByCategory)) {
@@ -294,9 +328,18 @@ export class EmailMessageService {
           EmailMessageService.participantsAsc({ emailMessagesDesc, gmailAccount }),
         );
         const unreadEmailMessageIds = EmailMessageService.unreadEmailMessageIds(emailMessagesDesc);
-        const domain = await DomainService.findOrInitDomainWithIcon(EmailMessageService.domainName(emailMessagesDesc));
         const lastEmailMessage = emailMessagesDesc[0]!;
         const firstEmailMessage = emailMessagesDesc[emailMessagesDesc.length - 1]!;
+
+        const domainName = domainNameByThreadId[threadId]!;
+        const domain = domainByName[domainName] || new Domain({ name: domainName });
+        if (!domain.iconUrl) {
+          domain.setIconUrl(await DomainService.fetchIconUrl(domain));
+        }
+        if (!domainByName[domainName]) {
+          orm.em.persist(domain);
+          domainByName[domainName] = domain;
+        }
 
         const boardCard = new BoardCard({
           gmailAccount,
@@ -311,7 +354,7 @@ export class EmailMessageService {
           unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
           movedToTrashAt: state === State.TRASHED ? new Date() : undefined,
         });
-        orm.em.persist([domain, boardCard]);
+        orm.em.persist(boardCard);
       }
     }
 

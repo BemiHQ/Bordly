@@ -101,7 +101,7 @@ const BoardNavbar = ({
         </Tooltip>
         <PopoverContent align="end">
           <div className="flex flex-col gap-4">
-            <h3 className="font-semibold text-sm">Filters</h3>
+            <h3 className="font-semibold text-sm text-center">Filters</h3>
 
             <div className="flex flex-col gap-2">
               <div className="text-xs font-medium text-muted-foreground">Card status</div>
