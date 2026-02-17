@@ -13,6 +13,11 @@ export enum State {
   DECLINED = 'DECLINED',
 }
 
+export interface BoardInvite {
+  loadedBoard: Board;
+  loadedInvitedBy: User;
+}
+
 @Entity({ tableName: 'board_invites' })
 @Unique({ properties: ['board', 'email'] })
 @Index({ properties: ['email'] })

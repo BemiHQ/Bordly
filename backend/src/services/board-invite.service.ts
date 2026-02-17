@@ -83,10 +83,10 @@ export class BoardInviteService {
     await Emailer.send({
       from: NO_REPLY_EMAIL,
       to: [boardInvite.email],
-      subject: `You are invited by ${boardInvite.invitedBy.name}`,
+      subject: `You are invited by ${boardInvite.loadedInvitedBy.name}`,
       bodyText: renderTemplate(INVITE_EMAIL_TEMPLATE, {
-        inviterName: boardInvite.invitedBy.name,
-        boardName: boardInvite.board.name,
+        inviterName: boardInvite.loadedInvitedBy.name,
+        boardName: boardInvite.loadedBoard.name,
         inviteLink: ENV.APP_ENDPOINT,
       }),
     });

@@ -124,7 +124,7 @@ export class EmailDraftService {
     const $ = cheerio.load(bodyHtml || '');
     const bodyText = $.text();
 
-    const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
+    const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
     const participantToString = (p: Participant) => (p.name ? `${p.name} <${p.email}>` : p.email);
 
     const sentMessage = await GmailApi.sendEmail(gmail, {
@@ -157,7 +157,7 @@ export class EmailDraftService {
 
     const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({
       boardCard,
-      gmailAccount: boardCard.gmailAccount,
+      gmailAccount: boardCard.loadedGmailAccount,
       emailMessagesDesc: [emailMessage, ...emailMessagesDesc],
     });
 

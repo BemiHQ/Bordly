@@ -64,5 +64,17 @@
     "parser": {
       "tailwindDirectives": true
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["backend/src/entities/**/*"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noUnsafeDeclarationMerging": "off"
+          }
+        }
+      }
+    }
+  ]
 }

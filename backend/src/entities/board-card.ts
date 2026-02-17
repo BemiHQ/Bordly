@@ -10,6 +10,12 @@ import { BoardCardState as State } from '@/utils/shared';
 
 export { State };
 
+export interface BoardCard {
+  loadedGmailAccount: GmailAccount;
+  loadedBoardColumn: BoardColumn;
+  loadedDomain: Domain;
+}
+
 @Entity({ tableName: 'board_cards' })
 @Unique({ properties: ['boardColumn', 'pinnedPosition'] })
 @Index({ properties: ['gmailAccount'] })
@@ -160,7 +166,7 @@ export class BoardCard extends BaseEntity {
   toJson() {
     return {
       id: this.id,
-      domain: this.domain.toJson(),
+      domain: this.loadedDomain.toJson(),
       emailDraft: this.emailDraft?.toJson(),
       gmailAccountId: this.gmailAccount.id,
       boardColumnId: this.boardColumn.id,

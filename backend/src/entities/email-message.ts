@@ -9,6 +9,11 @@ export interface Participant {
   email: string;
 }
 
+export interface EmailMessage {
+  loadedGmailAccount: GmailAccount;
+  loadedDomain: Domain;
+}
+
 @Entity({ tableName: 'email_messages' })
 @Unique({ properties: ['gmailAccount', 'externalId'] })
 @Index({ properties: ['externalThreadId'] })
@@ -116,7 +121,7 @@ export class EmailMessage extends BaseEntity {
   toJson() {
     return {
       id: this.id,
-      domain: this.domain.toJson(),
+      domain: this.loadedDomain.toJson(),
       attachments: this.attachments.getItems().map((attachment) => attachment.toJson()),
       from: this.from,
       subject: this.subject,

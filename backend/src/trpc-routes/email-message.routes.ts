@@ -16,7 +16,7 @@ export const EMAIL_MESSAGE_ROUTES = {
         });
         return {
           boardCard: boardCard.toJson(),
-          boardColumn: boardCard.boardColumn.toJson(),
+          boardColumn: boardCard.loadedBoardColumn.toJson(),
           emailMessagesAsc: emailMessagesAsc.map((msg) => msg.toJson()),
         };
       }),

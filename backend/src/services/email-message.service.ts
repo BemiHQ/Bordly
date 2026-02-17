@@ -56,7 +56,7 @@ export class EmailMessageService {
     while (true) {
       const gmailAccounts = (
         await GmailAccountService.findAllAccountsWithBoards({ populate: ['board.boardColumns', 'emailAddresses'] })
-      ).filter((acc) => acc.board?.initialized);
+      ).filter((acc) => acc.loadedBoard?.initialized);
 
       const gmailAccountIds = new Set(gmailAccounts.map((acc) => acc.id));
 
@@ -116,7 +116,7 @@ export class EmailMessageService {
 
       const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
       (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
-      domainNames.add(emailMessage.domain.name);
+      domainNames.add(emailMessage.loadedDomain.name);
       // We also want to read domain names for board cards (they don't use the "From" field for sent emails)
       domainNames.add(BoardCardService.emailMessageParticipantsAsc(emailMessage)[0]!.email.split('@')[1]!);
 
@@ -311,7 +311,7 @@ export class EmailMessageService {
       populate: ['domain'],
     });
     // - Board columns
-    const boardColumnsAsc = gmailAccount.board!.boardColumns.getItems().sort((a, b) => a.position - b.position);
+    const boardColumnsAsc = [...gmailAccount.loadedBoard!.boardColumns].sort((a, b) => a.position - b.position);
 
     // Handle add: collect EmailMessages & Attachments
     console.log(`[GMAIL] Processing additions for ${gmailAccount.email}...`);
@@ -337,7 +337,7 @@ export class EmailMessageService {
         const emailMessagesDesc = [emailMessage, ...(emailMessagesDescByThreadId[threadId] || [])];
         emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
 
-        domainNames.add(emailMessage.domain.name);
+        domainNames.add(emailMessage.loadedDomain.name);
         // We also want to read domain names for board cards (they don't use the "From" field for sent emails)
         domainNames.add(BoardCardService.emailMessageParticipantsAsc(emailMessage)[0]!.email.split('@')[1]!);
 

@@ -8,7 +8,7 @@ export const USER_ROUTES = {
       if (!ctx.user) return { currentUser: null };
       return {
         currentUser: ctx.user.toJson(),
-        boards: ctx.user.boardMembers.getItems().map((bm) => bm.board.toJson()),
+        boards: ctx.user.boardMembers.map((bm) => bm.loadedBoard.toJson()),
       };
     }),
   } satisfies TRPCRouterRecord,

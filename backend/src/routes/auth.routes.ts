@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 
-import type { User } from '@/entities/user';
 import { BoardService } from '@/services/board.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { UserService } from '@/services/user.service';
@@ -41,7 +40,7 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       const userInfo = await GoogleApi.newOauth2(oauth2Client).userinfo.get();
 
       let gmailAccount = await GmailAccountService.tryFindByExternalId(userInfo.data.id, { populate: ['user'] });
-      let user = gmailAccount?.user as User;
+      let user = gmailAccount?.loadedUser;
       if (user) {
         await GmailAccountService.setTokens(gmailAccount!, {
           accessToken: tokens.access_token as string,

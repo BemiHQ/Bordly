@@ -46,7 +46,7 @@ export class GmailAccountService {
     if (gmailAccount.board!.id !== board.id) {
       throw new Error('Gmail account does not belong to the specified board');
     }
-    const boardMember = gmailAccount.user.boardMembers.find((bm) => bm.board.id === board.id);
+    const boardMember = gmailAccount.loadedUser.boardMembers.find((bm) => bm.board.id === board.id);
     if (!boardMember) {
       throw new Error('Board member not found for the specified board');
     }

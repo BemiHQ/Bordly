@@ -4,6 +4,10 @@ import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
 
+export interface BoardColumn {
+  loadedBoard: Board;
+}
+
 @Entity({ tableName: 'board_columns' })
 @Unique({ properties: ['board', 'position'] })
 @Unique({ properties: ['board', 'name'] })

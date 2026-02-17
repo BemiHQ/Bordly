@@ -7,6 +7,11 @@ import { BoardMemberRole } from '@/utils/shared';
 
 export { BoardMemberRole as Role };
 
+export interface BoardMember {
+  loadedBoard: Board;
+  loadedUser: User;
+}
+
 @Entity({ tableName: 'board_members' })
 @Unique({ properties: ['board', 'user'] })
 @Index({ properties: ['user'] })
@@ -34,7 +39,7 @@ export class BoardMember extends BaseEntity {
 
   toJson() {
     return {
-      user: this.user.toJson(),
+      user: this.loadedUser.toJson(),
       role: this.role,
     };
   }

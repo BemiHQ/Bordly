@@ -10,12 +10,12 @@ import { ERRORS } from '@/utils/shared';
 
 export class BoardService {
   static tryFindAsAdmin(boardId: string, { user }: { user: User }) {
-    return user.boardMembers.find((bm) => bm.board.id === boardId && bm.role === Role.ADMIN)?.board;
+    return user.boardMembers.find((bm) => bm.board.id === boardId && bm.role === Role.ADMIN)?.loadedBoard;
   }
 
   static tryFindAsMember(boardId: string, { user }: { user: User }) {
     return user.boardMembers.find((bm) => bm.board.id === boardId && [Role.ADMIN, Role.MEMBER].includes(bm.role))
-      ?.board;
+      ?.loadedBoard;
   }
 
   static async populate<Hint extends string = never>(

@@ -58,7 +58,7 @@ export class BoardCardService {
     });
 
     console.log('[GMAIL] Marking thread as read:', boardCard.externalThreadId);
-    const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
+    const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
     await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
 
     boardCard.setUnreadEmailMessageIds(undefined);
@@ -78,7 +78,7 @@ export class BoardCardService {
     const lastEmailMessage = await EmailMessageService.findLastByExternalThreadId(boardCard.externalThreadId);
 
     console.log('[GMAIL] Marking thread as unread:', boardCard.externalThreadId);
-    const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
+    const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
     await GmailApi.markThreadAsUnread(gmail, boardCard.externalThreadId);
 
     boardCard.setUnreadEmailMessageIds([lastEmailMessage.id]);
@@ -113,7 +113,7 @@ export class BoardCardService {
       populate: ['gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
 
-    const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
+    const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
 
     if (state === State.ARCHIVED) {
       await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);

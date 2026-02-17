@@ -2,6 +2,10 @@ import { Entity, ManyToOne, Property, Unique } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { GmailAccount } from '@/entities/gmail-account';
 
+export interface EmailAddress {
+  loadedGmailAccount: GmailAccount;
+}
+
 @Entity({ tableName: 'email_addresses' })
 @Unique({ properties: ['gmailAccount', 'email'] })
 export class EmailAddress extends BaseEntity {

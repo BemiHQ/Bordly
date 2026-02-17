@@ -5,6 +5,10 @@ import type { Participant } from '@/entities/email-message';
 
 export type { Participant } from '@/entities/email-message';
 
+export interface EmailDraft {
+  loadedBoardCard: BoardCard;
+}
+
 @Entity({ tableName: 'email_drafts' })
 @Unique({ properties: ['boardCard'] })
 export class EmailDraft extends BaseEntity {

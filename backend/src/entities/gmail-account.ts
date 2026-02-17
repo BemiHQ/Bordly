@@ -9,6 +9,11 @@ import type { EmailMessage } from '@/entities/email-message';
 import type { User } from '@/entities/user';
 import { Encryption } from '@/utils/encryption';
 
+export interface GmailAccount {
+  loadedBoard?: Board;
+  loadedUser: User;
+}
+
 @Entity({ tableName: 'gmail_accounts' })
 @Unique({ properties: ['externalId'] })
 @Unique({ properties: ['email'] })

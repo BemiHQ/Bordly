@@ -69,7 +69,7 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
       const gmail = await GmailAccountService.initGmail(gmailAccount);
 
       const { data: attachmentData } = await GmailApi.getAttachment(gmail, {
-        messageId: attachment.emailMessage.externalId,
+        messageId: attachment.loadedEmailMessage.externalId,
         attachmentId: attachment.externalId,
       });
 
