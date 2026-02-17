@@ -202,6 +202,12 @@ export class BoardCardService {
     return boardCard;
   }
 
+  static emailMessageParticipantsAsc(emailMessage: EmailMessage) {
+    return emailMessage.sent
+      ? [...(emailMessage.to || []), ...(emailMessage.cc || []), ...(emailMessage.bcc || [])]
+      : [emailMessage.from, ...(emailMessage.to || []), ...(emailMessage.cc || [])];
+  }
+
   // Make unique by email, preferring participants with names
   private static uniqueParticipantsAsc({
     emailMessagesDesc,
@@ -212,11 +218,7 @@ export class BoardCardService {
   }) {
     const participantsAsc = emailMessagesDesc
       .reverse()
-      .flatMap((msg) =>
-        msg.sent
-          ? [...(msg.to || []), ...(msg.cc || []), ...(msg.bcc || [])]
-          : [msg.from, ...(msg.to || []), ...(msg.cc || [])],
-      )
+      .flatMap(BoardCardService.emailMessageParticipantsAsc)
       .filter((p) => p.email !== gmailAccount.email);
 
     const participantsByEmail: { [email: string]: Participant } = {};

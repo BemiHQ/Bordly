@@ -105,7 +105,7 @@ export class EmailMessageService {
     // Collect EmailMessages and Attachments
     let lastExternalHistoryId: string | undefined;
     const emailMessagesDescByThreadId: Record<string, EmailMessage[]> = {};
-    const domainNames: string[] = [];
+    const domainNames = new Set<string>();
     for (const message of messages) {
       if (!message.id) continue;
       console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${message.id}...`);
@@ -113,7 +113,10 @@ export class EmailMessageService {
       const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
 
       (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
-      domainNames.push(emailMessage.domain.name);
+      domainNames.add(emailMessage.domain.name);
+      // We also want to read domain names for board cards (they don't use the "From" field for sent emails)
+      domainNames.add(BoardCardService.emailMessageParticipantsAsc(emailMessage)[0]!.email.split('@')[1]!);
+
       if (!lastExternalHistoryId && messageData.historyId) {
         lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message
       }
@@ -138,7 +141,7 @@ export class EmailMessageService {
     topCategories.push(CATEGORIES.OTHER);
 
     // Find existing Domains
-    const existingDomainByName = await DomainService.findDomainByName(unique(domainNames));
+    const existingDomainByName = await DomainService.findDomainByName([...domainNames]);
     const persistDomainOnce = async (domain: Domain) => {
       const existingDomain = existingDomainByName[domain.name];
       if (existingDomain) return existingDomain;
@@ -270,7 +273,7 @@ export class EmailMessageService {
 
     // Handle add: collect EmailMessages & Attachments
     console.log(`[GMAIL] Processing additions for ${gmailAccount.email}...`);
-    const domainNames: string[] = [];
+    const domainNames = new Set<string>();
     const alreadDeletedExternalMessageIds = new Set();
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
       const emailMessageToCreate = affectedEmailMessageByExternalId[externalMessageId];
@@ -286,7 +289,9 @@ export class EmailMessageService {
         const emailMessagesDesc = [emailMessage, ...(emailMessagesDescByThreadId[threadId] || [])];
         emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
 
-        domainNames.push(emailMessage.domain.name);
+        domainNames.add(emailMessage.domain.name);
+        // We also want to read domain names for board cards (they don't use the "From" field for sent emails)
+        domainNames.add(BoardCardService.emailMessageParticipantsAsc(emailMessage)[0]!.email.split('@')[1]!);
 
         if (!lastExternalHistoryId && messageData.historyId) {
           lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message if not set from history
@@ -302,7 +307,7 @@ export class EmailMessageService {
       }
     }
     // Load domains
-    const existingDomainByName = await DomainService.findDomainByName(unique(domainNames));
+    const existingDomainByName = await DomainService.findDomainByName([...domainNames]);
     const persistDomainOnce = async (domain: Domain) => {
       const existingDomain = existingDomainByName[domain.name];
       if (existingDomain) return existingDomain;
