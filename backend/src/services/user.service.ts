@@ -54,7 +54,7 @@ export class UserService {
     }
 
     await orm.em.flush();
-    return user;
+    return { user, gmailAccount };
   }
 
   static async updateLastSessionAt(user: User) {

@@ -13,17 +13,19 @@ const GOOGLE_SCOPES = [
 ];
 
 export const authRoutes = async (fastify: FastifyInstance) => {
-  fastify.get('/auth/google', async (_request, reply) => {
+  fastify.get('/auth/google', async (request, reply) => {
+    const { boardId } = request.query as { boardId?: string };
     const authUrl = newOauth2Client().generateAuthUrl({
       access_type: 'offline',
       scope: GOOGLE_SCOPES,
       prompt: 'consent',
+      state: boardId ? JSON.stringify({ boardId }) : undefined,
     });
     reply.redirect(authUrl);
   });
 
   fastify.get('/auth/google/callback', async (request, reply) => {
-    const { code } = request.query as { code?: string };
+    const { code, state } = request.query as { code?: string; state?: string };
     if (!code) {
       return reply.status(400).send({ error: 'Missing authorization code' });
     }
@@ -34,10 +36,10 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       oauth2Client.setCredentials(tokens);
       const userInfo = await newOauth2(oauth2Client).userinfo.get();
 
-      const gmailAccount = await GmailAccountService.tryFindByGoogleId(userInfo.data.id, { populate: ['user'] });
+      let gmailAccount = await GmailAccountService.tryFindByGoogleId(userInfo.data.id, { populate: ['user'] });
       let user = gmailAccount?.user as User;
       if (!user) {
-        user = await UserService.createWithGmailAccount({
+        const userAndGmailAccount = await UserService.createWithGmailAccount({
           email: userInfo.data.email as string,
           name: userInfo.data.name as string,
           photoUrl: userInfo.data.picture as string,
@@ -46,9 +48,26 @@ export const authRoutes = async (fastify: FastifyInstance) => {
           refreshToken: tokens.refresh_token as string,
           accessTokenExpiresAt: new Date(tokens.expiry_date as number),
         });
+        user = userAndGmailAccount.user;
+        gmailAccount = userAndGmailAccount.gmailAccount;
       }
+
       await UserService.updateLastSessionAt(user);
-      request.session.set('userId', user.id);
+
+      let currentUser: User | null = null;
+      const sessionUserId = request.session.get('userId');
+      if (sessionUserId) {
+        currentUser = await UserService.tryFindById(sessionUserId, { populate: ['boards'] });
+      }
+
+      if (currentUser) {
+        const { boardId } = JSON.parse(state || '{}') as { boardId?: string };
+        if (boardId) {
+          await GmailAccountService.addToBoard(gmailAccount!, { boardId, user: currentUser });
+        }
+      } else {
+        request.session.set('userId', user.id);
+      }
 
       return reply.redirect(ENV.APP_ENDPOINT);
     } catch (error) {

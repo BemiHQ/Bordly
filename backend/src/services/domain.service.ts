@@ -57,6 +57,8 @@ const DOUBLE_DOMAIN_NAMESPACES = [
 
 export class DomainService {
   static async findAndBuildDomainByName(domainNames: string[]) {
+    if (domainNames.length === 0) return {};
+
     const domains = await orm.em.find(Domain, { name: { $in: domainNames } });
     const domainByName: Record<string, Domain> = {};
     for (const domain of domains) {

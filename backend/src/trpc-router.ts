@@ -59,7 +59,7 @@ const ROUTES = {
       });
       return {
         board: board.toJson(),
-        boardColumns: board.userColumns.map((col) => col.toJson()),
+        boardColumns: board.boardColumns.map((col) => col.toJson()),
         gmailAccounts: board.gmailAccounts.map((acc) => acc.toJson()),
       };
     }),

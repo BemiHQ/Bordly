@@ -21,7 +21,7 @@ const CONFIG_BY_QUEUE = {
     schedule: null,
     handler: async (job) => {
       const { gmailAccountId } = job.data;
-      await EmailMessageService.createInitialEmailMessages(gmailAccountId);
+      await EmailMessageService.createInitialBoardEmailMessages(gmailAccountId);
     },
   },
   [QUEUES.SCHEDULED_CREATE_NEW_EMAIL_MESSAGES]: {

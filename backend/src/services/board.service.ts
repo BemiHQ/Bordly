@@ -23,7 +23,7 @@ export class BoardService {
       throw new Error('User must have exactly one Gmail account to create a board');
     }
     const gmailAccount = user.gmailAccounts[0] as GmailAccount;
-    gmailAccount.board = board;
+    gmailAccount.addToBoard(board);
 
     await orm.em.persist([board, boardMember, gmailAccount]).flush();
     user.boards.add(board);

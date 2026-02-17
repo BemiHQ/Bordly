@@ -77,6 +77,10 @@ export class GmailAccount extends BaseEntity {
     return this.accessTokenExpiresAt <= new Date();
   }
 
+  addToBoard(board: Board) {
+    this.board = board;
+  }
+
   updateAccessToken(accessToken: string, expiresAt: Date) {
     this.accessTokenEncrypted = Encryption.encrypt(accessToken);
     this.accessTokenExpiresAt = expiresAt;

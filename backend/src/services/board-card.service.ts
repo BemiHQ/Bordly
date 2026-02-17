@@ -12,6 +12,8 @@ export class BoardCardService {
     populate?: Populate<BoardCard, Hint>;
   }) {
     const { gmailAccount, externalThreadIds, populate = [] } = args;
+    if (externalThreadIds.length === 0) return {};
+
     const boardCards = await orm.em.find(
       BoardCard,
       { gmailAccount, externalThreadId: { $in: externalThreadIds } },

@@ -23,8 +23,9 @@ export class BoardInviteService {
   }
 
   static async createInvites({ boardId, emails, invitedBy }: { boardId: string; emails: string[]; invitedBy: User }) {
-    const board = await BoardService.findByIdForUser(boardId, { user: invitedBy });
+    if (emails.length === 0) return [];
 
+    const board = await BoardService.findByIdForUser(boardId, { user: invitedBy });
     const existingBoardInvites = await orm.em.find(BoardInvite, {
       board,
       email: { $in: emails },

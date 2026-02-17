@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
-import { AtSign, Ellipsis, Link2, ListFilter } from 'lucide-react';
+import { Ellipsis, Link2, ListFilter } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Navbar } from '@/components/navbar';
@@ -25,6 +25,8 @@ import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
 import { formattedTimeAgo } from '@/utils/time';
 import { ROUTES } from '@/utils/urls';
+
+const REFETCH_INTERVAL_MS = 30_000;
 
 const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
 type BoardFilters = {
@@ -71,6 +73,72 @@ const EmptyState = () => (
   </Empty>
 );
 
+const FilterButton = ({
+  gmailAccounts,
+  filters,
+  setFilters,
+}: {
+  gmailAccounts: GmailAccount[];
+  filters: BoardFilters;
+  setFilters: (value: BoardFilters) => void;
+}) => {
+  const hasActiveFilters = !!filters.unread || filters.gmailAccountIds.length > 0;
+  const toggleEmailAccount = (accountId: string) => {
+    setFilters({
+      ...filters,
+      gmailAccountIds: filters.gmailAccountIds.includes(accountId)
+        ? filters.gmailAccountIds.filter((id) => id !== accountId)
+        : [...filters.gmailAccountIds, accountId],
+    });
+  };
+
+  return (
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon-sm" className={hasActiveFilters ? 'bg-border hover:bg-border' : ''}>
+              <ListFilter className="text-muted-foreground" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="left">Filters</TooltipContent>
+      </Tooltip>
+      <PopoverContent align="end">
+        <div className="flex flex-col gap-4 px-2 pb-2">
+          <h3 className="font-semibold text-sm text-center">Filters</h3>
+          <div className="flex flex-col gap-2">
+            <div className="text-2xs font-medium text-muted-foreground">Card status</div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={filters.unread}
+                onCheckedChange={(checked) => setFilters({ ...filters, unread: !!checked })}
+              />
+              <span className="text-xs">Unread</span>
+            </label>
+          </div>
+          {gmailAccounts.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <div className="text-2xs font-medium text-muted-foreground">Email accounts</div>
+              <div className="flex flex-col gap-2.5">
+                {gmailAccounts.map((account) => (
+                  <label key={account.id} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={filters.gmailAccountIds.includes(account.id)}
+                      onCheckedChange={() => toggleEmailAccount(account.id)}
+                    />
+                    <span className="text-xs">{account.email}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const BoardNavbar = ({
   board,
   gmailAccounts,
@@ -83,68 +151,13 @@ const BoardNavbar = ({
   setFilters: (value: BoardFilters) => void;
 }) => {
   const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
-  const hasActiveFilters = !!filters.unread || filters.gmailAccountIds.length > 0;
-  const toggleEmailAccount = (accountId: string) => {
-    setFilters({
-      ...filters,
-      gmailAccountIds: filters.gmailAccountIds.includes(accountId)
-        ? filters.gmailAccountIds.filter((id) => id !== accountId)
-        : [...filters.gmailAccountIds, accountId],
-    });
-  };
 
   return (
     <>
       <div className="border-b bg-background px-6 py-2.5 flex items-center justify-between">
         <h1 className="font-semibold">{board.name}</h1>
         <div className="flex items-center gap-2">
-          <Popover>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className={hasActiveFilters ? 'bg-border hover:bg-border' : ''}
-                  >
-                    <ListFilter className="text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="left">Filters</TooltipContent>
-            </Tooltip>
-            <PopoverContent align="end">
-              <div className="flex flex-col gap-4 px-2 pb-2">
-                <h3 className="font-semibold text-sm text-center">Filters</h3>
-
-                <div className="flex flex-col gap-2">
-                  <div className="text-2xs font-medium text-muted-foreground">Card status</div>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={filters.unread}
-                      onCheckedChange={(checked) => setFilters({ ...filters, unread: !!checked })}
-                    />
-                    <span className="text-xs">Unread</span>
-                  </label>
-                </div>
-
-                {gmailAccounts.length > 0 && (
-                  <div className="flex flex-col gap-2">
-                    <div className="text-2xs font-medium text-muted-foreground">Email accounts</div>
-                    {gmailAccounts.map((account) => (
-                      <label key={account.id} className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={filters.gmailAccountIds.includes(account.id)}
-                          onCheckedChange={() => toggleEmailAccount(account.id)}
-                        />
-                        <span className="text-xs">{account.email}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <FilterButton gmailAccounts={gmailAccounts} filters={filters} setFilters={setFilters} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon-sm">
@@ -170,7 +183,7 @@ const BoardNavbar = ({
               your board.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-3 py-2">
+          <div className="flex flex-col gap-2 pt-1 pb-2">
             {gmailAccounts.map((account) => (
               <div key={account.id} className="flex items-center gap-3 px-3 py-2 border rounded-md">
                 <img src="/domain-icons/gmail.com.ico" alt={account.name} className="size-9 pt-0.5" />
@@ -178,14 +191,14 @@ const BoardNavbar = ({
                   <div className="font-medium text-sm">{account.name}</div>
                   <div className="text-2xs text-muted-foreground">{account.email}</div>
                 </div>
-                <Button variant="outline" size="sm" disabled={gmailAccounts.length === 1}>
+                <Button variant="outline" size="sm">
                   Remove
                 </Button>
               </div>
             ))}
             <div className="w-fit mt-3">
-              <Button variant="contrast" className="w-full" size="sm">
-                Add new account
+              <Button variant="contrast" className="w-full" size="sm" asChild>
+                <a href={`${import.meta.env.VITE_API_ENDPOINT}/auth/google?boardId=${board.id}`}>Add new account</a>
               </Button>
             </div>
           </div>
@@ -205,14 +218,14 @@ const BoardColumn = ({
   children: React.ReactNode;
 }) => {
   return (
-    <div className="flex min-w-68 w-68 h-fit max-h-[calc(100vh-116px)] flex-col gap-2 rounded-lg bg-primary-foreground p-2 border border-border scrollbar-thin overflow-y-auto shadow-sm">
+    <div className="flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-2 rounded-lg bg-primary-foreground p-2 border border-border shadow-sm">
       <div className="flex items-center gap-2 px-1">
         <h2 className="text-sm font-semibold">{`${boardColumn.name}`}</h2>
         {unreadBoardCardCount > 0 && (
           <div className="pt-[1px] text-xs font-bold text-semi-muted">{unreadBoardCardCount}</div>
         )}
       </div>
-      <div className="flex flex-col gap-2">{children}</div>
+      <div className="flex flex-col gap-2 overflow-y-auto scrollbar-thin">{children}</div>
     </div>
   );
 };
@@ -260,17 +273,20 @@ function Home() {
   const { currentUser, boardData } = Route.useLoaderData();
   const context = Route.useRouteContext();
   const params = Route.useParams();
-  const { data: boardCardsData } = useQuery(
-    context.trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
-  );
+  const { data: boardCardsData } = useQuery({
+    ...context.trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
+    refetchInterval: REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: true,
+  });
 
   const { board, boardColumns, gmailAccounts } = boardData;
 
   // Filters
-  const [filters, setFilters] = useState<BoardFilters>(() => {
-    const saved = !isSsr() && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`);
-    return saved ? JSON.parse(saved) : { unread: false, gmailAccountIds: [] };
-  });
+  const [filters, setFilters] = useState<BoardFilters>({ unread: false, gmailAccountIds: [] });
+  useEffect(() => {
+    const savedFiltersJson = !isSsr() && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`);
+    if (savedFiltersJson) setFilters(JSON.parse(savedFiltersJson));
+  }, []);
   useEffect(() => {
     if (!isSsr()) {
       localStorage.setItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`, JSON.stringify(filters));
