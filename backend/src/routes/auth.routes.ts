@@ -35,16 +35,13 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       const oauth2 = google.oauth2({ version: 'v2', auth: OAUTH2_CLIENT });
       const userInfo = await oauth2.userinfo.get();
 
-      let user = await UserService.findUserByGoogleId(userInfo.data.id);
+      let user = await UserService.findByGoogleId(userInfo.data.id);
       if (!user) {
-        user = await UserService.createUser({
+        user = await UserService.create({
           email: userInfo.data.email || '',
           name: userInfo.data.name || '',
           photoUrl: userInfo.data.picture || '',
           googleId: userInfo.data.id || '',
-          accessToken: tokens.access_token || '',
-          refreshToken: tokens.refresh_token || '',
-          accessTokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
         });
       }
       await UserService.updateLastSessionAt(user);

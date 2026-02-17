@@ -10,7 +10,7 @@ export const createContext = async ({ req }: CreateFastifyContextOptions) => {
 
   let user: User | null = null;
   if (userId) {
-    user = await UserService.findUserById(userId);
+    user = await UserService.findById(userId, { populate: ['boards'] });
   }
 
   return { user };

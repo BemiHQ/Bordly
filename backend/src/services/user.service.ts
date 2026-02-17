@@ -1,43 +1,30 @@
+import type { Populate } from '@mikro-orm/postgresql';
 import { User } from '@/entities/user';
 import { orm } from '@/utils/orm';
 
 export class UserService {
-  static findUserByGoogleId(googleId?: string | null) {
+  static findByGoogleId(googleId?: string | null) {
     if (!googleId) return null;
     return orm.em.findOne(User, { googleId });
   }
 
-  static findUserById(id: string) {
+  static findById(id: string, { populate }: { populate?: Populate<User, 'string'> } = { populate: [] }) {
     if (!id) return null;
-    return orm.em.findOne(User, { id });
+    return orm.em.findOne(User, { id }, { populate });
   }
 
-  static async createUser({
+  static async create({
     email,
     name,
     photoUrl,
     googleId,
-    accessToken,
-    refreshToken,
-    accessTokenExpiresAt,
   }: {
     email: string;
     name: string;
     photoUrl: string;
     googleId: string;
-    accessToken: string;
-    refreshToken: string;
-    accessTokenExpiresAt?: Date;
   }) {
-    const user = new User({
-      email,
-      name,
-      photoUrl,
-      googleId,
-      accessToken,
-      refreshToken,
-      accessTokenExpiresAt,
-    });
+    const user = new User({ email, name, photoUrl, googleId });
     await orm.em.persist(user).flush();
     return user;
   }

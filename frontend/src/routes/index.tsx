@@ -23,7 +23,9 @@ function Home() {
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Welcome, {currentUser.name}!</h1>
-          <p className="text-gray-600 mb-2">{currentUser.email}</p>
+          <p className="text-gray-600 mb-2">
+            {currentUser.boards.map((b) => b.name).join(', ') || 'You have no boards yet.'}
+          </p>
         </div>
       </div>
     </div>

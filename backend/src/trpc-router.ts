@@ -4,9 +4,7 @@ import { createTRPCRouter, publicProcedure } from '@/utils/trpc';
 
 const userRouter = {
   getCurrentUser: publicProcedure.query(({ ctx }) => {
-    if (!ctx.user) {
-      return null;
-    }
+    if (!ctx.user) return null;
     return ctx.user.toJson();
   }),
 } satisfies TRPCRouterRecord;
