@@ -6,6 +6,7 @@ import { EmailMessageCard } from '@/components/board-card/email-message-card';
 import { ReplyCard } from '@/components/board-card/reply-card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
+import { usePrefetchQuery } from '@/hooks/use-prefetch-query';
 import { RouteProvider } from '@/hooks/use-route-context';
 import { cn, extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
@@ -24,9 +25,10 @@ export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
 });
 
 function BoardCardComponent() {
-  const context = Route.useRouteContext();
   const params = Route.useParams();
   const navigate = useNavigate();
+  const context = Route.useRouteContext();
+  const { trpc, queryClient } = context;
 
   const boardId = extractUuid(params.boardId);
   const boardCardId = extractUuid(params.boardCardId);
@@ -42,7 +44,7 @@ function BoardCardComponent() {
     data: emailMessagesData,
     isLoading,
     error,
-  } = useQuery({ ...context.trpc.emailMessage.getEmailMessages.queryOptions({ boardId, boardCardId }), retry: false });
+  } = useQuery({ ...trpc.emailMessage.getEmailMessages.queryOptions({ boardId, boardCardId }), retry: false });
   if (error && error.data?.code === 'NOT_FOUND') {
     navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
   }
@@ -52,9 +54,9 @@ function BoardCardComponent() {
   const emailMessagesAsc = emailMessagesData?.emailMessagesAsc;
 
   const markAsReadMutation = useMutation(
-    context.trpc.boardCard.markAsRead.mutationOptions({
+    trpc.boardCard.markAsRead.mutationOptions({
       onSuccess: ({ boardCard }) => {
-        context.queryClient.setQueryData(context.trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
+        queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
           if (!oldData) return oldData;
           return {
             ...oldData,
@@ -101,6 +103,9 @@ function BoardCardComponent() {
       }, 100);
     }
   }, [showReply, scrollContainer]);
+
+  // Prefetch email addresses for ReplyCard
+  usePrefetchQuery(queryClient, { ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
 
   return (
     <RouteProvider value={context}>
