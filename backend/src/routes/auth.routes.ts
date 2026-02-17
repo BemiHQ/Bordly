@@ -5,6 +5,8 @@ import { GmailAccountService } from '@/services/gmail-account.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
 import { newOauth2, newOauth2Client } from '@/utils/google-api';
+import { QUERY_PARAMS } from '@/utils/shared';
+import { APP_ENDPOINTS } from '@/utils/urls';
 
 const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.profile',
@@ -64,6 +66,9 @@ export const authRoutes = async (fastify: FastifyInstance) => {
         const { boardId } = JSON.parse(state || '{}') as { boardId?: string };
         if (boardId) {
           await GmailAccountService.addToBoard(gmailAccount!, { boardId, user: currentUser });
+          return reply.redirect(
+            `${APP_ENDPOINTS.BOARD.replace('$boardId', boardId)}?${QUERY_PARAMS.ADDED_GMAIL_ACCOUNT}=1`,
+          );
         }
       } else {
         request.session.set('userId', user.id);

@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
+import { QUERY_PARAMS } from 'bordly-backend/utils/shared';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import { type BoardFilters, BoardNavbar, LOCAL_STORAGE_KEY_FILTERS_PREFIX } from '@/components/board-navbar';
 import { Navbar } from '@/components/navbar';
@@ -127,12 +129,27 @@ function Home() {
 
   const { board, boardColumns, gmailAccounts } = boardData;
 
+  useEffect(() => {
+    const addedGmailAccount = !isSsr()
+      ? new URLSearchParams(window.location.search).get(QUERY_PARAMS.ADDED_GMAIL_ACCOUNT)
+      : null;
+
+    if (addedGmailAccount === '1') {
+      toast.success('Successfully added the account. Importing emails may take a couple of minutes.', {
+        position: 'top-center',
+      });
+      const url = new URL(window.location.href);
+      url.searchParams.delete(QUERY_PARAMS.ADDED_GMAIL_ACCOUNT);
+      window.history.replaceState({}, document.title, url.toString());
+    }
+  }, []);
+
   // Filters
   const [filters, setFilters] = useState<BoardFilters>({ unread: false, gmailAccountIds: [] });
   useEffect(() => {
     const savedFiltersJson = !isSsr() && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`);
     if (savedFiltersJson) setFilters(JSON.parse(savedFiltersJson));
-  }, []);
+  }, [board.id]);
   useEffect(() => {
     if (!isSsr()) {
       localStorage.setItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`, JSON.stringify(filters));

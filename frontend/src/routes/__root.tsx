@@ -3,6 +3,7 @@ import { createRootRouteWithContext, HeadContent, Scripts } from '@tanstack/reac
 import type { TRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
+import { Toaster } from '@/components/ui/sonner';
 import appCss from '@/styles.css?url';
 
 interface MyRouterContext {
@@ -36,6 +37,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       </head>
       <body>
         {children}
+        <Toaster />
         <Scripts />
       </body>
     </html>
