@@ -1,6 +1,4 @@
 import { useMutation } from '@tanstack/react-query';
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { Ellipsis, Link2, ListFilter, UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BoardMembersDialog } from '@/components/board/board-members-dialog';
@@ -20,12 +18,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { type BoardFilters, BoardFiltersProvider, useBoardFilters } from '@/hooks/use-board-filters';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useRouteContext } from '@/hooks/use-route-context';
+import { type Board, type GmailAccount, renameBoardData } from '@/query-helpers/board';
 import { isSsr } from '@/utils/ssr';
 import { cn } from '@/utils/strings';
-
-type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
-type Board = BoardData['board'];
-type GmailAccount = BoardData['gmailAccounts'][number];
 
 export const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
 
@@ -181,12 +176,7 @@ export const BoardNavbar = ({
   const optimisticallySetName = useOptimisticMutation({
     queryClient,
     queryKey: boardQueryKey,
-    onExecute: ({ name }) => {
-      queryClient.setQueryData(boardQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return { ...oldData, board: { ...oldData.board, name } } satisfies typeof oldData;
-      });
-    },
+    onExecute: (params) => renameBoardData({ trpc, queryClient, params }),
     errorToast: 'Failed to rename board. Please try again.',
     mutation: useMutation(trpc.board.setName.mutationOptions()),
   });

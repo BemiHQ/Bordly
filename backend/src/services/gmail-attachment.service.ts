@@ -4,12 +4,12 @@ import { orm } from '@/utils/orm';
 
 export class GmailAttachmentService {
   static async findByIdAndExternalThreadId<Hint extends string = never>(
-    attachmentId: string,
+    gmailAttachmentId: string,
     { externalThreadId, populate }: { externalThreadId: string; populate?: Populate<GmailAttachment, Hint> },
   ) {
     return orm.em.findOneOrFail(
       GmailAttachment,
-      { id: attachmentId, emailMessage: { externalThreadId } },
+      { id: gmailAttachmentId, emailMessage: { externalThreadId } },
       { populate },
     );
   }

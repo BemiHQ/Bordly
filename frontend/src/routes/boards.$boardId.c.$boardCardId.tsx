@@ -10,6 +10,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { usePrefetchQuery } from '@/hooks/use-prefetch-query';
 import { RouteProvider } from '@/hooks/use-route-context';
 import { ensureLoggedIn } from '@/loaders/authentication';
+import { replaceBoardCardData } from '@/query-helpers/board-cards';
 import { cn, extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
 
@@ -51,15 +52,7 @@ function BoardCardComponent() {
 
   const markAsReadMutation = useMutation(
     trpc.boardCard.markAsRead.mutationOptions({
-      onSuccess: ({ boardCard }) => {
-        queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            boardCardsDesc: oldData.boardCardsDesc.map((card) => (card.id === boardCard.id ? boardCard : card)),
-          } satisfies typeof oldData;
-        });
-      },
+      onSuccess: ({ boardCard }) => replaceBoardCardData({ queryClient, trpc, params: { boardId, boardCard } }),
     }),
   );
 

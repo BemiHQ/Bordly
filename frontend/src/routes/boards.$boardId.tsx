@@ -3,8 +3,6 @@ import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSen
 import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortable';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet, useMatches } from '@tanstack/react-router';
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
 import { Archive } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -25,6 +23,13 @@ import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { RouteProvider, useRouteContext } from '@/hooks/use-route-context';
 import { ensureLoggedIn } from '@/loaders/authentication';
+import { type BoardColumn as BoardColumnType, type BoardData, reorderBoardColumnsData } from '@/query-helpers/board';
+import {
+  type BoardCard,
+  type BoardCardsData,
+  changeBoardCardColumnData,
+  removeBoardCardData,
+} from '@/query-helpers/board-cards';
 import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
@@ -32,12 +37,6 @@ import { ROUTES } from '@/utils/urls';
 const REFETCH_INTERVAL_MS = 30_000;
 
 const ARCHIVE_DROP_ZONE_ID = 'archive-zone';
-
-type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
-type BoardColumnType = BoardData['boardColumnsAsc'][number];
-
-type BoardCardsData = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards'];
-type BoardCardType = BoardCardsData['boardCardsDesc'][number];
 
 export const Route = createFileRoute('/boards/$boardId')({
   component: BoardComponent,
@@ -87,7 +86,7 @@ const ArchiveDropZone = ({ isDragging }: { isDragging: boolean }) => {
 const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boardCardsData: BoardCardsData }) => {
   const { filters } = useBoardFilters();
   const { queryClient, trpc } = useRouteContext();
-  const [activeBoardCard, setActiveBoardCard] = useState<BoardCardType | null>(null);
+  const [activeBoardCard, setActiveBoardCard] = useState<BoardCard | null>(null);
   const [activeBoardColumn, setActiveBoardColumn] = useState<BoardColumnType | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -95,53 +94,33 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
   const { boardCardsDesc } = boardCardsData;
 
   const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: board.id });
+
+  const setStateMutation = useMutation(trpc.boardCard.setState.mutationOptions());
   const optimisticallyArchiveBoardCard = useOptimisticMutationWithUndo({
     queryClient,
     queryKey: boardCardsQueryKey,
-    onExecute: ({ boardCardId }) => {
-      queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.filter((card) => card.id !== boardCardId),
-        } satisfies typeof oldData;
-      });
-    },
+    onExecute: (params) => removeBoardCardData({ trpc, queryClient, params }),
     successToast: 'Card archived',
     errorToast: 'Failed to archive the card. Please try again.',
-    delayedMutation: useMutation(trpc.boardCard.setState.mutationOptions()),
+    mutation: setStateMutation,
+    undoMutationConfig: ({ boardId, boardCardId }) => ({
+      mutation: setStateMutation,
+      params: { boardId, boardCardId, state: BoardCardState.INBOX },
+    }),
   });
+
   const optimisticallyMoveBoardCard = useOptimisticMutation({
     queryClient,
     queryKey: boardCardsQueryKey,
-    onExecute: ({ boardCardId, boardColumnId }) => {
-      queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, boardColumnId } : c)),
-        } satisfies typeof oldData;
-      });
-    },
+    onExecute: (params) => changeBoardCardColumnData({ trpc, queryClient, params }),
     errorToast: 'Failed to move the card. Please try again.',
     mutation: useMutation(trpc.boardCard.setBoardColumn.mutationOptions()),
   });
 
-  const boardQueryKey = trpc.board.get.queryKey({ boardId: board.id });
   const optimisticallyMoveBoardColumn = useOptimisticMutation({
     queryClient,
-    queryKey: boardQueryKey,
-    onExecute: ({ boardColumnId, position }: { boardColumnId: string; position: number }) => {
-      queryClient.setQueryData(boardQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        const columnsCopy = [...oldData.boardColumnsAsc];
-        const columnIndex = columnsCopy.findIndex((col) => col.id === boardColumnId);
-        const [movedColumn] = columnsCopy.splice(columnIndex, 1);
-        columnsCopy.splice(position, 0, movedColumn);
-        const reorderedColumns = columnsCopy.map((col, index) => ({ ...col, position: index }));
-        return { ...oldData, boardColumnsAsc: reorderedColumns } satisfies typeof oldData;
-      });
-    },
+    queryKey: trpc.board.get.queryKey({ boardId: board.id }),
+    onExecute: (params) => reorderBoardColumnsData({ trpc, queryClient, params }),
     errorToast: 'Failed to reorder column. Please try again.',
     mutation: useMutation(trpc.boardColumn.setPosition.mutationOptions()),
   });
@@ -151,7 +130,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
     const dragType = active.data.current?.type;
 
     if (dragType === DRAG_TYPE_CARD) {
-      const boardCard = active.data.current?.boardCard as BoardCardType | undefined;
+      const boardCard = active.data.current?.boardCard as BoardCard | undefined;
       if (boardCard) {
         setActiveBoardCard(boardCard);
       }

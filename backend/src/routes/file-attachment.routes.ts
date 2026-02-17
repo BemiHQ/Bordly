@@ -46,12 +46,12 @@ export const fileAttachmentRoutes = async (fastify: FastifyInstance) => {
   });
 
   fastify.delete(ROUTES.FILE_ATTACHMENT_DELETE, async (request, reply) => {
-    const { boardId, boardCardId, attachmentId } = request.query as {
+    const { boardId, boardCardId, fileAttachmentId } = request.query as {
       boardId?: string;
       boardCardId?: string;
-      attachmentId?: string;
+      fileAttachmentId?: string;
     };
-    if (!boardId || !boardCardId || !attachmentId) {
+    if (!boardId || !boardCardId || !fileAttachmentId) {
       return reply.status(400).send();
     }
 
@@ -73,7 +73,7 @@ export const fileAttachmentRoutes = async (fastify: FastifyInstance) => {
         throw new Error(`Email draft not found for board card: ${boardCardId} (user ID: ${user.id})`);
       }
 
-      await FileAttachmentService.deleteForEmailDraft(emailDraft, { attachmentId });
+      await FileAttachmentService.deleteForEmailDraft(emailDraft, { fileAttachmentId });
 
       return reply.send({ success: true });
     } catch (error) {

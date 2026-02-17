@@ -34,7 +34,7 @@ export const sanitizeBodyHtml = ({
   for (const attachment of gmailAttachments) {
     if (!attachment.mimeType.startsWith('image/') || (!attachment.filename && !attachment.contentId)) continue;
 
-    const proxyUrl = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;
+    const proxyUrl = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&gmailAttachmentId=${attachment.id}`;
     const images = doc.body.querySelectorAll('img');
     images.forEach((img) => {
       const src = img.getAttribute('src');

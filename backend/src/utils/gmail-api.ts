@@ -142,9 +142,9 @@ export class GmailApi {
 
   static async getAttachment(
     gmail: gmail_v1.Gmail,
-    { messageId, attachmentId }: { messageId: string; attachmentId: string },
+    { messageId, externalAttachmentId }: { messageId: string; externalAttachmentId: string },
   ) {
-    const response = await gmail.users.messages.attachments.get({ userId: 'me', messageId, id: attachmentId });
+    const response = await gmail.users.messages.attachments.get({ userId: 'me', messageId, id: externalAttachmentId });
     return response.data;
   }
 

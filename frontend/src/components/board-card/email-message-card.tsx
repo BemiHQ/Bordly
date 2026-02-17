@@ -1,5 +1,3 @@
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { ChevronDownIcon, Paperclip, Reply } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ToggleQuotesButton } from '@/components/board-card/toggle-quotes-button';
@@ -9,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useEmailIframe } from '@/hooks/use-email-iframe';
+import type { EmailMessage, GmailAttachment } from '@/query-helpers/board-card';
 import {
   parseTrailingBackquotes,
   parseTrailingBlockquotes,
@@ -18,10 +17,6 @@ import {
 import { pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
 import { API_ENDPOINTS } from '@/utils/urls';
-
-type BoardCardData = inferRouterOutputs<TRPCRouter>['boardCard']['get'];
-type EmailMessage = BoardCardData['emailMessagesAsc'][number];
-type GmailAttachment = EmailMessage['gmailAttachments'][number];
 
 const EmailMessageBody = ({
   emailMessage,
@@ -166,7 +161,7 @@ export const EmailMessageCard = ({
   const { iconUrl } = emailMessage.domain;
 
   const handleDownloadAttachment = (attachment: GmailAttachment) => {
-    const url = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;
+    const url = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&gmailAttachmentId=${attachment.id}`;
     window.open(url, '_blank');
   };
 

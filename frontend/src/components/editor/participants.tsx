@@ -1,11 +1,8 @@
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { type ChangeEvent, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-type EmailAddress = inferRouterOutputs<TRPCRouter>['emailAddress']['getEmailAddresses']['emailAddresses'][number];
+import type { EmailAddress } from '@/query-helpers/email-addresses';
 
 export const participantToInput = (participant: { name?: string | null; email: string }) =>
   participant.name ? `${participant.name} <${participant.email}>` : participant.email;

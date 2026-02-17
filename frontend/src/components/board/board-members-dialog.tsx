@@ -1,6 +1,4 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardMemberRole } from 'bordly-backend/utils/shared';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -14,10 +12,14 @@ import { Popover, PopoverContent, PopoverNonTrigger } from '@/components/ui/popo
 import { Spinner } from '@/components/ui/spinner';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useRouteContext } from '@/hooks/use-route-context';
-
-type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
-type Board = BoardData['board'];
-type BoardInvite = inferRouterOutputs<TRPCRouter>['boardInvite']['getBoardInvites']['boardInvites'][number];
+import type { Board } from '@/query-helpers/board';
+import {
+  addBoardInviteData,
+  type BoardInvite,
+  removeBoardInviteData,
+  setBoardInviteRoleData,
+} from '@/query-helpers/board-invites';
+import { removeBoardMemberData, setBoardMemberRoleData } from '@/query-helpers/board-members';
 
 const BoardMemberRoleSelect = ({
   board,
@@ -34,12 +36,7 @@ const BoardMemberRoleSelect = ({
   const deleteMemberMutation = useMutation(
     trpc.boardMember.delete.mutationOptions({
       onSuccess: () => {
-        queryClient.setQueryData(trpc.boardMember.getBoardMembers.queryKey({ boardId: board.id }), (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            boardMembers: oldData.boardMembers.filter((m) => m.user.id !== member.user.id),
-          } satisfies typeof oldData;
-        });
+        removeBoardMemberData({ trpc, queryClient, params: { boardId: board.id, userId: member.user.id } });
         toast.success('Member removed successfully', { position: 'top-center' });
         setShowRemovePopover(false);
       },
@@ -113,10 +110,7 @@ const BoardInviteRoleSelect = ({
   const deleteInviteMutation = useMutation(
     trpc.boardInvite.delete.mutationOptions({
       onSuccess: () => {
-        queryClient.setQueryData(trpc.boardInvite.getBoardInvites.queryKey({ boardId: board.id }), (oldData) => {
-          if (!oldData) return oldData;
-          return { boardInvites: oldData.boardInvites.filter((i) => i.id !== invite.id) } satisfies typeof oldData;
-        });
+        removeBoardInviteData({ trpc, queryClient, params: { boardId: board.id, boardInviteId: invite.id } });
         toast.success('Invite removed successfully', { position: 'top-center' });
         setShowRemovePopover(false);
       },
@@ -206,10 +200,7 @@ export const BoardMembersDialog = ({
   const createInviteMutation = useMutation(
     trpc.boardInvite.create.mutationOptions({
       onSuccess: (data) => {
-        queryClient.setQueryData(trpc.boardInvite.getBoardInvites.queryKey({ boardId: board.id }), (oldData) => {
-          if (!oldData) return oldData;
-          return { boardInvites: [...oldData.boardInvites, data.boardInvite] } satisfies typeof oldData;
-        });
+        addBoardInviteData({ trpc, queryClient, params: { boardId: board.id, boardInvite: data.boardInvite } });
         toast.success('Invite sent successfully', { position: 'top-center' });
         setInviteEmail('');
         setInviteRole(BoardMemberRole.MEMBER);
@@ -218,36 +209,24 @@ export const BoardMembersDialog = ({
     }),
   );
 
-  const optimisticallySetMemberRole = useOptimisticMutation({
-    queryClient,
-    queryKey: trpc.boardMember.getBoardMembers.queryKey({ boardId: board.id }),
-    onExecute: ({ userId, role }) => {
-      queryClient.setQueryData(trpc.boardMember.getBoardMembers.queryKey({ boardId: board.id }), (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          boardMembers: oldData.boardMembers.map((m) => (m.user.id === userId ? { ...m, role: role } : m)),
-        } satisfies typeof oldData;
-      });
-    },
-    successToast: 'Role updated successfully',
-    errorToast: 'Failed to update the role. Please try again.',
-    mutation: useMutation(trpc.boardMember.setRole.mutationOptions()),
-  });
-
   const optimisticallySetInviteRole = useOptimisticMutation({
     queryClient,
     queryKey: trpc.boardInvite.getBoardInvites.queryKey({ boardId: board.id }),
-    onExecute: ({ boardInviteId, role }) => {
-      queryClient.setQueryData(trpc.boardInvite.getBoardInvites.queryKey({ boardId: board.id }), (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          boardInvites: oldData.boardInvites.map((i) => (i.id === boardInviteId ? { ...i, role: role } : i)),
-        } satisfies typeof oldData;
-      });
-    },
+    onExecute: ({ boardInviteId, role }) =>
+      setBoardInviteRoleData({ trpc, queryClient, params: { boardId: board.id, boardInviteId, role } }),
     successToast: 'Role updated successfully',
     errorToast: 'Failed to update the role. Please try again.',
     mutation: useMutation(trpc.boardInvite.setRole.mutationOptions()),
+  });
+
+  const optimisticallySetMemberRole = useOptimisticMutation({
+    queryClient,
+    queryKey: trpc.boardMember.getBoardMembers.queryKey({ boardId: board.id }),
+    onExecute: ({ userId, role }) =>
+      setBoardMemberRoleData({ trpc, queryClient, params: { boardId: board.id, userId, role } }),
+    successToast: 'Role updated successfully',
+    errorToast: 'Failed to update the role. Please try again.',
+    mutation: useMutation(trpc.boardMember.setRole.mutationOptions()),
   });
 
   const handleRoleChange = ({ userId, role }: { userId: string; role: BoardMemberRole }) => {

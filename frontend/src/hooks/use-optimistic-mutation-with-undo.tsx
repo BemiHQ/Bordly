@@ -1,80 +1,69 @@
 import type { useMutation } from '@tanstack/react-query';
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { toast } from 'sonner';
-import { DEFAULT_TOASTER_DURATION_MS } from '@/components/ui/sonner';
 import type { RouteContext } from '@/hooks/use-route-context';
-import { isSsr } from '@/utils/ssr';
 
-let globalPendingCount = 0;
-
-const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-  if (globalPendingCount > 0) {
-    e.preventDefault();
-  }
-};
-
-if (!isSsr()) {
-  window.addEventListener('beforeunload', handleBeforeUnload);
-}
-
-export const useOptimisticMutationWithUndo = <TData, TError, TMutationParams>({
+export const useOptimisticMutationWithUndo = <
+  TQueryData,
+  TMutationData,
+  TMutationError,
+  TMutationParams,
+  TUndoMutationData,
+  TUndoMutationError,
+  TUndoMutationParams,
+>({
   queryClient,
   queryKey,
   onExecute,
   successToast,
   errorToast,
-  delayedMutation,
+  mutation,
+  undoMutationConfig,
 }: {
   queryClient: RouteContext['queryClient'];
   queryKey: readonly unknown[];
   onExecute: (params: TMutationParams) => void;
   successToast: string;
   errorToast: string;
-  delayedMutation: ReturnType<typeof useMutation<TData, TError, TMutationParams>>;
+  mutation: ReturnType<typeof useMutation<TMutationData, TMutationError, TMutationParams>>;
+  undoMutationConfig: (
+    params: TMutationParams,
+    beforeMutationData: TQueryData | undefined,
+  ) => {
+    mutation: ReturnType<typeof useMutation<TUndoMutationData, TUndoMutationError, TUndoMutationParams>>;
+    params: TUndoMutationParams;
+  };
 }) => {
-  const pendingMutationsRef = useRef<Record<string, { params: TMutationParams; previousData: unknown }>>({});
-
   const execute = useCallback(
     (params: TMutationParams) => {
-      const previousData = queryClient.getQueryData(queryKey);
-
+      const beforeMutationData = queryClient.getQueryData<TQueryData>(queryKey);
       onExecute(params);
-
-      const timeoutId = setTimeout(() => {
-        const mutation = pendingMutationsRef.current[id];
-        if (mutation) {
-          delayedMutation.mutate(mutation.params, {
-            onError: () => {
-              queryClient.setQueryData(queryKey, mutation.previousData);
-              toast.error(errorToast, { position: 'top-center' });
-            },
-          });
-          delete pendingMutationsRef.current[id];
-          globalPendingCount--;
-        }
-      }, DEFAULT_TOASTER_DURATION_MS);
-
-      const id = String(timeoutId);
-      pendingMutationsRef.current[id] = { params, previousData };
-      globalPendingCount++;
+      mutation.mutate(params, {
+        onError: () => {
+          queryClient.setQueryData(queryKey, beforeMutationData);
+          toast.error(errorToast, { position: 'top-center' });
+        },
+      });
 
       toast.success(successToast, {
         action: {
           label: 'Undo',
           onClick: () => {
-            clearTimeout(timeoutId);
-            const mutation = pendingMutationsRef.current[id];
-            if (mutation) {
-              queryClient.setQueryData(queryKey, mutation.previousData);
-              delete pendingMutationsRef.current[id];
-              globalPendingCount--;
-            }
+            const afterMutationData = queryClient.getQueryData<TQueryData>(queryKey);
+            queryClient.setQueryData(queryKey, beforeMutationData);
+            const { mutation: undoMutation, params: undoParams } = undoMutationConfig(params, beforeMutationData);
+            undoMutation.mutate(undoParams, {
+              onError: () => {
+                queryClient.setQueryData(queryKey, afterMutationData);
+                toast.error('Failed to undo action', { position: 'top-center' });
+              },
+            });
           },
         },
         position: 'top-center',
       });
     },
-    [queryKey, queryClient, delayedMutation, onExecute, successToast, errorToast],
+    [queryClient, queryKey, onExecute, successToast, errorToast, mutation, undoMutationConfig],
   );
 
   return execute;

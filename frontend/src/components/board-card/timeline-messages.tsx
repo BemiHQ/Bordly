@@ -1,10 +1,6 @@
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { EmailMessageCard } from '@/components/board-card/email-message-card';
 import { PostedComment } from '@/components/board-card/posted-comment';
-
-type EmailMessage = inferRouterOutputs<TRPCRouter>['boardCard']['get']['emailMessagesAsc'][number];
-type Comment = inferRouterOutputs<TRPCRouter>['boardCard']['get']['commentsAsc'][number];
+import type { Comment, EmailMessage } from '@/query-helpers/board-card';
 
 type TimelineItem =
   | { type: 'email'; data: EmailMessage; timestamp: Date }

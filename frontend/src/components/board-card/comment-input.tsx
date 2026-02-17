@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import type { RouteContext } from '@/hooks/use-route-context';
+import { addFakeCommentData, replaceBoardCardData, replaceFakeCommentData } from '@/query-helpers/board-card';
+import { replaceBoardCardData as replaceBoardCardDataInList } from '@/query-helpers/board-cards';
 
 export const CommentInput = ({
   boardId,
@@ -27,38 +29,11 @@ export const CommentInput = ({
   const optimisticallyCreateComment = useOptimisticMutation({
     queryClient,
     queryKey: boardCardQueryKey,
-    onExecute: () => {
-      const currentUserData = queryClient.getQueryData(trpc.user.getCurrentUser.queryKey());
-      const currentUser = currentUserData?.currentUser;
-      queryClient.setQueryData(boardCardQueryKey, (oldData) => {
-        if (!oldData || !currentUser) return oldData;
-        const newComment = {
-          id: crypto.randomUUID(),
-          boardCardId,
-          user: currentUser,
-          text,
-          createdAt: new Date(),
-          editedAt: undefined,
-        };
-        return { ...oldData, commentsAsc: [...oldData.commentsAsc, newComment] } satisfies typeof oldData;
-      });
-    },
+    onExecute: (params) => addFakeCommentData({ trpc, queryClient, params }),
     onSuccess: ({ comment, boardCard }) => {
-      queryClient.setQueryData(boardCardQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          commentsAsc: oldData.commentsAsc.map((c) => (c.id === comment.id ? comment : c)),
-          boardCard,
-        } satisfies typeof oldData;
-      });
-      queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCard.id ? boardCard : c)),
-        } satisfies typeof oldData;
-      });
+      replaceFakeCommentData({ trpc, queryClient, params: { boardId, boardCardId, comment } });
+      replaceBoardCardData({ trpc, queryClient, params: { boardId, boardCard } });
+      replaceBoardCardDataInList({ trpc, queryClient, params: { boardId, boardCard } });
     },
     successToast: undefined,
     errorToast: 'Failed to add comment',

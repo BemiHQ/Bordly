@@ -1,7 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState } from 'bordly-backend/utils/shared';
 import { Archive, Mail, OctagonX, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,10 +8,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import type { RouteContext } from '@/hooks/use-route-context';
+import { type BoardColumn, replaceBoardColumnData } from '@/query-helpers/board-card';
+import { changeBoardCardColumnData, removeBoardCardData, setUnreadBoardCardData } from '@/query-helpers/board-cards';
 import { ROUTES } from '@/utils/urls';
-
-type BoardCardData = inferRouterOutputs<TRPCRouter>['boardCard']['get'];
-type BoardColumn = BoardCardData['boardColumn'];
 
 export const BoardCardDialogNavbar = ({
   context,
@@ -26,106 +23,80 @@ export const BoardCardDialogNavbar = ({
   boardCardId: string;
   boardColumn: BoardColumn;
 }) => {
+  const { trpc, queryClient } = context;
   const navigate = useNavigate();
 
-  const boardCardQueryKey = context.trpc.boardCard.get.queryKey({ boardId, boardCardId });
-  const boardCardsQueryKey = context.trpc.boardCard.getBoardCards.queryKey({ boardId });
+  const { data: boardData } = useQuery({ ...trpc.board.get.queryOptions({ boardId }) });
+  const boardColumnsAsc = boardData?.boardColumnsAsc ?? [];
+
+  const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId });
+  const setStateMutation = useMutation(trpc.boardCard.setState.mutationOptions());
 
   const optimisticallySetBoardColumn = useOptimisticMutation({
-    queryClient: context.queryClient,
-    queryKey: boardCardQueryKey,
-    onExecute: ({ boardColumnId }: { boardColumnId: string }) => {
-      const newBoardColumn = boardColumnsAsc.find((col) => col.id === boardColumnId);
-      if (!newBoardColumn) return;
-
-      context.queryClient.setQueryData(boardCardQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return { ...oldData, boardColumn: newBoardColumn } satisfies typeof oldData;
+    queryClient,
+    queryKey: trpc.boardCard.get.queryKey({ boardId, boardCardId }),
+    onExecute: (params) => {
+      const boardColumn = boardColumnsAsc.find((col) => col.id === params.boardColumnId)!;
+      replaceBoardColumnData({
+        trpc: trpc,
+        queryClient,
+        params: { ...params, boardColumn },
       });
-
-      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, boardColumnId } : c)),
-        } satisfies typeof oldData;
-      });
+      changeBoardCardColumnData({ trpc: trpc, queryClient, params });
     },
     errorToast: 'Failed to change column. Please try again.',
-    mutation: useMutation(context.trpc.boardCard.setBoardColumn.mutationOptions()),
+    mutation: useMutation(trpc.boardCard.setBoardColumn.mutationOptions()),
   });
 
   const optimisticallyMarkAsUnread = useOptimisticMutation({
-    queryClient: context.queryClient,
+    queryClient,
     queryKey: boardCardsQueryKey,
-    onExecute: ({ boardCardId }) => {
-      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, unread: true } : c)),
-        } satisfies typeof oldData;
-      });
-    },
+    onExecute: ({ boardId, boardCardId }) =>
+      setUnreadBoardCardData({ trpc: trpc, queryClient, params: { boardId, boardCardId, unread: true } }),
     errorToast: 'Failed to mark the card as unread. Please try again.',
-    mutation: useMutation(context.trpc.boardCard.markAsUnread.mutationOptions()),
+    mutation: useMutation(trpc.boardCard.markAsUnread.mutationOptions()),
   });
 
   const optimisticallyArchive = useOptimisticMutationWithUndo({
-    queryClient: context.queryClient,
+    queryClient,
     queryKey: boardCardsQueryKey,
-    onExecute: ({ boardCardId }) => {
-      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.filter((card) => card.id !== boardCardId),
-        } satisfies typeof oldData;
-      });
-    },
+    onExecute: (params) => removeBoardCardData({ trpc, queryClient, params }),
     successToast: 'Card archived',
     errorToast: 'Failed to archive the card. Please try again.',
-    delayedMutation: useMutation(context.trpc.boardCard.setState.mutationOptions()),
+    mutation: setStateMutation,
+    undoMutationConfig: ({ boardId, boardCardId }) => ({
+      mutation: setStateMutation,
+      params: { boardId, boardCardId, state: BoardCardState.INBOX },
+    }),
   });
 
   const optimisticallyMarkAsSpam = useOptimisticMutationWithUndo({
-    queryClient: context.queryClient,
+    queryClient,
     queryKey: boardCardsQueryKey,
-    onExecute: ({ boardCardId }) => {
-      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.filter((card) => card.id !== boardCardId),
-        } satisfies typeof oldData;
-      });
-    },
+    onExecute: (params) => removeBoardCardData({ trpc, queryClient, params }),
     successToast: 'Card marked as spam',
     errorToast: 'Failed to mark the card as spam. Please try again.',
-    delayedMutation: useMutation(context.trpc.boardCard.setState.mutationOptions()),
+    mutation: setStateMutation,
+    undoMutationConfig: ({ boardId, boardCardId }) => ({
+      mutation: setStateMutation,
+      params: { boardId, boardCardId, state: BoardCardState.INBOX },
+    }),
   });
 
   const optimisticallyDelete = useOptimisticMutationWithUndo({
-    queryClient: context.queryClient,
+    queryClient,
     queryKey: boardCardsQueryKey,
-    onExecute: ({ boardCardId }) => {
-      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.filter((card) => card.id !== boardCardId),
-        } satisfies typeof oldData;
-      });
-    },
+    onExecute: (params) => removeBoardCardData({ trpc, queryClient, params }),
     successToast: 'Card deleted',
     errorToast: 'Failed to delete the card. Please try again.',
-    delayedMutation: useMutation(context.trpc.boardCard.setState.mutationOptions()),
+    mutation: setStateMutation,
+    undoMutationConfig: ({ boardId, boardCardId }) => ({
+      mutation: setStateMutation,
+      params: { boardId, boardCardId, state: BoardCardState.INBOX },
+    }),
   });
 
-  const { data: boardData } = useQuery({ ...context.trpc.board.get.queryOptions({ boardId }) });
   if (!boardData) return <div className="h-8" />;
-
-  const { boardColumnsAsc } = boardData;
 
   return (
     <div className="flex gap-8 items-center">

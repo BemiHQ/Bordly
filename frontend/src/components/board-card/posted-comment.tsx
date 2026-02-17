@@ -1,9 +1,6 @@
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
+import type { Comment } from '@/query-helpers/board-card';
 import { formattedShortTime } from '@/utils/time';
-
-type Comment = inferRouterOutputs<TRPCRouter>['boardCard']['get']['commentsAsc'][number];
 
 export const PostedComment = ({ comment }: { comment: Comment }) => {
   return (

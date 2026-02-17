@@ -2,8 +2,6 @@ import { useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMutation } from '@tanstack/react-query';
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { useState } from 'react';
 import {
   BoardCard,
@@ -15,16 +13,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useRouteContext } from '@/hooks/use-route-context';
+import { type Board, type BoardColumn as BoardColumnType, renameBoardColumnData } from '@/query-helpers/board';
+import type { BoardCard as BoardCardType } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
 
 export const DRAG_TYPE = 'board-column';
-
-type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
-type Board = BoardData['board'];
-type BoardColumnType = BoardData['boardColumnsAsc'][number];
-
-type BoardCardsData = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards'];
-type BoardCardType = BoardCardsData['boardCardsDesc'][number];
 
 export const BoardColumn = ({
   board,
@@ -52,20 +45,11 @@ export const BoardColumn = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(boardColumn.name);
 
-  const boardQueryKey = trpc.board.get.queryKey({ boardId: board.id });
-
   const optimisticallySetName = useOptimisticMutation({
     queryClient,
-    queryKey: boardQueryKey,
-    onExecute: ({ name }) => {
-      queryClient.setQueryData(boardQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardColumnsAsc: oldData.boardColumnsAsc.map((col) => (col.id === boardColumn.id ? { ...col, name } : col)),
-        } satisfies typeof oldData;
-      });
-    },
+    queryKey: trpc.board.get.queryKey({ boardId: board.id }),
+    onExecute: ({ name }) =>
+      renameBoardColumnData({ trpc, queryClient, params: { boardId: board.id, boardColumnId: boardColumn.id, name } }),
     errorToast: 'Failed to rename column. Please try again.',
     mutation: useMutation(trpc.boardColumn.setName.mutationOptions()),
   });

@@ -1,8 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { Mail, MailCheck, Mails, Paperclip } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,15 +8,11 @@ import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useRouteContext } from '@/hooks/use-route-context';
+import type { Board } from '@/query-helpers/board';
+import { type BoardCard as BoardCardType, setUnreadBoardCardData } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
 import { formattedTimeAgo } from '@/utils/time';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
-
-type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
-type Board = BoardData['board'];
-
-type BoardCardsData = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards'];
-type BoardCardType = BoardCardsData['boardCardsDesc'][number];
 
 export const DRAG_TYPE = 'board-card';
 
@@ -127,35 +121,19 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
   });
 
   const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: board.id });
-
   const optimisticallyMarkAsRead = useOptimisticMutation({
     queryClient,
     queryKey: boardCardsQueryKey,
-    onExecute: ({ boardCardId }) => {
-      queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, unread: false } : c)),
-        } satisfies typeof oldData;
-      });
-    },
+    onExecute: ({ boardId, boardCardId }) =>
+      setUnreadBoardCardData({ trpc, queryClient, params: { boardId, boardCardId, unread: false } }),
     errorToast: 'Failed to mark the card as read. Please try again.',
     mutation: useMutation(trpc.boardCard.markAsRead.mutationOptions()),
   });
-
   const optimisticallyMarkAsUnread = useOptimisticMutation({
     queryClient,
     queryKey: boardCardsQueryKey,
-    onExecute: ({ boardCardId }) => {
-      queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, unread: true } : c)),
-        } satisfies typeof oldData;
-      });
-    },
+    onExecute: ({ boardId, boardCardId }) =>
+      setUnreadBoardCardData({ trpc, queryClient, params: { boardId, boardCardId, unread: true } }),
     errorToast: 'Failed to mark the card as unread. Please try again.',
     mutation: useMutation(trpc.boardCard.markAsUnread.mutationOptions()),
   });

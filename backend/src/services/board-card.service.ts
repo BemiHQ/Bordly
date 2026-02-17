@@ -243,7 +243,7 @@ export class BoardCardService {
       lastEventAt,
       hasAttachments: emailMessagesDesc.some((msg) => msg.gmailAttachments.length > 0),
       emailMessageCount: emailMessagesDesc.length,
-      movedToTrashAt: boardCard.movedToTrashAt || (state === State.TRASH ? new Date() : undefined),
+      movedToTrashAt: state === State.TRASH ? boardCard.movedToTrashAt || new Date() : undefined,
     });
 
     return boardCard;

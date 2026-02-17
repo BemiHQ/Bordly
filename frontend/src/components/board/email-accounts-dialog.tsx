@@ -1,7 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -12,11 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Spinner } from '@/components/ui/spinner';
 import { useBoardFilters } from '@/hooks/use-board-filters';
 import { useRouteContext } from '@/hooks/use-route-context';
+import { type Board, type GmailAccount, removeGmailAccountData } from '@/query-helpers/board';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
-
-type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
-type Board = BoardData['board'];
-type GmailAccount = BoardData['gmailAccounts'][number];
 
 const RemoveAccountPopover = ({
   board,
@@ -46,14 +41,7 @@ const RemoveAccountPopover = ({
             ...prev,
             gmailAccountIds: prev.gmailAccountIds.filter((id) => id !== gmailAccount.id),
           }));
-          // Remove the deleted account from the board data in the cache
-          queryClient.setQueryData(trpc.board.get.queryKey({ boardId: board.id }), (oldData) => {
-            if (!oldData) return oldData;
-            return {
-              ...oldData,
-              gmailAccounts: oldData.gmailAccounts.filter((a) => a.id !== gmailAccount.id),
-            } satisfies typeof oldData;
-          });
+          removeGmailAccountData({ trpc, queryClient, params: { boardId: board.id, gmailAccountId: gmailAccount.id } });
           toast.success('Email account removed successfully', { position: 'top-center' });
         }
         setOpen(false);

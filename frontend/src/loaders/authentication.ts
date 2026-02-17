@@ -14,15 +14,13 @@ export const fetchSessionCookie = createServerFn({ method: 'GET' }).handler(asyn
   return sessionIdMatch ? `${SESSION_COOKIE_NAME}=${sessionIdMatch[1]}` : null;
 });
 
-export const ensureNotLoggedIn = async ({ context }: { context: RouteContext }) => {
+export const ensureNotLoggedIn = async ({ context: { queryClient, trpc } }: { context: RouteContext }) => {
   if (isSsr()) {
     const sessionCookie = await fetchSessionCookie();
     if (!sessionCookie) return;
   }
 
-  const { currentUser, boards } = await context.queryClient.ensureQueryData(
-    context.trpc.user.getCurrentUser.queryOptions(),
-  );
+  const { currentUser, boards } = await queryClient.ensureQueryData(trpc.user.getCurrentUser.queryOptions());
   if (!currentUser) return;
 
   if (boards.length === 0) {
@@ -34,10 +32,8 @@ export const ensureNotLoggedIn = async ({ context }: { context: RouteContext }) 
 
 export const ensureLoggedIn =
   (currentRoute: string) =>
-  async ({ context }: { context: RouteContext }) => {
-    const { currentUser, boards } = await context.queryClient.ensureQueryData(
-      context.trpc.user.getCurrentUser.queryOptions(),
-    );
+  async ({ context: { queryClient, trpc } }: { context: RouteContext }) => {
+    const { currentUser, boards } = await queryClient.ensureQueryData(trpc.user.getCurrentUser.queryOptions());
     if (!currentUser) {
       throw redirect({ to: ROUTES.AUTH });
     }

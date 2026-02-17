@@ -1,43 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query';
-import { createTRPCClient, httpBatchStreamLink, loggerLink } from '@trpc/client';
-import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import superjson from 'superjson';
 import { routeTree } from '@/routeTree.gen';
-import { TRPCProvider } from '@/trpc';
-import { ENV } from '@/utils/env';
+import { createTrpcClient, TRPCProvider } from '@/trpc';
 import { isSsr } from '@/utils/ssr';
-import { API_ENDPOINTS } from '@/utils/urls';
 import '@/utils/error-tracking';
-import { fetchSessionCookie } from '@/loaders/authentication';
 
 let BROWSER_QUERY_CLIENT: QueryClient | undefined;
-
-const createTrpcClient = () =>
-  createTRPCClient<TRPCRouter>({
-    links: [
-      httpBatchStreamLink({
-        transformer: superjson,
-        url: isSsr() && ENV.SSR_API_ENDPOINT ? API_ENDPOINTS.TRPC_SSR : API_ENDPOINTS.TRPC,
-        async fetch(url, options) {
-          let cookie: string | null = null;
-          if (isSsr()) {
-            cookie = await fetchSessionCookie(); // SSR: fetch the session cookie from the incoming request
-          }
-          return fetch(url, {
-            ...options,
-            credentials: 'include',
-            headers: { ...options?.headers, ...(cookie ? { cookie } : {}) },
-          });
-        },
-      }),
-      loggerLink({
-        enabled: () => true,
-      }),
-    ],
-  });
 
 const createQueryClient = () =>
   new QueryClient({
@@ -61,14 +31,13 @@ const getQueryClient = () => {
 
 export const getRouter = () => {
   const queryClient = getQueryClient();
-  const trpcClient = createTrpcClient();
-  const trpc = createTRPCOptionsProxy({ client: trpcClient, queryClient: queryClient });
+  const { trpcClient, trpcProxy } = createTrpcClient(queryClient);
 
   const router = createRouter({
     routeTree,
     scrollRestoration: true,
     defaultPreload: 'intent',
-    context: { trpc, queryClient },
+    context: { trpc: trpcProxy, queryClient },
     defaultPendingComponent: () => null,
     defaultNotFoundComponent: () => <div>404 - Not Found</div>,
     Wrap: function WrapComponent({ children }) {

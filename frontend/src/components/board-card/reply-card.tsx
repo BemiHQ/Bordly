@@ -1,7 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEditor } from '@tiptap/react';
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { ALargeSmall, Paperclip, Send, Trash } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -18,6 +16,23 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useEmailIframe } from '@/hooks/use-email-iframe';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
+import {
+  addEmailMessageData,
+  addFileAttachmentToEmailDraftData,
+  type BoardCardData,
+  type EmailDraft,
+  type EmailMessage,
+  type FileAttachment,
+  type Participant,
+  removeEmailDraftData,
+  removeFileAttachmentFromEmailDraftData,
+  replaceBoardCardData,
+} from '@/query-helpers/board-card';
+import {
+  removeBoardCardEmailDraftData,
+  replaceBoardCardData as replaceBoardCardDataInList,
+  setBoardCardEmailDraftData,
+} from '@/query-helpers/board-cards';
 import { createQuotedHtml, formatQuoteHeader, sanitizeBodyHtml } from '@/utils/email';
 import { reportError } from '@/utils/error-tracking';
 import { cn } from '@/utils/strings';
@@ -26,12 +41,6 @@ import { API_ENDPOINTS } from '@/utils/urls';
 const AUTO_SAVE_INTERVAL_MS = 1_000;
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
-
-type BoardCardData = inferRouterOutputs<TRPCRouter>['boardCard']['get'];
-type EmailDraft = BoardCardData['boardCard']['emailDraft'];
-type EmailMessage = BoardCardData['emailMessagesAsc'][number];
-type Participant = NonNullable<EmailDraft>['from'];
-type FileAttachment = NonNullable<EmailDraft>['fileAttachments'][number];
 
 const participantsToInput = (participants?: Participant[]) =>
   participants?.map((participant) => participantToInput(participant)).join(', ') ?? '';
@@ -103,63 +112,52 @@ export const ReplyCard = ({
   const emailDraftUpsertMutation = useMutation(
     trpc.emailDraft.upsert.mutationOptions({
       onSuccess: ({ boardCard }) => {
-        queryClient.setQueryData(trpc.boardCard.get.queryKey({ boardId, boardCardId }), (oldData) => {
-          if (!oldData) return oldData;
-          return { ...oldData, boardCard } satisfies typeof oldData;
-        });
-        queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCard.id ? boardCard : c)),
-          } satisfies typeof oldData;
-        });
+        replaceBoardCardData({ trpc, queryClient, params: { boardId, boardCard } });
+        replaceBoardCardDataInList({ trpc, queryClient, params: { boardId, boardCard } });
       },
     }),
   );
 
   const boardCardQueryKey = trpc.boardCard.get.queryKey({ boardId, boardCardId });
+  const upsertDraftMutation = useMutation(trpc.emailDraft.upsert.mutationOptions());
   const optimisticallyDiscardDraft = useOptimisticMutationWithUndo({
     queryClient,
     queryKey: boardCardQueryKey,
-    onExecute: () => {
-      queryClient.setQueryData(boardCardQueryKey, (oldData) => {
-        if (!oldData) return oldData;
-        return { ...oldData, boardCard: { ...oldData.boardCard, emailDraft: undefined } } satisfies typeof oldData;
-      });
-      queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCardsDesc: oldData.boardCardsDesc.map((c) =>
-            c.id === boardCardId ? { ...c, emailDraft: undefined } : c,
-          ),
-        } satisfies typeof oldData;
-      });
+    onExecute: (params) => {
+      removeEmailDraftData({ trpc, queryClient, params });
+      removeBoardCardEmailDraftData({ trpc, queryClient, params });
     },
     successToast: 'Draft discarded',
-    errorToast: 'Failed to discard draft. Please try again.',
-    delayedMutation: useMutation(trpc.emailDraft.delete.mutationOptions()),
+    errorToast: 'Failed to discard draft',
+    mutation: useMutation(trpc.emailDraft.delete.mutationOptions()),
+    undoMutationConfig: ({ boardId, boardCardId }, beforeMutationData) => {
+      const previousEmailDraft = (beforeMutationData as BoardCardData).boardCard.emailDraft!;
+      setBoardCardEmailDraftData({
+        trpc,
+        queryClient,
+        params: { boardId, boardCardId, emailDraft: previousEmailDraft },
+      });
+      return {
+        mutation: upsertDraftMutation,
+        params: {
+          boardId,
+          boardCardId,
+          subject: previousEmailDraft.subject || '',
+          bodyHtml: previousEmailDraft.bodyHtml || '',
+          from: previousEmailDraft.from ? participantToInput(previousEmailDraft.from) : '',
+          to: previousEmailDraft.to ? previousEmailDraft.to.map((p) => participantToInput(p)) : undefined,
+          cc: previousEmailDraft.cc ? previousEmailDraft.cc.map((p) => participantToInput(p)) : undefined,
+          bcc: previousEmailDraft.bcc ? previousEmailDraft.bcc.map((p) => participantToInput(p)) : undefined,
+        },
+      };
+    },
   });
 
   const emailDraftSendMutation = useMutation(
     trpc.emailDraft.send.mutationOptions({
       onSuccess: ({ emailMessage, boardCard }) => {
-        queryClient.setQueryData(boardCardQueryKey, (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            boardCard,
-            emailMessagesAsc: [...oldData.emailMessagesAsc, emailMessage],
-          } satisfies typeof oldData;
-        });
-        queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCard.id ? boardCard : c)),
-          } satisfies typeof oldData;
-        });
+        addEmailMessageData({ trpc, queryClient, params: { boardId, boardCardId, emailMessage } });
+        replaceBoardCardDataInList({ trpc, queryClient, params: { boardId, boardCard } });
         editor.commands.clearContent();
         onDiscard();
       },
@@ -283,19 +281,7 @@ export const ReplyCard = ({
 
       const { fileAttachment } = (await response.json()) as { fileAttachment: FileAttachment };
       setAttachments((prev) => [...prev, fileAttachment]);
-      queryClient.setQueryData(trpc.boardCard.get.queryKey({ boardId, boardCardId }), (oldData) => {
-        if (!oldData?.boardCard.emailDraft) return oldData;
-        return {
-          ...oldData,
-          boardCard: {
-            ...oldData.boardCard,
-            emailDraft: {
-              ...oldData.boardCard.emailDraft,
-              fileAttachments: [...(oldData.boardCard.emailDraft.fileAttachments || []), fileAttachment],
-            },
-          },
-        } satisfies typeof oldData;
-      });
+      addFileAttachmentToEmailDraftData({ trpc, queryClient, params: { boardId, boardCardId, fileAttachment } });
     } catch (error) {
       reportError(error, { fileName: file.name, boardId, boardCardId });
       toast.error(`Failed to upload "${file.name}"`, { position: 'top-center' });
@@ -304,30 +290,16 @@ export const ReplyCard = ({
     }
   };
 
-  const deleteAttachment = async (attachmentId: string) => {
+  const deleteAttachment = async (fileAttachmentId: string) => {
     try {
       const response = await fetch(
-        `${API_ENDPOINTS.FILE_ATTACHMENT_DELETE}?boardId=${encodeURIComponent(boardId)}&boardCardId=${encodeURIComponent(boardCardId)}&attachmentId=${encodeURIComponent(attachmentId)}`,
+        `${API_ENDPOINTS.FILE_ATTACHMENT_DELETE}?boardId=${encodeURIComponent(boardId)}&boardCardId=${encodeURIComponent(boardCardId)}&fileAttachmentId=${encodeURIComponent(fileAttachmentId)}`,
         { method: 'DELETE', credentials: 'include' },
       );
       if (!response.ok) throw new Error('Delete failed');
 
-      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
-      queryClient.setQueryData(trpc.boardCard.get.queryKey({ boardId, boardCardId }), (oldData) => {
-        if (!oldData?.boardCard.emailDraft) return oldData;
-        return {
-          ...oldData,
-          boardCard: {
-            ...oldData.boardCard,
-            emailDraft: {
-              ...oldData.boardCard.emailDraft,
-              fileAttachments: (oldData.boardCard.emailDraft.fileAttachments || []).filter(
-                (a) => a.id !== attachmentId,
-              ),
-            },
-          },
-        } satisfies typeof oldData;
-      });
+      setAttachments((prev) => prev.filter((a) => a.id !== fileAttachmentId));
+      removeFileAttachmentFromEmailDraftData({ trpc, queryClient, params: { boardId, boardCardId, fileAttachmentId } });
     } catch (error) {
       console.error('Failed to delete attachment:', error);
     }

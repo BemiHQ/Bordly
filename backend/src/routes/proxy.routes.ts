@@ -34,12 +34,12 @@ const validateReferer = (request: FastifyRequest, { allowUndefined }: { allowUnd
 
 export const proxyRoutes = async (fastify: FastifyInstance) => {
   fastify.get(ROUTES.PROXY_GMAIL_ATTACHMENT, async (request, reply) => {
-    const { boardId, boardCardId, attachmentId } = request.query as {
+    const { boardId, boardCardId, gmailAttachmentId } = request.query as {
       boardId?: string;
       boardCardId?: string;
-      attachmentId?: string;
+      gmailAttachmentId?: string;
     };
-    if (!boardId || !boardCardId || !attachmentId) {
+    if (!boardId || !boardCardId || !gmailAttachmentId) {
       return reply.status(400).send();
     }
     validateReferer(request, { allowUndefined: true });
@@ -56,7 +56,7 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
         throw new Error(`Board not found or user is not a member: ${boardId} (user ID: ${userId})`);
       }
       const boardCard = await BoardCardService.findById(board, { boardCardId });
-      const attachment = await GmailAttachmentService.findByIdAndExternalThreadId(attachmentId, {
+      const attachment = await GmailAttachmentService.findByIdAndExternalThreadId(gmailAttachmentId, {
         externalThreadId: boardCard.externalThreadId,
         populate: ['emailMessage'],
       });
@@ -70,7 +70,7 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
 
       const { data: attachmentData } = await GmailApi.getAttachment(gmail, {
         messageId: attachment.loadedEmailMessage.externalId,
-        attachmentId: attachment.externalId,
+        externalAttachmentId: attachment.externalId,
       });
 
       if (!attachmentData) {

@@ -36,8 +36,8 @@ export class FileAttachmentService {
     return draftAttachment;
   }
 
-  static async deleteForEmailDraft(emailDraft: EmailDraft, { attachmentId }: { attachmentId: string }) {
-    const attachment = emailDraft.fileAttachments.find((a) => a.id === attachmentId);
+  static async deleteForEmailDraft(emailDraft: EmailDraft, { fileAttachmentId }: { fileAttachmentId: string }) {
+    const attachment = emailDraft.fileAttachments.find((a) => a.id === fileAttachmentId);
     if (!attachment) {
       throw new Error('Attachment not found');
     }

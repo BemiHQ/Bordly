@@ -1,6 +1,4 @@
 import { Link } from '@tanstack/react-router';
-import type { inferRouterOutputs } from '@trpc/server';
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { LogOutIcon } from 'lucide-react';
 
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
@@ -12,9 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import type { CurrentUser } from '@/query-helpers/current-user';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
-
-type CurrentUser = NonNullable<inferRouterOutputs<TRPCRouter>['user']['getCurrentUser']['currentUser']>;
 
 export const Navbar = ({ currentUser }: { currentUser: CurrentUser }) => {
   return (
