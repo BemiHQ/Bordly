@@ -7,10 +7,12 @@ import { listenToQueues } from '@/pg-boss-queues';
 import { authRoutes } from '@/routes/auth.routes';
 import { createContext, trpcRouter } from '@/trpc-router';
 import { ENV } from '@/utils/env';
+import { setupFastifyErrorHandler } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
 import { closePgBoss } from '@/utils/pg-boss';
 
 const fastify = Fastify({ logger: false });
+setupFastifyErrorHandler(fastify);
 
 fastify.addHook('onRequest', (request, _reply, done) => {
   if (!request.url.startsWith('/trpc/')) {
@@ -31,7 +33,7 @@ fastify.addHook('onResponse', (request, reply, done) => {
 fastify.register(cors, { origin: ENV.APP_ENDPOINT, credentials: true });
 fastify.register(secureSession, {
   key: Buffer.from(ENV.COOKIE_SECRET, 'base64'),
-  cookieName: ENV.COOKIE_SESSION_NAME,
+  cookieName: 'sId',
   cookie: {
     secure: true,
     httpOnly: true,

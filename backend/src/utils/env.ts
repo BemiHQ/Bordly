@@ -9,7 +9,6 @@ export const ENV = {
   DB_SSL: process.env.DB_SSL === 'true',
 
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY as string,
-  COOKIE_SESSION_NAME: process.env.COOKIE_SESSION_NAME as string,
   COOKIE_SECRET: process.env.COOKIE_SECRET as string,
 
   ROOT_DOMAIN: process.env.ROOT_DOMAIN as string,
@@ -25,4 +24,6 @@ export const ENV = {
   AWS_REGION: process.env.AWS_REGION,
   AWS_SES_ACCESS_KEY_ID: process.env.AWS_SES_ACCESS_KEY_ID,
   AWS_SES_SECRET_ACCESS_KEY: process.env.AWS_SES_SECRET_ACCESS_KEY,
+
+  SENTRY_DSN: process.env.SENTRY_DSN,
 };
