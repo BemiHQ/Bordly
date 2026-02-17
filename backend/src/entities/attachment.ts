@@ -52,6 +52,7 @@ export class Attachment extends BaseEntity {
       id: this.id,
       mimeType: this.mimeType,
       filename: this.filename,
+      size: this.size,
     };
   }
 

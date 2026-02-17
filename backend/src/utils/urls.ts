@@ -6,6 +6,7 @@ export const ROUTES = {
   AUTH_LOG_OUT: '/auth/log-out',
   INTERNAL_HEALTH: '/internal/health',
   PROXY_ICON: '/proxy/icon',
+  PROXY_GMAIL_ATTACHMENT: '/proxy/gmail-attachment',
   TRPC: '/trpc',
 };
 

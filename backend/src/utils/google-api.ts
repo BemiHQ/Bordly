@@ -159,4 +159,16 @@ export class GoogleApi {
       historyId: historyResponse.data.historyId || undefined,
     };
   }
+
+  static async gmailGetAttachment(
+    gmail: gmail_v1.Gmail,
+    { messageId, attachmentId }: { messageId: string; attachmentId: string },
+  ) {
+    const response = await gmail.users.messages.attachments.get({
+      userId: 'me',
+      messageId,
+      id: attachmentId,
+    });
+    return response.data;
+  }
 }

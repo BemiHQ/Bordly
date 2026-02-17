@@ -3,7 +3,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import DOMPurify from 'dompurify';
-import { ChevronDownIcon, Ellipsis } from 'lucide-react';
+import { ChevronDownIcon, Download, Ellipsis, Paperclip } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -13,14 +13,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Spinner } from '@/components/ui/spinner';
 import emailIframeStyles from '@/email-iframe.css?inline';
 import { RouteProvider } from '@/hooks/use-route-context';
-import { extractUuid } from '@/utils/strings';
+import { cn, extractUuid, formatBytes, pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
 type EmailMessage = EmailMessagesData['emailMessages'][number];
-
-const DEFAULT_IFRAME_HEIGHT = 150;
+type Attachment = EmailMessage['attachments'][number];
 
 export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
   component: BoardCardComponent,
@@ -186,20 +185,31 @@ const setIframeContent = (
   return resizeObserver;
 };
 
-const ToggleQuotesButton = ({ onClick }: { onClick: () => void }) => {
+const ToggleQuotesButton = ({ expanded, toggle }: { expanded: boolean; toggle: () => void }) => {
   return (
     <Button
       variant="ghost"
       size="sm"
-      onClick={onClick}
-      className="self-start my-4 h-3 px-1.5 text-muted-foreground hover:text-muted-foreground bg-border hover:bg-ring"
+      onClick={toggle}
+      className={cn(
+        'self-start mt-4 h-3 px-1.5 text-muted-foreground hover:text-muted-foreground bg-border hover:bg-ring',
+        expanded ? 'mb-4' : '',
+      )}
     >
       <Ellipsis className="size-4" />
     </Button>
   );
 };
 
-const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
+const EmailMessageBody = ({
+  emailMessage,
+  boardId,
+  boardCardId,
+}: {
+  emailMessage: EmailMessage;
+  boardId: string;
+  boardCardId: string;
+}) => {
   const [mainText, setMainText] = useState('');
 
   const [styles, setStyles] = useState('');
@@ -214,11 +224,20 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
   useEffect(() => {
     if (bodyHtml || !bodyText) {
       // HTML body
-      const sanitized = DOMPurify.sanitize(bodyHtml || '', {
+      let sanitized = DOMPurify.sanitize(bodyHtml || '', {
         WHOLE_DOCUMENT: true,
         ADD_TAGS: ['style', 'head'],
         ADD_ATTR: ['style'],
       });
+
+      // Replace cid: references with proxy URLs for inline images
+      for (const attachment of emailMessage.attachments) {
+        if (attachment.mimeType.startsWith('image/')) {
+          const proxyUrl = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;
+          sanitized = sanitized.replaceAll(`src="cid:${attachment.filename}"`, `src="${proxyUrl}"`);
+        }
+      }
+
       const parser = new DOMParser();
       const doc = parser.parseFromString(sanitized, 'text/html');
 
@@ -250,7 +269,7 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
       setMainText(parsedMainText);
       setBackquotesText(parsedBackquotesText);
     }
-  }, [bodyHtml, bodyText]);
+  }, [bodyHtml, bodyText, emailMessage.attachments, boardId, boardCardId]);
 
   // HTML blockquotes
   useEffect(() => {
@@ -270,7 +289,10 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
         />
         {blockquotesHtml && (
           <>
-            <ToggleQuotesButton onClick={() => setBlockquotesExpanded(!blockquotesExpanded)} />
+            <ToggleQuotesButton
+              expanded={blockquotesExpanded}
+              toggle={() => setBlockquotesExpanded(!blockquotesExpanded)}
+            />
             {blockquotesExpanded && (
               <iframe
                 ref={backquotesIframeRef}
@@ -290,7 +312,10 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
       <div className="text-sm whitespace-pre-wrap">{mainText}</div>
       {backquotesText && (
         <>
-          <ToggleQuotesButton onClick={() => setBlockquotesExpanded(!blockquotesExpanded)} />
+          <ToggleQuotesButton
+            expanded={blockquotesExpanded}
+            toggle={() => setBlockquotesExpanded(!blockquotesExpanded)}
+          />
           {blockquotesExpanded && <div className="text-sm whitespace-pre-wrap">{backquotesText}</div>}
         </>
       )}
@@ -298,7 +323,15 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
   );
 };
 
-const EmailMessageCard = ({ emailMessage }: { emailMessage: EmailMessage }) => {
+const EmailMessageCard = ({
+  emailMessage,
+  boardId,
+  boardCardId,
+}: {
+  emailMessage: EmailMessage;
+  boardId: string;
+  boardCardId: string;
+}) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const participants = [
@@ -332,6 +365,11 @@ const EmailMessageCard = ({ emailMessage }: { emailMessage: EmailMessage }) => {
   };
 
   const { iconUrl } = emailMessage.domain;
+
+  const handleDownloadAttachment = (attachment: Attachment) => {
+    const url = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;
+    window.open(url, '_blank');
+  };
 
   return (
     <Card className="p-4 pt-3 flex flex-col gap-3">
@@ -417,7 +455,35 @@ const EmailMessageCard = ({ emailMessage }: { emailMessage: EmailMessage }) => {
           </div>
         </div>
       </div>
-      <EmailMessageBody emailMessage={emailMessage} />
+      <EmailMessageBody emailMessage={emailMessage} boardId={boardId} boardCardId={boardCardId} />
+      {emailMessage.attachments.length > 0 && (
+        <div className="flex flex-col gap-2.5 mt-5 pt-5 border-t">
+          <div className="flex items-center gap-1.5">
+            <Paperclip className="size-4 flex-shrink-0 text-muted-foreground" />
+            <div className="text-sm font-medium">
+              {emailMessage.attachments.length} {pluralize('attachment', emailMessage.attachments.length)}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            {emailMessage.attachments
+              .sort((a, b) => a.filename.length - b.filename.length)
+              .map((attachment) => (
+                <button
+                  key={attachment.id}
+                  onClick={() => handleDownloadAttachment(attachment)}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-muted rounded-lg text-xs w-fit cursor-pointer"
+                  type="button"
+                >
+                  <Download className="size-3.5 flex-shrink-0 text-muted-foreground mb-0.5" />
+                  <div className="flex items-end gap-1.5">
+                    <div className="truncate text-text-secondary font-medium">{attachment.filename}</div>
+                    <div className="text-muted-foreground text-2xs">({formatBytes(attachment.size)})</div>
+                  </div>
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
     </Card>
   );
 };
@@ -476,7 +542,12 @@ function BoardCardComponent() {
             {emailMessagesData && (
               <div className="flex flex-col gap-4 px-6 pb-6">
                 {emailMessagesData.emailMessages.map((emailMessage) => (
-                  <EmailMessageCard key={emailMessage.id} emailMessage={emailMessage} />
+                  <EmailMessageCard
+                    key={emailMessage.id}
+                    emailMessage={emailMessage}
+                    boardId={boardId}
+                    boardCardId={boardCardId}
+                  />
                 ))}
               </div>
             )}

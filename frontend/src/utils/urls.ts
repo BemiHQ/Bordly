@@ -15,4 +15,5 @@ export const API_ENDPOINTS = {
   AUTH_GOOGLE: `${ENV.VITE_API_ENDPOINT}/auth/google`,
   AUTH_LOG_OUT: `${ENV.VITE_API_ENDPOINT}/auth/log-out`,
   PROXY_ICON: `${ENV.VITE_API_ENDPOINT}/proxy/icon`,
+  PROXY_GMAIL_ATTACHMENT: `${ENV.VITE_API_ENDPOINT}/proxy/gmail-attachment`,
 };
