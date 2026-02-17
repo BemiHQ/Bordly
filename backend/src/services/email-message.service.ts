@@ -111,8 +111,9 @@ export class EmailMessageService {
       if (!message.id) continue;
       console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${message.id}...`);
       const messageData = await GoogleApi.gmailGetMessage(gmail, message.id);
-      const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
+      if (messageData.labelIds?.includes(LABEL.DRAFT)) continue; // Skip drafts
 
+      const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
       (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
       domainNames.add(emailMessage.domain.name);
       // We also want to read domain names for board cards (they don't use the "From" field for sent emails)
@@ -302,6 +303,7 @@ export class EmailMessageService {
     console.log(`[GMAIL] Processing additions for ${gmailAccount.email}...`);
     const domainNames = new Set<string>();
     const alreadDeletedExternalMessageIds = new Set();
+    const draftExternalMessageIds = new Set<string>();
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
       const emailMessageToCreate = affectedEmailMessageByExternalId[externalMessageId];
       if (emailMessageToCreate) continue; // Already exists
@@ -309,6 +311,11 @@ export class EmailMessageService {
       try {
         console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${externalMessageId}...`);
         const messageData = await GoogleApi.gmailGetMessage(gmail, externalMessageId);
+        if (messageData.labelIds?.includes(LABEL.DRAFT)) {
+          draftExternalMessageIds.add(externalMessageId);
+          continue; // Skip drafts
+        }
+
         const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
         affectedEmailMessageByExternalId[externalMessageId] = emailMessage;
 
@@ -347,6 +354,7 @@ export class EmailMessageService {
     // Handle add: create or update Domains & BoardCards
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
       if (alreadDeletedExternalMessageIds.has(externalMessageId)) continue; // Skip already deleted messages (404)
+      if (draftExternalMessageIds.has(externalMessageId)) continue; // Skip drafts
 
       const emailMessage = affectedEmailMessageByExternalId[externalMessageId]!;
       const threadId = emailMessage.externalThreadId;

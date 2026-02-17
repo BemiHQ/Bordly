@@ -9,6 +9,7 @@ export const LABEL = {
   TRASH: 'TRASH',
   SENT: 'SENT',
   UNREAD: 'UNREAD',
+  DRAFT: 'DRAFT',
 };
 
 export class GoogleApi {
