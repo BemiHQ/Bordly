@@ -1,14 +1,15 @@
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
-import DOMPurify from 'dompurify';
-import { ChevronDownIcon, Download, Ellipsis, Paperclip, Reply } from 'lucide-react';
+import { ChevronDownIcon, Download, Paperclip, Reply } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { ToggleQuotesButton } from '@/components/board-card/toggle-quotes-button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import emailIframeStyles from '@/email-iframe.css?inline';
-import { cn, formatBytes, pluralize } from '@/utils/strings';
+import { useEmailIframe } from '@/hooks/use-email-iframe';
+import { sanitizeBodyHtml } from '@/utils/email';
+import { formatBytes, pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
 import { API_ENDPOINTS } from '@/utils/urls';
 
@@ -126,63 +127,6 @@ const parseTrailingBackquotes = (text: string): { mainText: string; backquotesTe
   return { mainText: text.trimEnd(), backquotesText: '' };
 };
 
-const setIframeContent = (
-  iframe: HTMLIFrameElement,
-  { styles, body }: { styles: string; body: string },
-): ResizeObserver => {
-  const iframeDoc = iframe.contentDocument;
-  if (!iframeDoc) {
-    throw new Error('Unable to access iframe document');
-  }
-
-  iframeDoc.documentElement.innerHTML = `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <style>${emailIframeStyles}</style>
-    ${styles ? `<style>${styles}</style>` : ''}
-  </head>
-  <body class="bordly-email">${body}</body>
-</html>`;
-
-  const links = iframeDoc.querySelectorAll('a');
-  links.forEach((link) => {
-    link.setAttribute('target', '_blank');
-    link.setAttribute('rel', 'noopener noreferrer');
-  });
-
-  const resizeObserver = new ResizeObserver(() => {
-    const iframeHtmlScrollHeight = iframeDoc.documentElement.scrollHeight;
-    const bodyRectHeight = iframeDoc.body.getBoundingClientRect().height; // Can be float
-    const bodyChildrenRectHeight = [...iframeDoc.body.children].reduce(
-      (sum, e) => sum + e.getBoundingClientRect().height,
-      0,
-    ); // Can be float
-
-    const height = Math.max(iframeHtmlScrollHeight, bodyRectHeight, bodyChildrenRectHeight);
-    iframe.style.height = `${Math.ceil(height)}px`;
-  });
-  resizeObserver.observe(iframeDoc.body);
-
-  return resizeObserver;
-};
-
-const ToggleQuotesButton = ({ expanded, toggle }: { expanded: boolean; toggle: () => void }) => {
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={toggle}
-      className={cn(
-        'self-start mt-4 h-3 px-1.5 text-muted-foreground hover:text-muted-foreground bg-border hover:bg-ring',
-        expanded ? 'mb-4' : '',
-      )}
-    >
-      <Ellipsis className="size-4" />
-    </Button>
-  );
-};
-
 const EmailMessageBody = ({
   emailMessage,
   boardId,
@@ -193,7 +137,7 @@ const EmailMessageBody = ({
   boardCardId: string;
 }) => {
   const [mainText, setMainText] = useState('');
-
+  const [mainHtml, setMainHtml] = useState('');
   const [styles, setStyles] = useState('');
   const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
   const [blockquotesHtml, setBlockquotesHtml] = useState('');
@@ -206,33 +150,15 @@ const EmailMessageBody = ({
   useEffect(() => {
     if (bodyHtml || !bodyText) {
       // HTML body
-      const sanitized = DOMPurify.sanitize(bodyHtml || '', {
-        WHOLE_DOCUMENT: true,
-        ADD_TAGS: ['style', 'head'],
-        ADD_ATTR: ['style'],
+      const { html: sanitizedHtml, styles: extractedStyles } = sanitizeBodyHtml({
+        bodyHtml: bodyHtml || '',
+        attachments: emailMessage.attachments,
+        boardId,
+        boardCardId,
       });
 
       const parser = new DOMParser();
-      const doc = parser.parseFromString(sanitized, 'text/html');
-
-      // Replace cid: references with proxy URLs for inline images using DOM
-      for (const attachment of emailMessage.attachments) {
-        if (!attachment.mimeType.startsWith('image/') || (!attachment.filename && !attachment.contentId)) continue;
-
-        const proxyUrl = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;
-        const images = doc.body.querySelectorAll('img');
-        images.forEach((img) => {
-          const src = img.getAttribute('src');
-          if (src) {
-            if (attachment.filename && src === `cid:${attachment.filename}`) {
-              img.setAttribute('src', proxyUrl);
-            }
-            if (attachment.contentId && src === `cid:${attachment.contentId}`) {
-              img.setAttribute('src', proxyUrl);
-            }
-          }
-        });
-      }
+      const doc = parser.parseFromString(`<body>${sanitizedHtml}</body>`, 'text/html');
 
       // Extract and set trailing blockquotes
       const trailingBlockquotes = parseTrailingBlockquotes(doc.body);
@@ -243,19 +169,8 @@ const EmailMessageBody = ({
 
       // Get HTML body
       removeTrailingEmpty(doc.body);
-      const mainHtml = doc.body.innerHTML;
-
-      // Get head styles
-      const styles = Array.from(doc.head.querySelectorAll('style'))
-        .map((style) => style.textContent || '')
-        .join('\n');
-      setStyles(styles);
-
-      // Insert body into iframe
-      if (bodyIframeRef.current) {
-        const resizeObserver = setIframeContent(bodyIframeRef.current, { styles, body: mainHtml });
-        return () => resizeObserver.disconnect();
-      }
+      setMainHtml(doc.body.innerHTML);
+      setStyles(extractedStyles);
     } else {
       // Text body
       const { mainText: parsedMainText, backquotesText: parsedBackquotesText } = parseTrailingBackquotes(bodyText);
@@ -264,12 +179,8 @@ const EmailMessageBody = ({
     }
   }, [bodyHtml, bodyText, emailMessage.attachments, boardId, boardCardId]);
 
-  // HTML blockquotes
-  useEffect(() => {
-    if (!backquotesIframeRef.current || !blockquotesHtml || !blockquotesExpanded) return;
-    const resizeObserver = setIframeContent(backquotesIframeRef.current, { styles, body: blockquotesHtml });
-    return () => resizeObserver.disconnect();
-  }, [blockquotesHtml, blockquotesExpanded, styles]);
+  useEmailIframe(bodyIframeRef, { html: mainHtml, styles });
+  useEmailIframe(backquotesIframeRef, { html: blockquotesHtml, styles, enabled: blockquotesExpanded });
 
   if (emailMessage.bodyHtml) {
     return (

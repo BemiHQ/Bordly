@@ -25,7 +25,7 @@ export class EmailDraft extends BaseEntity {
 
   @Property()
   subject?: string;
-  @Property()
+  @Property({ type: 'text' })
   bodyHtml?: string;
 
   constructor({

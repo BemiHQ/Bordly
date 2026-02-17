@@ -4,12 +4,12 @@ import { Domain } from '@/entities/domain';
 import { EmailDraft, type Participant } from '@/entities/email-draft';
 import { EmailMessage } from '@/entities/email-message';
 import { BoardCardService } from '@/services/board-card.service';
+import { DomainService } from '@/services/domain.service';
 import { EmailMessageService } from '@/services/email-message.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { GoogleApi, LABEL, MAX_SNIPPET_LENGTH } from '@/utils/google-api';
 import { presence } from '@/utils/lists';
 import { orm } from '@/utils/orm';
-import { DomainService } from './domain.service';
 
 export class EmailDraftService {
   static async upsert(

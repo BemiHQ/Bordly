@@ -9,7 +9,8 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
-import { type ChangeEvent, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ToggleQuotesButton } from '@/components/board-card/toggle-quotes-button';
 import {
   COLORS,
   DEFAULT_FONT_FAMILY,
@@ -23,8 +24,10 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import { useEmailIframe } from '@/hooks/use-email-iframe';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
+import { createQuotedHtml, formatQuoteHeader, sanitizeBodyHtml } from '@/utils/email';
 import { cn } from '@/utils/strings';
 
 const AUTO_SAVE_INTERVAL_MS = 1_000;
@@ -87,6 +90,8 @@ export const ReplyCard = ({
   const [showCcBcc, setShowCcBcc] = useState(defaultCc !== '' || defaultBcc !== '');
   const [hasChanges, setHasChanges] = useState(false);
   const autosaveIntervalRef = useRef<number | null>(null);
+  const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
+  const blockquotesIframeRef = useRef<HTMLIFrameElement>(null);
 
   const { data: emailAddressesData } = useQuery({ ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
   const emailAddresses = emailAddressesData?.emailAddresses || [];
@@ -179,6 +184,14 @@ export const ReplyCard = ({
     }),
   );
 
+  const quotedHtml = lastEmailMessage
+    ? createQuotedHtml({
+        bodyHtml: lastEmailMessage.bodyHtml || '',
+        bodyText: lastEmailMessage.bodyText,
+        quoteHeader: formatQuoteHeader({ from: lastEmailMessage.from, sentAt: lastEmailMessage.externalCreatedAt }),
+      })
+    : '';
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -210,10 +223,10 @@ export const ReplyCard = ({
       FontFamily.configure({ types: ['textStyle'] }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
     ],
-    content: emailDraft?.bodyHtml ?? '',
+    content: emailDraft?.bodyHtml?.split(quotedHtml)[0] ?? '',
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] px-4 my-3 text-sm',
+        class: 'prose prose-sm max-w-none focus:outline-none px-4 my-3 text-sm',
       },
       handleClickOn(_view, _pos, _node, _nodePos, event) {
         const target = event.target as HTMLElement;
@@ -289,6 +302,16 @@ export const ReplyCard = ({
     };
   }, [editor]);
 
+  const { html: sanitizedQuotedHtml } = useMemo(() => {
+    if (!quotedHtml || !lastEmailMessage) return { html: '' };
+    return sanitizeBodyHtml({ bodyHtml: quotedHtml, attachments: lastEmailMessage.attachments, boardId, boardCardId });
+  }, [quotedHtml, lastEmailMessage, boardId, boardCardId]);
+
+  useEmailIframe(blockquotesIframeRef, {
+    html: sanitizedQuotedHtml,
+    enabled: blockquotesExpanded,
+  });
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignore emailDraftUpsertMutation to avoid unnecessary re-renders
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -300,7 +323,7 @@ export const ReplyCard = ({
         subject: lastEmailMessage.subject.includes('Re:')
           ? lastEmailMessage.subject
           : `Re: ${lastEmailMessage.subject}`,
-        bodyHtml: editor.getHTML(),
+        bodyHtml: `${editor.getHTML()}${quotedHtml}`,
         from: fromInput.trim(),
         to: toInput ? parseParticipantsInput(toInput) : undefined,
         cc: ccInput ? parseParticipantsInput(ccInput) : undefined,
@@ -326,6 +349,7 @@ export const ReplyCard = ({
     toInput,
     ccInput,
     bccInput,
+    quotedHtml,
   ]);
 
   const handleSend = () => {
@@ -342,7 +366,7 @@ export const ReplyCard = ({
       boardId,
       boardCardId,
       subject: lastEmailMessage.subject.includes('Re:') ? lastEmailMessage.subject : `Re: ${lastEmailMessage.subject}`,
-      bodyHtml: editor.getHTML(),
+      bodyHtml: `${editor.getHTML()}${quotedHtml}`,
       from: fromInput.trim(),
       to: toInput ? parseParticipantsInput(toInput) : undefined,
       cc: ccInput ? parseParticipantsInput(ccInput) : undefined,
@@ -426,6 +450,22 @@ export const ReplyCard = ({
           '[&_.tiptap_a]:underline',
         )}
       />
+      {quotedHtml && (
+        <div className="flex flex-col px-4">
+          <ToggleQuotesButton
+            expanded={blockquotesExpanded}
+            toggle={() => setBlockquotesExpanded(!blockquotesExpanded)}
+          />
+          {blockquotesExpanded && (
+            <iframe
+              ref={blockquotesIframeRef}
+              title="Quoted message"
+              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+              className="w-full border-0 block overflow-hidden mb-4"
+            />
+          )}
+        </div>
+      )}
       <div className="flex justify-end gap-2.5 px-3 pb-3">
         <Button variant="outline" size="sm" onClick={handleDiscard}>
           {emailDraft ? 'Discard' : 'Cancel'}

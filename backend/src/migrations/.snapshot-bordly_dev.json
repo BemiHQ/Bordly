@@ -1230,13 +1230,12 @@
         },
         "body_html": {
           "name": "body_html",
-          "type": "varchar(255)",
+          "type": "text",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": true,
-          "length": 255,
-          "mappedType": "string"
+          "mappedType": "text"
         }
       },
       "name": "email_drafts",
