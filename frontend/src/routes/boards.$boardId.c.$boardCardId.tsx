@@ -15,7 +15,7 @@ import emailIframeStyles from '@/email-iframe.css?inline';
 import { RouteProvider } from '@/hooks/use-route-context';
 import { extractUuid } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
-import { ROUTES } from '@/utils/urls';
+import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
 type EmailMessage = EmailMessagesData['emailMessages'][number];
@@ -336,11 +336,20 @@ const EmailMessageCard = ({ emailMessage }: { emailMessage: EmailMessage }) => {
     return p.email;
   };
 
+  const { iconUrl } = emailMessage.domain;
+
   return (
     <Card className="p-4 pt-3 flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <Avatar>
-          <AvatarImage src={emailMessage.domain.iconUrl} alt={firstParticipantName} />
+          <AvatarImage
+            src={
+              iconUrl && !iconUrl.startsWith('/')
+                ? `${API_ENDPOINTS.PROXY_ICON}?url=${encodeURIComponent(iconUrl!)}`
+                : iconUrl
+            }
+            alt={firstParticipantName}
+          />
           <AvatarFallback hashForBgColor={firstParticipantName}>
             {firstParticipantName.charAt(0).toUpperCase()}
           </AvatarFallback>
@@ -470,7 +479,7 @@ function BoardCardComponent() {
               </div>
             )}
             {emailMessagesData && (
-              <div className="flex flex-col gap-3 px-6 pb-6">
+              <div className="flex flex-col gap-4 px-6 pb-6">
                 {emailMessagesData.emailMessages.map((emailMessage) => (
                   <EmailMessageCard key={emailMessage.id} emailMessage={emailMessage} />
                 ))}

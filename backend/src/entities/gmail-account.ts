@@ -37,7 +37,7 @@ export class GmailAccount extends BaseEntity {
   refreshTokenEncrypted: string;
   @Property()
   externalId: string;
-  @Property({ nullable: true })
+  @Property()
   externalHistoryId?: string;
 
   constructor({

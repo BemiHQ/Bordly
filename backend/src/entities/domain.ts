@@ -9,6 +9,8 @@ export class Domain extends BaseEntity {
   name: string;
   @Property()
   iconUrl?: string;
+  @Property()
+  fetchErrorStatus?: number;
 
   constructor({ name, iconUrl }: { name: string; iconUrl?: string }) {
     super();
@@ -17,9 +19,11 @@ export class Domain extends BaseEntity {
     this.validate();
   }
 
-  setIconUrl(iconUrl?: string) {
+  setIcon({ iconUrl, fetchErrorStatus }: { iconUrl?: string; fetchErrorStatus?: number }) {
     if (iconUrl) {
       this.iconUrl = iconUrl;
+    } else if (fetchErrorStatus) {
+      this.fetchErrorStatus = fetchErrorStatus;
     }
   }
 

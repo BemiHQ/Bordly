@@ -18,8 +18,8 @@ export class User extends BaseEntity {
   name: string;
   @Property({ columnType: 'text' })
   photoUrl: string;
-  @Property({ nullable: true })
-  lastSessionAt: Date | null;
+  @Property()
+  lastSessionAt?: Date;
 
   constructor({
     email,
@@ -34,7 +34,7 @@ export class User extends BaseEntity {
     this.email = email;
     this.name = name;
     this.photoUrl = photoUrl;
-    this.lastSessionAt = null;
+    this.lastSessionAt = undefined;
     this.validate();
   }
 

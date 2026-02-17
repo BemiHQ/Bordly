@@ -31,7 +31,7 @@ import { RouteProvider, useRouteContext } from '@/hooks/use-route-context';
 import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
 import { formattedTimeAgo } from '@/utils/time';
-import { ROUTES } from '@/utils/urls';
+import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 const REFETCH_INTERVAL_MS = 30_000;
 
@@ -116,6 +116,8 @@ const BoardCardContent = ({
   const firstParticipant = boardCard.participants[0];
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
 
+  const { iconUrl } = boardCard.domain;
+
   return (
     <div className="flex flex-col">
       <div className="flex items-center mb-1.5">
@@ -126,7 +128,14 @@ const BoardCardContent = ({
             unread || isHovered === true || isHovered === undefined ? '' : 'grayscale-100 opacity-60',
           )}
         >
-          <AvatarImage src={boardCard.domain.iconUrl} alt={firstParticipantName} />
+          <AvatarImage
+            src={
+              iconUrl && !iconUrl.startsWith('/')
+                ? `${API_ENDPOINTS.PROXY_ICON}?url=${encodeURIComponent(iconUrl!)}`
+                : iconUrl
+            }
+            alt={firstParticipantName}
+          />
           <AvatarFallback hashForBgColor={firstParticipantName}>
             {firstParticipantName.charAt(0).toUpperCase()}
           </AvatarFallback>
@@ -179,13 +188,13 @@ const BoardCardContent = ({
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
       {(boardCard.hasSent || boardCard.emailMessageCount > 1) && (
         <div className="flex items-center gap-3 mt-1 text-2xs text-muted-foreground">
-          {boardCard.hasSent && <Send className="size-3" />}
           {boardCard.emailMessageCount > 1 && (
             <div className="flex items-center gap-1">
               <Mails className="size-3.5" />
               <span>{boardCard.emailMessageCount}</span>
             </div>
           )}
+          {boardCard.hasSent && <Send className="size-3" />}
         </div>
       )}
     </div>

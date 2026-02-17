@@ -39,12 +39,12 @@ export class BoardCard extends BaseEntity {
   hasSent: boolean;
   @Property()
   emailMessageCount: number;
-  @Property({ type: 'jsonb', nullable: true })
+  @Property({ type: 'jsonb' })
   unreadEmailMessageIds?: string[];
 
-  @Property({ nullable: true })
+  @Property()
   pinnedPosition?: number;
-  @Property({ nullable: true })
+  @Property()
   movedToTrashAt?: Date;
 
   constructor({

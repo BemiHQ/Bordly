@@ -31,13 +31,13 @@ export class EmailMessage extends BaseEntity {
 
   @Property({ type: 'jsonb' })
   from: Participant;
-  @Property({ type: 'jsonb', nullable: true })
+  @Property({ type: 'jsonb' })
   to?: Participant[];
-  @Property({ type: 'jsonb', nullable: true })
+  @Property({ type: 'jsonb' })
   replyTo?: Participant;
-  @Property({ type: 'jsonb', nullable: true })
+  @Property({ type: 'jsonb' })
   cc?: Participant[];
-  @Property({ type: 'jsonb', nullable: true })
+  @Property({ type: 'jsonb' })
   bcc?: Participant[];
 
   @Property()
@@ -49,9 +49,9 @@ export class EmailMessage extends BaseEntity {
   subject: string;
   @Property()
   snippet: string;
-  @Property({ type: 'text', nullable: true })
+  @Property({ type: 'text' })
   bodyText?: string;
-  @Property({ type: 'text', nullable: true })
+  @Property({ type: 'text' })
   bodyHtml?: string;
 
   constructor({

@@ -11,12 +11,13 @@ import { AgentService } from '@/services/agent.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { DomainService } from '@/services/domain.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
+import { ENV } from '@/utils/env';
 import { GoogleApi, LABEL } from '@/utils/google-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
 
-const CREATE_EMAIL_MESSAGES_BATCH_LIMIT = 30;
+const CREATE_EMAIL_MESSAGES_BATCH_LIMIT = ENV.NODE_ENV === 'production' ? 30 : 10;
 const MAX_INITIAL_BOARD_COUNT = 5;
 
 const CATEGORIES = {
@@ -102,7 +103,7 @@ export class EmailMessageService {
       const existingDomain = existingDomainByName[domain.name];
       if (existingDomain) return existingDomain;
 
-      domain.setIconUrl(await DomainService.fetchIconUrl(domain));
+      domain.setIcon(await DomainService.fetchIcon(domain));
       orm.em.persist(domain);
       existingDomainByName[domain.name] = domain;
       return domain;
@@ -265,7 +266,7 @@ export class EmailMessageService {
       const existingDomain = existingDomainByName[domain.name];
       if (existingDomain) return existingDomain;
 
-      domain.setIconUrl(await DomainService.fetchIconUrl(domain));
+      domain.setIcon(await DomainService.fetchIcon(domain));
       orm.em.persist(domain);
       existingDomainByName[domain.name] = domain;
       return domain;

@@ -223,6 +223,15 @@
           "nullable": true,
           "length": 255,
           "mappedType": "string"
+        },
+        "fetch_error_status": {
+          "name": "fetch_error_status",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "integer"
         }
       },
       "name": "domains",

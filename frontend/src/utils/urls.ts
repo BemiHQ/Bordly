@@ -14,4 +14,5 @@ export const API_ENDPOINTS = {
   TRPC_SSR: `${ENV.SSR_API_ENDPOINT}/trpc`,
   AUTH_GOOGLE: `${ENV.VITE_API_ENDPOINT}/auth/google`,
   AUTH_LOG_OUT: `${ENV.VITE_API_ENDPOINT}/auth/log-out`,
+  PROXY_ICON: `${ENV.VITE_API_ENDPOINT}/proxy/icon`,
 };

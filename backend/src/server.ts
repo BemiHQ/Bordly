@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import { listenToQueues } from '@/pg-boss-queues';
 import { authRoutes } from '@/routes/auth.routes';
 import { internalRoutes } from '@/routes/internal.routes';
+import { proxyRoutes } from '@/routes/proxy.routes';
 import { createContext, trpcRouter } from '@/trpc-router';
 import { ENV } from '@/utils/env';
 import { reportError, setupFastifyErrorHandler } from '@/utils/error-tracking';
@@ -51,6 +52,7 @@ fastify.register(fastifyTRPCPlugin, { prefix: ROUTES.TRPC, trpcOptions: { router
 
 fastify.register(internalRoutes);
 fastify.register(authRoutes);
+fastify.register(proxyRoutes);
 
 const start = async () => {
   try {

@@ -17,9 +17,7 @@ const SKIP_CONSUMER_DOMAINS = [
 ];
 
 const CUSTOM_ROOT_DOMAIN_ICONS = {
-  // CORS issues
-  'getsentry.com': '/domain-icons/getsentry.com.svg',
-  'instagram.com': '/domain-icons/instagram.com.ico',
+  // 400 Bad Request
   'gusto.com': '/domain-icons/gusto.com.ico',
   // 429 Too Many Requests
   'brex.com': '/domain-icons/brex.com.ico',
@@ -67,12 +65,13 @@ export class DomainService {
     return mapBy(domains, (domain) => domain.name);
   }
 
-  static async fetchIconUrl(domain: Domain) {
+  static async fetchIcon(domain: Domain) {
     if (domain.iconUrl) {
-      return domain.iconUrl;
+      return { iconUrl: domain.iconUrl };
     }
 
-    let foundIconUrl: string | undefined;
+    let iconUrl: string | undefined;
+    let fetchErrorStatus: number | undefined;
 
     const rootDomainName = domain.name
       .split('.')
@@ -82,53 +81,43 @@ export class DomainService {
     if (SKIP_CONSUMER_DOMAINS.includes(rootDomainName)) {
       // Skip
     } else if (CUSTOM_ROOT_DOMAIN_ICONS[rootDomainName]) {
-      foundIconUrl = CUSTOM_ROOT_DOMAIN_ICONS[rootDomainName];
+      iconUrl = CUSTOM_ROOT_DOMAIN_ICONS[rootDomainName];
     } else {
       // Try `${rootDomainName}/favicon.ico` first
       try {
         const faviconUrl = `https://${rootDomainName}/favicon.ico`;
         const response = await DomainService.sendGet(faviconUrl);
-        if (response.ok && response.url.endsWith('/favicon.ico') && DomainService.allowedCORS(response)) {
-          foundIconUrl = response.url;
+        if (response.ok && response.url.endsWith('/favicon.ico')) {
+          iconUrl = response.url;
+        } else if (!response.ok) {
+          fetchErrorStatus = response.status;
         }
       } catch (_error) {}
 
       // If not found, go to `https://${rootDomainName}` and search for <link rel="icon" href="..."> or <link rel="shortcut icon" href="...">
-      if (!foundIconUrl) {
+      if (!iconUrl) {
         try {
           const response = await DomainService.sendGet(`https://${rootDomainName}`);
-          if (response.ok && DomainService.allowedCORS(response)) {
+          if (response.ok) {
             const html = await response.text();
             const $ = cheerio.load(html);
             const iconLink = $('link[rel="icon"], link[rel="shortcut icon"]').first();
             if (iconLink.length) {
               const href = iconLink.attr('href');
               if (href) {
-                foundIconUrl = href.startsWith('http')
+                iconUrl = href.startsWith('http')
                   ? href
                   : new URL(href, `https://${new URL(response.url).hostname}`).href; // Handle relative URLs
               }
             }
+          } else {
+            fetchErrorStatus = response.status;
           }
         } catch (_error) {} // Could not fetch or parse HTML
       }
     }
 
-    return foundIconUrl;
-  }
-
-  private static allowedCORS(response: Response) {
-    const result =
-      response.headers.get('Access-Control-Allow-Origin') === '*' ||
-      !response.headers.get('Access-Control-Allow-Origin');
-
-    if (!result) {
-      console.log(
-        `[FETCH] Skipping due to CORS restrictions: ${response.url} (${response.headers.get('Access-Control-Allow-Origin')})`,
-      );
-    }
-
-    return result;
+    return { iconUrl, fetchErrorStatus };
   }
 
   private static async sendGet(url: string) {
