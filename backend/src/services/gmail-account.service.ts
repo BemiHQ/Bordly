@@ -4,7 +4,7 @@ import { Board } from '@/entities/board';
 import { BoardCard } from '@/entities/board-card';
 import { BoardColumn } from '@/entities/board-column';
 import { BoardInvite } from '@/entities/board-invite';
-import { BoardMember, Role } from '@/entities/board-member';
+import { BoardMember } from '@/entities/board-member';
 import { EmailMessage } from '@/entities/email-message';
 import { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
@@ -36,9 +36,7 @@ export class GmailAccountService {
 
   static async addToBoard(gmailAccount: GmailAccount, { board }: { board: Board }) {
     gmailAccount.addToBoard(board);
-    const boardMember = new BoardMember({ board, user: gmailAccount.user, role: Role.MEMBER });
-
-    await orm.em.persist([gmailAccount, boardMember]).flush();
+    await orm.em.persist(gmailAccount).flush();
   }
 
   static async deleteFromBoard(board: Board, { gmailAccountId }: { gmailAccountId: string }) {
