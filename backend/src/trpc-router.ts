@@ -94,6 +94,18 @@ const ROUTES = {
         const boardCard = await BoardCardService.markAsUnread(input.boardCardId, { board, populate: ['domain'] });
         return { boardCard: boardCard.toJson() };
       }),
+    setBoardColumn: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid(), boardColumnId: z.uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+        const boardCard = await BoardCardService.setBoardColumn(input.boardCardId, {
+          board,
+          boardColumnId: input.boardColumnId,
+          populate: ['domain'],
+        });
+        return { boardCard: boardCard.toJson() };
+      }),
   } satisfies TRPCRouterRecord,
   boardInvite: {
     createInvites: publicProcedure

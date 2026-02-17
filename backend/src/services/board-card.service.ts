@@ -3,6 +3,7 @@ import type { Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
 import { BoardCard, State } from '@/entities/board-card';
 import type { GmailAccount } from '@/entities/gmail-account';
+import { BoardColumnService } from '@/services/board-column.service';
 import { EmailMessageService } from '@/services/email-message.service';
 import { orm } from '@/utils/orm';
 
@@ -61,6 +62,19 @@ export class BoardCardService {
     const firstEmailMessage = await EmailMessageService.findFirstByExternalThreadId(boardCard.externalThreadId);
 
     boardCard.setUnreadEmailMessageIds([firstEmailMessage.id]);
+    await orm.em.flush();
+
+    return boardCard;
+  }
+
+  static async setBoardColumn<Hint extends string = never>(
+    boardCardId: string,
+    { board, boardColumnId, populate }: { board: Board; boardColumnId: string; populate?: Populate<BoardCard, Hint> },
+  ) {
+    const boardCard = await BoardCardService.findById(boardCardId, { board, populate });
+    const boardColumn = await BoardColumnService.findById(boardColumnId, { board });
+
+    boardCard.setBoardColumn(boardColumn);
     await orm.em.flush();
 
     return boardCard;

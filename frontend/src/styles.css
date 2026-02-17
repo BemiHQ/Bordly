@@ -17,43 +17,44 @@ code {
 
 :root {
   --background: oklch(0.994 0 0); /* zinc-25 */
-  --foreground: oklch(0.141 0.005 285.823); /* zinc-950 */
-  --card: oklch(1 0 0); /* white */
-  --card-foreground: oklch(0.141 0.005 285.823); /* zinc-950 */
-  --popover: oklch(1 0 0); /* white */
-  --popover-foreground: oklch(0.141 0.005 285.823); /* zinc-950 */
-  --primary: oklch(0.21 0.006 285.885); /* zinc-900 */
   --primary-foreground: oklch(0.985 0 0); /* zinc-50 */
   --secondary: oklch(0.967 0.001 286.375); /* zinc-100 */
-  --secondary-foreground: oklch(0.21 0.006 285.885); /* zinc-900 */
   --muted: oklch(0.967 0.001 286.375); /* zinc-100 */
-  --muted-foreground: oklch(0.552 0.016 285.938); /* zinc-500 */
   --accent: oklch(0.967 0.001 286.375); /* zinc-100 */
-  --accent-foreground: oklch(0.21 0.006 285.885); /* zinc-900 */
-  --destructive: oklch(0.577 0.245 27.325); /* red-500 */
-  --destructive-foreground: oklch(0.577 0.245 27.325); /* red-500 */
   --border: oklch(0.92 0.004 286.32); /* zinc-200 */
   --input: oklch(0.92 0.004 286.32); /* zinc-200 */
   --ring: oklch(0.871 0.006 286.286); /* zinc-300 */
-  --chart-1: oklch(0.646 0.222 41.116); /* orange-500 */
-  --chart-2: oklch(0.6 0.118 184.704); /* cyan-500 */
-  --chart-3: oklch(0.398 0.07 227.392); /* blue-700 */
-  --chart-4: oklch(0.828 0.189 84.429); /* lime-400 */
-  --chart-5: oklch(0.769 0.188 70.08); /* yellow-400 */
+  --muted-foreground: oklch(0.552 0.016 285.938); /* zinc-500 */
+  --primary: oklch(0.21 0.006 285.885); /* zinc-900 */
+  --secondary-foreground: oklch(0.21 0.006 285.885); /* zinc-900 */
+  --accent-foreground: oklch(0.21 0.006 285.885); /* zinc-900 */
+  --foreground: oklch(0.141 0.005 285.823); /* zinc-950 */
+  --card-foreground: oklch(0.141 0.005 285.823); /* zinc-950 */
+  --popover-foreground: oklch(0.141 0.005 285.823); /* zinc-950 */
+  --card: oklch(1 0 0); /* white */
+  --popover: oklch(1 0 0); /* white */
+  --destructive: oklch(0.577 0.245 27.325); /* red-500 */
+  --destructive-foreground: oklch(0.577 0.245 27.325); /* red-500 */
   --radius: 0.625rem; /* 10px */
-  --sidebar: oklch(0.985 0 0); /* zinc-50 */
-  --sidebar-foreground: oklch(0.141 0.005 285.823); /* zinc-950 */
-  --sidebar-primary: oklch(0.21 0.006 285.885); /* zinc-900 */
-  --sidebar-primary-foreground: oklch(0.985 0 0); /* zinc-50 */
-  --sidebar-accent: oklch(0.967 0.001 286.375); /* zinc-100 */
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885); /* zinc-900 */
-  --sidebar-border: oklch(0.92 0.004 286.32); /* zinc-200 */
-  --sidebar-ring: oklch(0.871 0.006 286.286); /* zinc-300 */
 
-  --semi-muted: oklch(70.5% 0.015 286.067); /* zinc-400 */
+  /*--chart-1: oklch(0.646 0.222 41.116); /* orange-500 */
+  /*--chart-2: oklch(0.6 0.118 184.704); /* cyan-500 */
+  /*--chart-3: oklch(0.398 0.07 227.392); /* blue-700 */
+  /*--chart-4: oklch(0.828 0.189 84.429); /* lime-400 */
+  /*--chart-5: oklch(0.769 0.188 70.08); /* yellow-400 */
+  /*--sidebar: oklch(0.985 0 0); /* zinc-50 */
+  /*--sidebar-foreground: oklch(0.141 0.005 285.823); /* zinc-950 */
+  /*--sidebar-primary: oklch(0.21 0.006 285.885); /* zinc-900 */
+  /*--sidebar-primary-foreground: oklch(0.985 0 0); /* zinc-50 */
+  /*--sidebar-accent: oklch(0.967 0.001 286.375); /* zinc-100 */
+  /*--sidebar-accent-foreground: oklch(0.21 0.006 285.885); /* zinc-900 */
+  /*--sidebar-border: oklch(0.92 0.004 286.32); /* zinc-200 */
+  /*--sidebar-ring: oklch(0.871 0.006 286.286); /* zinc-300 */
+
+  --text-semi-muted: oklch(70.5% 0.015 286.067); /* zinc-400 */
+  --text-secondary: oklch(37% 0.013 285.805); /* zinc-700 */
   --contrast: oklch(51.1% 0.262 276.966); /* indigo-600 */
   --contrast-foreground: oklch(45.7% 0.24 277.023); /* indigo-700 */
-  --text-secondary: oklch(37% 0.013 285.805); /* zinc-700 */
   --text-xs: 0.813rem; /* 13px */
   --text-2xs: 0.75rem; /* 12px */
 }
@@ -78,24 +79,25 @@ code {
   --border: oklch(0.274 0.006 286.033);
   --input: oklch(0.274 0.006 286.033);
   --ring: oklch(0.442 0.017 285.786);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.274 0.006 286.033);
-  --sidebar-ring: oklch(0.442 0.017 285.786);
 
-  --semi-muted: oklch(0.552 0.016 285.938); /* zinc-500 */
+  /*--chart-1: oklch(0.488 0.243 264.376);*/
+  /*--chart-2: oklch(0.696 0.17 162.48);*/
+  /*--chart-3: oklch(0.769 0.188 70.08);*/
+  /*--chart-4: oklch(0.627 0.265 303.9);*/
+  /*--chart-5: oklch(0.645 0.246 16.439);*/
+  /*--sidebar: oklch(0.21 0.006 285.885);*/
+  /*--sidebar-foreground: oklch(0.985 0 0);*/
+  /*--sidebar-primary: oklch(0.488 0.243 264.376);*/
+  /*--sidebar-primary-foreground: oklch(0.985 0 0);*/
+  /*--sidebar-accent: oklch(0.274 0.006 286.033);*/
+  /*--sidebar-accent-foreground: oklch(0.985 0 0);*/
+  /*--sidebar-border: oklch(0.274 0.006 286.033);*/
+  /*--sidebar-ring: oklch(0.442 0.017 285.786);*/
+
+  --text-semi-muted: oklch(0.552 0.016 285.938); /* zinc-500 */
+  --text-secondary: oklch(87.1% 0.006 286.286); /* zinc-300 */
   --contrast: oklch(45.7% 0.24 277.023); /* indigo-700 */
   --contrast-foreground: oklch(51.1% 0.262 276.966); /* indigo-600 */
-  --text-secondary: oklch(87.1% 0.006 286.286); /* zinc-300 */
   --text-xs: 0.813rem; /* 13px */
   --text-2xs: 0.75rem; /* 12px */
 }
@@ -138,10 +140,10 @@ code {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --color-semi-muted: var(--semi-muted);
+  --color-text-semi-muted: var(--text-semi-muted);
+  --color-text-secondary: var(--text-secondary);
   --color-contrast: var(--contrast);
   --color-contrast-foreground: var(--contrast-foreground);
-  --color-text-secondary: var(--text-secondary);
   --text-xs: var(--text-xs);
   --text-2xs: var(--text-2xs);
 }

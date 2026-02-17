@@ -135,6 +135,11 @@ export class BoardCard extends BaseEntity {
     this.validate();
   }
 
+  setBoardColumn(boardColumn: BoardColumn) {
+    this.boardColumn = boardColumn;
+    this.validate();
+  }
+
   toJson() {
     return {
       id: this.id,

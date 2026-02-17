@@ -1,3 +1,13 @@
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
@@ -10,6 +20,7 @@ import { BoardNavbar } from '@/components/board-navbar';
 import { Navbar } from '@/components/navbar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
+import { CoinFlip } from '@/components/ui/coin-flip';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -64,112 +75,75 @@ const BoardColumn = ({
   unreadBoardCardCount: number;
   children: React.ReactNode;
 }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: boardColumn.id });
+
   return (
-    <div className="flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-2 rounded-lg bg-primary-foreground p-2 border border-border shadow-sm">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-2 rounded-lg bg-primary-foreground p-2 border border-border shadow-sm transition-colors',
+        isOver && 'bg-accent',
+      )}
+    >
       <div className="flex items-center gap-2 px-1">
         <h2 className="text-sm font-semibold">{`${boardColumn.name}`}</h2>
         {unreadBoardCardCount > 0 && (
-          <div className="pt-[1px] text-xs font-bold text-semi-muted">{unreadBoardCardCount}</div>
+          <div className="pt-[1px] text-xs font-bold text-text-semi-muted">{unreadBoardCardCount}</div>
         )}
       </div>
-      <div className="flex flex-col gap-2 overflow-y-auto scrollbar-thin">{children}</div>
+      <div className={cn('flex flex-col gap-2 overflow-y-auto scrollbar-thin', isOver && 'opacity-0')}>{children}</div>
     </div>
   );
 };
 
-const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard }) => {
-  const { queryClient, trpc } = useRouteContext();
-  const [isHovered, setIsHovered] = useState(false);
-  const unread = !!boardCard.unreadEmailMessageIds;
+const BoardCardContent = ({
+  boardCard,
+  unread,
+  isHovered,
+  onToggleReadStatus,
+}: {
+  boardCard: BoardCard;
+  unread: boolean;
+  isHovered?: boolean;
+  onToggleReadStatus?: (e: React.MouseEvent) => void;
+}) => {
   const firstParticipant = boardCard.participants[0];
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
 
-  const markAsReadMutation = useMutation(
-    trpc.boardCard.markAsRead.mutationOptions({
-      onSuccess: ({ boardCard: updatedBoardCard }) => {
-        queryClient.setQueryData(
-          trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }),
-          (oldData: BoardCardsData | undefined) => {
-            if (!oldData) return oldData;
-            return {
-              ...oldData,
-              boardCards: oldData.boardCards.map((card) => (card.id === updatedBoardCard.id ? updatedBoardCard : card)),
-            };
-          },
-        );
-      },
-    }),
+  const avatar = (
+    <Avatar size="xs">
+      <AvatarImage src={boardCard.domain.iconUrl} alt={firstParticipantName} />
+      <AvatarFallback hashForBgColor={firstParticipantName}>
+        {firstParticipantName.charAt(0).toUpperCase()}
+      </AvatarFallback>
+    </Avatar>
   );
-  const markAsUnreadMutation = useMutation(
-    trpc.boardCard.markAsUnread.mutationOptions({
-      onSuccess: ({ boardCard: updatedBoardCard }) => {
-        queryClient.setQueryData(
-          trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }),
-          (oldData: BoardCardsData | undefined) => {
-            if (!oldData) return oldData;
-            return {
-              ...oldData,
-              boardCards: oldData.boardCards.map((card) => (card.id === updatedBoardCard.id ? updatedBoardCard : card)),
-            };
-          },
-        );
-      },
-    }),
-  );
-
-  const handleToggleRead = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (unread) {
-      markAsReadMutation.mutate({ boardId: board.id, boardCardId: boardCard.id });
-    } else {
-      markAsUnreadMutation.mutate({ boardId: board.id, boardCardId: boardCard.id });
-    }
-    setIsHovered(false);
-  };
 
   return (
-    <Card
-      className="cursor-pointer p-3 transition-shadow hover:bg-background rounded-lg shadow-xs flex flex-col gap-1.5"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <>
       <div className="flex items-center">
-        <div className="relative w-5 h-5" style={{ perspective: '200px' }}>
-          <button
-            onClick={handleToggleRead}
-            className="absolute left-0 transition-all duration-400 ease-in-out cursor-pointer"
-            style={{
-              transformStyle: 'preserve-3d',
-              transform: isHovered ? 'rotateY(0deg)' : 'rotateY(180deg)',
-              backfaceVisibility: 'hidden',
-            }}
-          >
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                {unread ? (
-                  <Circle className="size-5 text-muted-foreground hover:text-primary" />
-                ) : (
-                  <CircleDot className="size-5 text-muted-foreground hover:text-blue-700" />
-                )}
-              </TooltipTrigger>
-              <TooltipContent side="top">{unread ? 'Mark as read' : 'Mark as unread'}</TooltipContent>
-            </Tooltip>
-          </button>
-          <Avatar
-            size="xs"
-            className="absolute left-0 transition-all duration-400 ease-in-out"
-            style={{
-              transformStyle: 'preserve-3d',
-              transform: isHovered ? 'rotateY(180deg)' : 'rotateY(0deg)',
-              backfaceVisibility: 'hidden',
-            }}
-          >
-            <AvatarImage src={boardCard.domain.iconUrl} alt={firstParticipantName} />
-            <AvatarFallback hashForBgColor={firstParticipantName}>
-              {firstParticipantName.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-        </div>
+        <CoinFlip
+          isFlipped={isHovered}
+          front={
+            onToggleReadStatus ? (
+              <button onClick={onToggleReadStatus} className="cursor-pointer">
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    {unread ? (
+                      <Circle className="size-5 text-muted-foreground hover:text-primary" />
+                    ) : (
+                      <CircleDot className="size-5 text-muted-foreground hover:text-blue-700" />
+                    )}
+                  </TooltipTrigger>
+                  <TooltipContent side="top">{unread ? 'Mark as read' : 'Mark as unread'}</TooltipContent>
+                </Tooltip>
+              </button>
+            ) : (
+              avatar
+            )
+          }
+          back={avatar}
+        />
         <div className="ml-2 text-sm flex items-center min-w-0 flex-1">
           {unread && <div className="bg-blue-500 rounded-full min-w-2 min-h-2 mr-1.5 flex-shrink-0" />}
           <div className="truncate">
@@ -197,53 +171,181 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
           <span>{boardCard.emailMessageCount}</span>
         </div>
       )}
+    </>
+  );
+};
+
+const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard }) => {
+  const { queryClient, trpc } = useRouteContext();
+  const [isHovered, setIsHovered] = useState(false);
+  const unread = !!boardCard.unreadEmailMessageIds;
+
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: boardCard.id,
+    data: { boardCard },
+  });
+
+  const updateBoardCardCache = (updatedBoardCard: BoardCard) => {
+    queryClient.setQueryData(
+      trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }),
+      (oldData: BoardCardsData | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCards: oldData.boardCards.map((card) => (card.id === updatedBoardCard.id ? updatedBoardCard : card)),
+        };
+      },
+    );
+  };
+
+  const markAsReadMutation = useMutation(
+    trpc.boardCard.markAsRead.mutationOptions({
+      onSuccess: ({ boardCard: updatedBoardCard }) => updateBoardCardCache(updatedBoardCard),
+    }),
+  );
+  const markAsUnreadMutation = useMutation(
+    trpc.boardCard.markAsUnread.mutationOptions({
+      onSuccess: ({ boardCard: updatedBoardCard }) => updateBoardCardCache(updatedBoardCard),
+    }),
+  );
+
+  const handleToggleReadStatus = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (unread) {
+      markAsReadMutation.mutate({ boardId: board.id, boardCardId: boardCard.id });
+    } else {
+      markAsUnreadMutation.mutate({ boardId: board.id, boardCardId: boardCard.id });
+    }
+    setIsHovered(false);
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={isDragging ? { opacity: 0 } : undefined}
+      {...attributes}
+      {...listeners}
+      className="cursor-pointer p-3 transition-shadow hover:bg-background rounded-lg shadow-xs flex flex-col gap-1.5"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <BoardCardContent
+        boardCard={boardCard}
+        unread={unread}
+        isHovered={isHovered}
+        onToggleReadStatus={handleToggleReadStatus}
+      />
     </Card>
   );
 };
 
 const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boardCardsData: BoardCardsData }) => {
   const { filters } = useBoardFilters();
+  const { queryClient, trpc } = useRouteContext();
+  const [activeBoardCard, setActiveBoardCard] = useState<BoardCard | null>(null);
+
+  const queryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: boardData.board.id });
+
+  const setBoardColumnMutation = useMutation(
+    trpc.boardCard.setBoardColumn.mutationOptions({
+      onSuccess: ({ boardCard: updatedBoardCard }) => {
+        // Update board cards cache
+        queryClient.setQueryData(queryKey, (oldData: BoardCardsData | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            boardCards: oldData.boardCards.map((card) => (card.id === updatedBoardCard.id ? updatedBoardCard : card)),
+          };
+        });
+      },
+    }),
+  );
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const boardCard = active.data.current?.boardCard as BoardCard | undefined;
+    if (boardCard) {
+      setActiveBoardCard(boardCard);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveBoardCard(null);
+    if (!over) return;
+
+    const boardCardId = active.id as string;
+    const boardColumnId = over.id as string;
+    const boardCard = boardCardsData.boardCards.find((card) => card.id === boardCardId);
+
+    if (boardCard && boardCard.boardColumnId !== boardColumnId) {
+      // Optimistic update
+      queryClient.setQueryData(queryKey, (oldData: BoardCardsData | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCards: oldData.boardCards.map((card) => (card.id === boardCardId ? { ...card, boardColumnId } : card)),
+        };
+      });
+
+      setBoardColumnMutation.mutate({ boardId: boardData.board.id, boardCardId, boardColumnId });
+    }
+  };
 
   if (boardData.boardColumns.length === 0) {
     return <EmptyState />;
   }
 
   return (
-    <div className="flex overflow-x-auto p-3 gap-3">
-      {boardData.boardColumns.map((boardColumn) => {
-        const boardCards = boardCardsData?.boardCards
-          .filter((card) => card.boardColumnId === boardColumn.id)
-          .sort((a, b) => b.lastEventAt.getTime() - a.lastEventAt.getTime());
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="flex overflow-x-auto p-3 gap-3">
+        {boardData.boardColumns.map((boardColumn) => {
+          const boardCards = boardCardsData?.boardCards
+            .filter((card) => card.boardColumnId === boardColumn.id)
+            .sort((a, b) => b.lastEventAt.getTime() - a.lastEventAt.getTime());
 
-        const filteredBoardCards = boardCards?.filter((card) => {
-          const hasUnreadOrSentFilter = filters.unread || filters.sent;
-          if (hasUnreadOrSentFilter) {
-            const matchesUnread = filters.unread && card.unreadEmailMessageIds;
-            const matchesSent = filters.sent && card.hasSent;
-            if (!matchesUnread && !matchesSent) return false;
-          }
+          const filteredBoardCards = boardCards?.filter((card) => {
+            const hasUnreadOrSentFilter = filters.unread || filters.sent;
+            if (hasUnreadOrSentFilter) {
+              const matchesUnread = filters.unread && card.unreadEmailMessageIds;
+              const matchesSent = filters.sent && card.hasSent;
+              if (!matchesUnread && !matchesSent) return false;
+            }
 
-          if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
-            return false;
-          }
-          return true;
-        });
+            if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
+              return false;
+            }
+            return true;
+          });
 
-        const unreadBoardCards = boardCards?.filter((card) => card.unreadEmailMessageIds);
+          const unreadBoardCards = boardCards?.filter((card) => card.unreadEmailMessageIds);
 
-        return (
-          <BoardColumn
-            key={boardColumn.id}
-            boardColumn={boardColumn}
-            unreadBoardCardCount={unreadBoardCards?.length || 0}
+          return (
+            <BoardColumn
+              key={boardColumn.id}
+              boardColumn={boardColumn}
+              unreadBoardCardCount={unreadBoardCards?.length || 0}
+            >
+              {filteredBoardCards?.map((boardCard) => (
+                <BoardCard key={boardCard.id} board={boardData.board} boardCard={boardCard} />
+              ))}
+            </BoardColumn>
+          );
+        })}
+      </div>
+      <DragOverlay dropAnimation={null}>
+        {activeBoardCard ? (
+          <Card
+            className="cursor-grabbing p-3 rounded-lg shadow-lg flex flex-col gap-1.5 w-64"
+            style={{ transform: 'rotate(5deg)' }}
           >
-            {filteredBoardCards?.map((boardCard) => (
-              <BoardCard key={boardCard.id} board={boardData.board} boardCard={boardCard} />
-            ))}
-          </BoardColumn>
-        );
-      })}
-    </div>
+            <BoardCardContent boardCard={activeBoardCard} unread={!!activeBoardCard.unreadEmailMessageIds} />
+          </Card>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 };
 
