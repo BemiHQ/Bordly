@@ -10,8 +10,6 @@ export const LABEL = {
   DRAFT: 'DRAFT',
 };
 
-export const MAX_SNIPPET_LENGTH = 190;
-
 export class GmailApi {
   static newGmail(oauth2Client: Auth.OAuth2Client) {
     return google.gmail({ version: 'v1', auth: oauth2Client });
@@ -160,6 +158,8 @@ export class GmailApi {
       subject,
       bodyHtml,
       threadId,
+      inReplyTo,
+      references,
     }: {
       from: string;
       to?: string[];
@@ -168,6 +168,8 @@ export class GmailApi {
       subject?: string;
       bodyHtml?: string;
       threadId?: string;
+      inReplyTo?: string;
+      references?: string;
     },
   ) {
     const headers = [
@@ -176,6 +178,8 @@ export class GmailApi {
       cc && cc.length > 0 ? `Cc: ${cc.join(', ')}` : undefined,
       bcc && bcc.length > 0 ? `Bcc: ${bcc.join(', ')}` : undefined,
       `Subject: ${GmailApi.encodeHeaderValue(subject || '')}`,
+      inReplyTo ? `In-Reply-To: ${inReplyTo}` : undefined,
+      references ? `References: ${references}` : undefined,
       'Content-Type: text/html; charset=utf-8',
       'MIME-Version: 1.0',
     ]

@@ -611,6 +611,25 @@
           "length": 6,
           "mappedType": "datetime"
         },
+        "message_id": {
+          "name": "message_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 255,
+          "mappedType": "string"
+        },
+        "references": {
+          "name": "references",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
         "from": {
           "name": "from",
           "type": "jsonb",

@@ -204,18 +204,6 @@ export class EmailMessageService {
     return orm.em.findOneOrFail(EmailMessage, { externalThreadId }, { orderBy: { externalCreatedAt: 'DESC' } });
   }
 
-  static async findEmailMessages<Hint extends string = never>(
-    board: Board,
-    { boardCardId, populate }: { boardCardId: string; populate?: Populate<EmailMessage, Hint> },
-  ) {
-    const boardCard = await BoardCardService.findById(board, { boardCardId, populate: ['boardColumn', 'emailDraft'] });
-    const emailMessagesAsc = await EmailMessageService.findEmailMessageByBoardCard(boardCard, {
-      populate,
-      orderBy: { externalCreatedAt: 'ASC' },
-    });
-    return { boardCard, emailMessagesAsc };
-  }
-
   static async findEmailMessageByBoardCard<Hint extends string = never>(
     boardCard: BoardCard,
     {
@@ -254,6 +242,86 @@ export class EmailMessageService {
     }
 
     return participant;
+  }
+
+  static parseEmailMessage({
+    gmailAccount,
+    messageData,
+  }: {
+    gmailAccount: GmailAccount;
+    messageData: gmail_v1.Schema$Message;
+  }) {
+    const labels = messageData.labelIds || [];
+    const headers = messageData.payload?.headers || [];
+
+    const from = EmailMessageService.parseParticipant(GmailApi.headerValue(headers, 'from'))!;
+    const to = presence(
+      GmailApi.headerValue(headers, 'to')
+        ?.split(',')
+        .map((e) => e.trim())
+        .map(EmailMessageService.parseParticipant)
+        .filter((p): p is Participant => !!p),
+    );
+    const replyTo = EmailMessageService.parseParticipant(GmailApi.headerValue(headers, 'reply-to'));
+    const cc = presence(
+      GmailApi.headerValue(headers, 'cc')
+        ?.split(',')
+        .map((e) => e.trim())
+        .map(EmailMessageService.parseParticipant)
+        .filter((p): p is Participant => !!p),
+    );
+    const bcc = presence(
+      GmailApi.headerValue(headers, 'bcc')
+        ?.split(',')
+        .map((e) => e.trim())
+        .map(EmailMessageService.parseParticipant)
+        .filter((p): p is Participant => !!p),
+    );
+
+    const { bodyText, bodyHtml } = GmailApi.emailBody(messageData.payload);
+
+    // Gmail sometimes returns future dates
+    const parsedInternalDate = new Date(parseInt(messageData.internalDate as string, 10));
+    const now = new Date();
+
+    const emailMessage = new EmailMessage({
+      gmailAccount,
+      domain: new Domain({ name: from.email.split('@')[1]! }),
+      externalId: messageData.id as string,
+      externalThreadId: messageData.threadId as string,
+      externalCreatedAt: parsedInternalDate > now ? now : parsedInternalDate,
+      messageId: GmailApi.headerValue(headers, 'message-id'),
+      references: GmailApi.headerValue(headers, 'references'),
+      from,
+      subject: GmailApi.headerValue(headers, 'subject') || '(No Subject)',
+      snippet: cheerio.load(messageData.snippet!).text(),
+      sent: labels.includes(LABEL.SENT),
+      labels,
+      to,
+      replyTo,
+      cc,
+      bcc,
+      bodyText,
+      bodyHtml,
+    });
+
+    const attachments: Attachment[] = [];
+
+    for (const attachmentData of GmailApi.attachmentsData(messageData.payload)) {
+      const attachment = new Attachment({
+        gmailAccount,
+        emailMessage,
+        externalId: attachmentData.externalId,
+        filename: attachmentData.filename,
+        mimeType: attachmentData.mimeType,
+        size: attachmentData.size,
+        contentId: attachmentData.contentId,
+      });
+      attachments.push(attachment);
+    }
+
+    emailMessage.attachments.set(attachments);
+    return emailMessage;
   }
 
   // -------------------------------------------------------------------------------------------------------------------
@@ -566,83 +634,5 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
     }
 
     return category;
-  }
-
-  private static parseEmailMessage({
-    gmailAccount,
-    messageData,
-  }: {
-    gmailAccount: GmailAccount;
-    messageData: gmail_v1.Schema$Message;
-  }) {
-    const labels = messageData.labelIds || [];
-    const headers = messageData.payload?.headers || [];
-
-    const from = EmailMessageService.parseParticipant(GmailApi.headerValue(headers, 'from'))!;
-    const to = presence(
-      GmailApi.headerValue(headers, 'to')
-        ?.split(',')
-        .map((e) => e.trim())
-        .map(EmailMessageService.parseParticipant)
-        .filter((p): p is Participant => !!p),
-    );
-    const replyTo = EmailMessageService.parseParticipant(GmailApi.headerValue(headers, 'reply-to'));
-    const cc = presence(
-      GmailApi.headerValue(headers, 'cc')
-        ?.split(',')
-        .map((e) => e.trim())
-        .map(EmailMessageService.parseParticipant)
-        .filter((p): p is Participant => !!p),
-    );
-    const bcc = presence(
-      GmailApi.headerValue(headers, 'bcc')
-        ?.split(',')
-        .map((e) => e.trim())
-        .map(EmailMessageService.parseParticipant)
-        .filter((p): p is Participant => !!p),
-    );
-
-    const { bodyText, bodyHtml } = GmailApi.emailBody(messageData.payload);
-
-    // Gmail sometimes returns future dates
-    const parsedInternalDate = new Date(parseInt(messageData.internalDate as string, 10));
-    const now = new Date();
-
-    const emailMessage = new EmailMessage({
-      gmailAccount,
-      domain: new Domain({ name: from.email.split('@')[1]! }),
-      externalId: messageData.id as string,
-      externalThreadId: messageData.threadId as string,
-      externalCreatedAt: parsedInternalDate > now ? now : parsedInternalDate,
-      from,
-      subject: GmailApi.headerValue(headers, 'subject') || '(No Subject)',
-      snippet: cheerio.load(messageData.snippet!).text(),
-      sent: labels.includes(LABEL.SENT),
-      labels,
-      to,
-      replyTo,
-      cc,
-      bcc,
-      bodyText,
-      bodyHtml,
-    });
-
-    const attachments: Attachment[] = [];
-
-    for (const attachmentData of GmailApi.attachmentsData(messageData.payload)) {
-      const attachment = new Attachment({
-        gmailAccount,
-        emailMessage,
-        externalId: attachmentData.externalId,
-        filename: attachmentData.filename,
-        mimeType: attachmentData.mimeType,
-        size: attachmentData.size,
-        contentId: attachmentData.contentId,
-      });
-      attachments.push(attachment);
-    }
-
-    emailMessage.attachments.set(attachments);
-    return emailMessage;
   }
 }

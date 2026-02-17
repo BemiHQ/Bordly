@@ -93,5 +93,9 @@ export const createQuotedHtml = ({
   quoteHeader: string;
 }): string => {
   const quotedContent = bodyHtml || (bodyText ? textToHtml(bodyText) : '');
-  return `<blockquote><div>${quoteHeader}</div><br />${quotedContent}</blockquote>`;
+  return `
+<div class="gmail_quote">
+  <div dir="ltr" class="gmail_attr">${quoteHeader}<br></div>
+  <blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">${quotedContent}</blockquote>
+</div>`;
 };

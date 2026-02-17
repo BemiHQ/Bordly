@@ -34,6 +34,11 @@ export class EmailMessage extends BaseEntity {
   @Property()
   externalCreatedAt: Date;
 
+  @Property()
+  messageId?: string;
+  @Property({ type: 'text' })
+  references?: string;
+
   @Property({ type: 'jsonb' })
   from: Participant;
   @Property({ type: 'jsonb' })
@@ -65,6 +70,8 @@ export class EmailMessage extends BaseEntity {
     externalId,
     externalThreadId,
     externalCreatedAt,
+    messageId,
+    references,
     from,
     subject,
     sent,
@@ -82,6 +89,8 @@ export class EmailMessage extends BaseEntity {
     externalId: string;
     externalThreadId: string;
     externalCreatedAt: Date;
+    messageId?: string;
+    references?: string;
     from: Participant;
     subject: string;
     snippet: string;
@@ -100,6 +109,8 @@ export class EmailMessage extends BaseEntity {
     this.externalId = externalId;
     this.externalThreadId = externalThreadId;
     this.externalCreatedAt = externalCreatedAt;
+    this.messageId = messageId;
+    this.references = references;
     this.from = from;
     this.subject = subject;
     this.sent = sent;
