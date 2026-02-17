@@ -1,6 +1,7 @@
 import { SiGithub, SiX } from '@icons-pack/react-simple-icons';
 import { useMutation } from '@tanstack/react-query';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
+import { ERRORS } from 'bordly-backend/utils/shared';
 import { ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -11,7 +12,7 @@ import { H1 } from '@/components/ui/h1';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { ROUTES } from '@/utils/urls';
+import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/welcome')({
   component: Welcome,
@@ -33,11 +34,16 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
   const { trpc, queryClient } = Route.useRouteContext();
   const { currentUser } = Route.useLoaderData();
   const [boardName, setBoardName] = useState(`${currentUser.name.split(' ')[0]}'s Board`);
+  const [error, setError] = useState<string | undefined>();
   const createBoardMutation = useMutation(
     trpc.board.createFirstBoard.mutationOptions({
-      onSuccess: async ({ board }) => {
+      onSuccess: async ({ board, error }) => {
         queryClient.removeQueries({ queryKey: trpc.user.getCurrentUser.queryKey(), exact: true });
-        setBoardId(board.id);
+        if (error) {
+          setError(error);
+        } else if (board) {
+          setBoardId(board.id);
+        }
       },
       onError: () => toast.error('Failed to create board. Please try again.', { position: 'top-center' }),
     }),
@@ -47,6 +53,27 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
     e.preventDefault();
     createBoardMutation.mutate({ name: boardName });
   };
+
+  if (error === ERRORS.NO_GMAIL_ACCESS) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center max-w-4xl mx-auto px-4">
+        <H1 className="mb-1">Gmail Access Required</H1>
+        <span className="text-muted-foreground text-center">
+          Please grant access to Gmail to continue using Bordly.
+        </span>
+
+        <img
+          src="/images/google-oauth-gmail.png"
+          alt="Gmail OAuth Access"
+          className="w-full rounded-3xl shadow-md my-6"
+        />
+
+        <Button size="lg" asChild>
+          <a href={API_ENDPOINTS.AUTH_GOOGLE}>Re-authenticate with Google</a>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 max-w-md mx-auto px-4">

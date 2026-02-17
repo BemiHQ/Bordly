@@ -5,6 +5,8 @@ import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { orm } from '@/utils/orm';
+import { ERRORS } from '@/utils/shared';
+import { GmailAccountService } from './gmail-account.service';
 
 export class BoardService {
   static findAsAdmin(boardId: string, { user }: { user: User }) {
@@ -50,14 +52,19 @@ export class BoardService {
     if (user.gmailAccounts.length !== 1) {
       throw new Error('User must have exactly one Gmail account to create a board');
     }
+
     const gmailAccount = user.gmailAccounts[0] as GmailAccount;
+    if (!(await GmailAccountService.hasGmailAccess(gmailAccount))) {
+      return { board: undefined, error: ERRORS.NO_GMAIL_ACCESS };
+    }
+
     gmailAccount.addToBoard(board);
-
-    await orm.em.persist([board, boardMember, gmailAccount]).flush();
     user.boardMembers.add(boardMember);
+    orm.em.persist([board, boardMember, gmailAccount]);
 
+    await orm.em.flush();
     await enqueue(QUEUES.CREATE_INITIAL_EMAIL_MESSAGES, { gmailAccountId: gmailAccount.id });
 
-    return board;
+    return { board, error: undefined };
   }
 }

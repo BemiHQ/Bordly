@@ -42,7 +42,13 @@ export const authRoutes = async (fastify: FastifyInstance) => {
 
       let gmailAccount = await GmailAccountService.tryFindByExternalId(userInfo.data.id, { populate: ['user'] });
       let user = gmailAccount?.user as User;
-      if (!user) {
+      if (user) {
+        await GmailAccountService.setTokens(gmailAccount!, {
+          accessToken: tokens.access_token as string,
+          refreshToken: tokens.refresh_token as string,
+          accessTokenExpiresAt: new Date(tokens.expiry_date as number),
+        });
+      } else {
         const userWithGmailAccount = await UserService.createWithGmailAccount({
           email: userInfo.data.email as string,
           name: userInfo.data.name as string,

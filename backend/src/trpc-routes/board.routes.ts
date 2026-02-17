@@ -27,8 +27,8 @@ export const BOARD_ROUTES = {
       }),
     createFirstBoard: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input, ctx }) => {
       if (!ctx.user) throw new Error('Not authenticated');
-      const board = await BoardService.createFirstBoard({ name: input.name, user: ctx.user });
-      return { board: board.toJson() };
+      const { board, error } = await BoardService.createFirstBoard({ name: input.name, user: ctx.user });
+      return { board: board?.toJson(), error };
     }),
     deleteGmailAccount: publicProcedure
       .input(z.object({ boardId: z.uuid(), gmailAccountId: z.uuid() }))

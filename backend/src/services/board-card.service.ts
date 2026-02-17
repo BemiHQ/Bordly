@@ -58,7 +58,7 @@ export class BoardCardService {
     });
 
     console.log('[GMAIL] Marking thread as read:', boardCard.externalThreadId);
-    const gmail = await BoardCardService.initGmail(boardCard);
+    const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
     await GoogleApi.gmailMarkThreadAsRead(gmail, boardCard.externalThreadId);
 
     boardCard.setUnreadEmailMessageIds(undefined);
@@ -78,7 +78,7 @@ export class BoardCardService {
     const lastEmailMessage = await EmailMessageService.findLastByExternalThreadId(boardCard.externalThreadId);
 
     console.log('[GMAIL] Marking thread as unread:', boardCard.externalThreadId);
-    const gmail = await BoardCardService.initGmail(boardCard);
+    const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
     await GoogleApi.gmailMarkThreadAsUnread(gmail, boardCard.externalThreadId);
 
     boardCard.setUnreadEmailMessageIds([lastEmailMessage.id]);
@@ -114,7 +114,7 @@ export class BoardCardService {
     });
 
     if (state === State.ARCHIVED) {
-      const gmail = await BoardCardService.initGmail(boardCard);
+      const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
       await GoogleApi.gmailMarkThreadAsRead(gmail, boardCard.externalThreadId);
     }
 
@@ -230,11 +230,6 @@ export class BoardCardService {
     }
 
     return uniqueParticipants;
-  }
-
-  private static async initGmail(boardCard: BoardCard) {
-    const { oauth2Client } = await GmailAccountService.refreshAccessToken(boardCard.gmailAccount);
-    return GoogleApi.newGmail(oauth2Client);
   }
 
   private static stateFromEmailMessages(emailMessages: EmailMessage[]) {

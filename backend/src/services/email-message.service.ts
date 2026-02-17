@@ -97,9 +97,7 @@ export class EmailMessageService {
     const gmailAccount = await GmailAccountService.findById(gmailAccountId, { populate: ['board'] });
     if (!gmailAccount.board) throw new Error('Gmail account does not have an associated board');
 
-    const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
-    const gmail = GoogleApi.newGmail(oauth2Client);
-
+    const gmail = await GmailAccountService.initGmail(gmailAccount);
     console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
     const messages = await GoogleApi.gmailListMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
     if (messages.length === 0) return;
@@ -217,8 +215,7 @@ export class EmailMessageService {
 
   // Creates: EmailMessage, Attachment, Domain, BoardCard
   private static async syncEmailMessagesForGmailAccount(gmailAccount: GmailAccount) {
-    const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
-    const gmail = GoogleApi.newGmail(oauth2Client);
+    const gmail = await GmailAccountService.initGmail(gmailAccount);
 
     // Fetch changes via Gmail API
     const historyChanges = await EmailMessageService.fetchGmailHistoryChanges({ gmail, gmailAccount });

@@ -70,9 +70,31 @@ export class GmailAccountService {
     });
   }
 
+  static async initGmail(gmailAccount: GmailAccount) {
+    const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
+    return GoogleApi.newGmail(oauth2Client);
+  }
+
+  static async hasGmailAccess(gmailAccount: GmailAccount) {
+    const { oauth2Client, accessToken } = await GmailAccountService.refreshAccessToken(gmailAccount);
+    return GoogleApi.hasGmailAccess(oauth2Client, accessToken);
+  }
+
+  static async setTokens(
+    gmailAccount: GmailAccount,
+    {
+      accessToken,
+      refreshToken,
+      accessTokenExpiresAt,
+    }: { accessToken: string; refreshToken: string; accessTokenExpiresAt: Date },
+  ) {
+    gmailAccount.setTokens({ accessToken, refreshToken, accessTokenExpiresAt });
+    await orm.em.persist(gmailAccount).flush();
+  }
+
   static async refreshAccessToken(
     gmailAccount: GmailAccount,
-  ): Promise<{ gmailAccount: GmailAccount; oauth2Client: Auth.OAuth2Client }> {
+  ): Promise<{ gmailAccount: GmailAccount; oauth2Client: Auth.OAuth2Client; accessToken: string }> {
     const oauth2Client = GoogleApi.newOauth2Client({
       accessToken: gmailAccount.accessToken,
       accessTokenExpiresAt: gmailAccount.accessTokenExpiresAt,
@@ -80,7 +102,7 @@ export class GmailAccountService {
     });
 
     if (!gmailAccount.isAccessTokenExpired()) {
-      return { gmailAccount, oauth2Client };
+      return { gmailAccount, oauth2Client, accessToken: gmailAccount.accessToken };
     }
 
     const { credentials } = await oauth2Client.refreshAccessToken();
@@ -88,9 +110,13 @@ export class GmailAccountService {
       throw new Error('Failed to refresh access token');
     }
 
-    gmailAccount.updateAccessToken(credentials.access_token, new Date(credentials.expiry_date as number));
+    gmailAccount.setTokens({
+      accessToken: credentials.access_token,
+      refreshToken: gmailAccount.refreshToken,
+      accessTokenExpiresAt: new Date(credentials.expiry_date as number),
+    });
     await orm.em.persist(gmailAccount).flush();
 
-    return { gmailAccount, oauth2Client };
+    return { gmailAccount, oauth2Client, accessToken: credentials.access_token };
   }
 }

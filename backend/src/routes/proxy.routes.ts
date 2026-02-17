@@ -63,8 +63,7 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
       }
 
       const gmailAccount = await GmailAccountService.findById(boardCard.gmailAccount.id);
-      const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
-      const gmail = GoogleApi.newGmail(oauth2Client);
+      const gmail = await GmailAccountService.initGmail(gmailAccount);
 
       const { data: attachmentData } = await GoogleApi.gmailGetAttachment(gmail, {
         messageId: attachment.emailMessage.externalId,

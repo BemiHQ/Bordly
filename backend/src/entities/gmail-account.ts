@@ -86,9 +86,18 @@ export class GmailAccount extends BaseEntity {
     this.board = undefined;
   }
 
-  updateAccessToken(accessToken: string, expiresAt: Date) {
+  setTokens({
+    accessToken,
+    refreshToken,
+    accessTokenExpiresAt,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+    accessTokenExpiresAt: Date;
+  }) {
     this.accessTokenEncrypted = Encryption.encrypt(accessToken);
-    this.accessTokenExpiresAt = expiresAt;
+    this.refreshTokenEncrypted = Encryption.encrypt(refreshToken);
+    this.accessTokenExpiresAt = accessTokenExpiresAt;
   }
 
   setExternalHistoryId(externalHistoryId: string) {

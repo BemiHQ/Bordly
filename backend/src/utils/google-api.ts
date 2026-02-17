@@ -34,6 +34,11 @@ export class GoogleApi {
     return google.oauth2({ version: 'v2', auth: oauth2Client });
   }
 
+  static async hasGmailAccess(oauth2Client: Auth.OAuth2Client, accessToken: string) {
+    const tokenInfoResponse = await oauth2Client.getTokenInfo(accessToken);
+    return tokenInfoResponse.scopes.includes('https://www.googleapis.com/auth/gmail.modify');
+  }
+
   static newGmail(oauth2Client: Auth.OAuth2Client) {
     return google.gmail({ version: 'v1', auth: oauth2Client });
   }

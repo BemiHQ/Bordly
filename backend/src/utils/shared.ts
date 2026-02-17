@@ -2,6 +2,10 @@ export const QUERY_PARAMS = {
   ADDED_GMAIL_ACCOUNT: 'addedGmailAccount',
 };
 
+export const ERRORS = {
+  NO_GMAIL_ACCESS: 'NO_GMAIL_ACCESS',
+};
+
 export enum BoardCardState {
   INBOX = 'INBOX',
   ARCHIVED = 'ARCHIVED',
