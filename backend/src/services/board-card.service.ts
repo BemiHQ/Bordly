@@ -79,4 +79,16 @@ export class BoardCardService {
 
     return boardCard;
   }
+
+  static async setState<Hint extends string = never>(
+    boardCardId: string,
+    { board, status, populate }: { board: Board; status: State; populate?: Populate<BoardCard, Hint> },
+  ) {
+    const boardCard = await BoardCardService.findById(boardCardId, { board, populate });
+
+    boardCard.setState(status);
+    await orm.em.flush();
+
+    return boardCard;
+  }
 }

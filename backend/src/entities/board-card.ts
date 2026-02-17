@@ -5,13 +5,9 @@ import type { BoardColumn } from '@/entities/board-column';
 import type { Domain } from '@/entities/domain';
 import type { Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
+import { BoardCardState as State } from '@/utils/shared';
 
-export enum State {
-  INBOX = 'INBOX',
-  ARCHIVED = 'ARCHIVED',
-  SPAM = 'SPAM',
-  TRASHED = 'TRASHED',
-}
+export { State };
 
 @Entity({ tableName: 'board_cards' })
 @Unique({ properties: ['boardColumn', 'pinnedPosition'] })
@@ -137,6 +133,16 @@ export class BoardCard extends BaseEntity {
 
   setBoardColumn(boardColumn: BoardColumn) {
     this.boardColumn = boardColumn;
+    this.validate();
+  }
+
+  setState(state: State) {
+    this.state = state;
+    if (state === State.TRASHED) {
+      this.movedToTrashAt = new Date();
+    } else if (this.movedToTrashAt) {
+      this.movedToTrashAt = undefined;
+    }
     this.validate();
   }
 

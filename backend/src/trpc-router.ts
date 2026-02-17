@@ -3,7 +3,7 @@ import { initTRPC } from '@trpc/server';
 import type { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify';
 import superjson from 'superjson';
 import { z } from 'zod';
-
+import { State } from '@/entities/board-card';
 import { BoardService } from '@/services/board.service';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { UserService } from '@/services/user.service';
@@ -102,6 +102,18 @@ const ROUTES = {
         const boardCard = await BoardCardService.setBoardColumn(input.boardCardId, {
           board,
           boardColumnId: input.boardColumnId,
+          populate: ['domain'],
+        });
+        return { boardCard: boardCard.toJson() };
+      }),
+    setState: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid(), status: z.enum(Object.values(State)) }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+        const boardCard = await BoardCardService.setState(input.boardCardId, {
+          board,
+          status: input.status,
           populate: ['domain'],
         });
         return { boardCard: boardCard.toJson() };

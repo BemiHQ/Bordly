@@ -4,6 +4,7 @@ import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { Ellipsis, Link2, ListFilter } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -125,6 +126,7 @@ const RemoveAccountPopover = ({
             ...prev,
             gmailAccountIds: prev.gmailAccountIds.filter((id) => id !== gmailAccount.id),
           }));
+          // Remove the deleted account from the board data in the cache
           queryClient.setQueryData(
             trpc.board.getBoard.queryKey({ boardId: board.id }),
             (oldData: BoardData | undefined) => {
@@ -132,9 +134,11 @@ const RemoveAccountPopover = ({
               return { ...oldData, gmailAccounts: oldData.gmailAccounts.filter((a) => a.id !== gmailAccount.id) };
             },
           );
+          toast.success('Email account removed successfully', { position: 'top-center' });
         }
         setOpen(false);
       },
+      onError: () => toast.error('Failed to remove email account. Please try again.', { position: 'top-center' }),
     }),
   );
 

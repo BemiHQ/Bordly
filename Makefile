@@ -35,11 +35,13 @@ down-services:
 ps:
 	devbox services ls
 
-check:
+format:
 	devbox run "pnpm run check"
 
-build:
-	devbox run "cd backend && pnpm run build && rm -rf dist && cd ../frontend && pnpm run build && rm -rf dist"
+check: format
+	devbox run "cd backend && rm -f tsconfig.tsbuildinfo && pnpm run build && \
+		cd ../frontend && pnpm tsc --noEmit && \
+		rm -rf ../backend/dist"
 
 migrate:
 	devbox run --env-file backend/.env "cd backend && pnpm mikro-orm migration:up"

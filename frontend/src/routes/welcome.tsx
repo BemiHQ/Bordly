@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import { useState } from 'react';
-
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -11,7 +11,6 @@ import { H1 } from '@/components/ui/h1';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-
 import { ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/welcome')({
@@ -38,6 +37,7 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
         queryClient.removeQueries({ queryKey: trpc.user.getCurrentUser.queryKey(), exact: true });
         setBoardId(board.id);
       },
+      onError: () => toast.error('Failed to create board. Please try again.', { position: 'top-center' }),
     }),
   );
 
@@ -102,6 +102,7 @@ const InviteMembers = ({
   const createInvitesMutation = useMutation(
     trpc.boardInvite.createInvites.mutationOptions({
       onSuccess: () => setFinishedInviting(true),
+      onError: () => toast.error('Failed to send invites. Please try again.', { position: 'top-center' }),
     }),
   );
 

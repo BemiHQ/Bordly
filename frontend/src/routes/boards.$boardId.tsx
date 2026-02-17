@@ -12,8 +12,8 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
-import { QUERY_PARAMS } from 'bordly-backend/utils/shared';
-import { Circle, CircleDot, Mails } from 'lucide-react';
+import { BoardCardState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
+import { Archive, Circle, CircleDot, Mails } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BoardNavbar } from '@/components/board-navbar';
@@ -25,6 +25,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useBoardFilters } from '@/hooks/use-board-filters';
+import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
+import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { RouteProvider, useRouteContext } from '@/hooks/use-route-context';
 import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
@@ -32,6 +34,8 @@ import { formattedTimeAgo } from '@/utils/time';
 import { ROUTES } from '@/utils/urls';
 
 const REFETCH_INTERVAL_MS = 30_000;
+
+const ARCHIVE_DROP_ZONE_ID = 'archive-zone';
 
 type BoardData = inferRouterOutputs<TRPCRouter>['board']['getBoard'];
 type Board = BoardData['board'];
@@ -185,36 +189,62 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
     data: { boardCard },
   });
 
-  const updateBoardCardCache = (updatedBoardCard: BoardCard) => {
+  const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: board.id });
+
+  const updateBoardCardCache = ({ boardCard }: { boardCard: BoardCard }) => {
     queryClient.setQueryData(
       trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }),
       (oldData: BoardCardsData | undefined) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          boardCards: oldData.boardCards.map((card) => (card.id === updatedBoardCard.id ? updatedBoardCard : card)),
+          boardCards: oldData.boardCards.map((card) => (card.id === boardCard.id ? boardCard : card)),
         };
       },
     );
   };
+  const optimisticallyMarkAsRead = useOptimisticMutation({
+    queryClient,
+    queryKey: boardCardsQueryKey,
+    onExecute: ({ boardCardId }) => {
+      queryClient.setQueryData(boardCardsQueryKey, (oldData: BoardCardsData | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCards: oldData.boardCards.map((c) => (c.id === boardCardId ? { ...c, unreadEmailMessageIds: [] } : c)),
+        };
+      });
+    },
+    onSuccess: updateBoardCardCache,
+    errorToast: 'Failed to mark the card as read. Please try again.',
+    mutation: useMutation(trpc.boardCard.markAsRead.mutationOptions()),
+  });
 
-  const markAsReadMutation = useMutation(
-    trpc.boardCard.markAsRead.mutationOptions({
-      onSuccess: ({ boardCard: updatedBoardCard }) => updateBoardCardCache(updatedBoardCard),
-    }),
-  );
-  const markAsUnreadMutation = useMutation(
-    trpc.boardCard.markAsUnread.mutationOptions({
-      onSuccess: ({ boardCard: updatedBoardCard }) => updateBoardCardCache(updatedBoardCard),
-    }),
-  );
+  const optimisticallyMarkAsUnread = useOptimisticMutation({
+    queryClient,
+    queryKey: boardCardsQueryKey,
+    onExecute: ({ boardCardId }) => {
+      queryClient.setQueryData(boardCardsQueryKey, (oldData: BoardCardsData | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCards: oldData.boardCards.map((c) =>
+            c.id === boardCardId ? { ...c, unreadEmailMessageIds: ['temp-id'] } : c,
+          ),
+        };
+      });
+    },
+    onSuccess: updateBoardCardCache,
+    errorToast: 'Failed to mark the card as unread. Please try again.',
+    mutation: useMutation(trpc.boardCard.markAsUnread.mutationOptions()),
+  });
 
   const handleToggleReadStatus = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (unread) {
-      markAsReadMutation.mutate({ boardId: board.id, boardCardId: boardCard.id });
+      optimisticallyMarkAsRead({ boardId: board.id, boardCardId: boardCard.id });
     } else {
-      markAsUnreadMutation.mutate({ boardId: board.id, boardCardId: boardCard.id });
+      optimisticallyMarkAsUnread({ boardId: board.id, boardCardId: boardCard.id });
     }
     setIsHovered(false);
   };
@@ -239,29 +269,63 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
   );
 };
 
+const ArchiveDropZone = ({ isDragging }: { isDragging: boolean }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: ARCHIVE_DROP_ZONE_ID });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'fixed top-0 left-0 right-0 h-[94px] z-50 flex items-center justify-center transition-all duration-500 border-b',
+        isDragging ? 'opacity-100' : 'opacity-0 pointer-events-none',
+        isOver ? 'bg-accent' : 'bg-primary-foreground',
+      )}
+    >
+      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <Archive className="size-4" />
+        <span>Drop here to archive</span>
+      </div>
+    </div>
+  );
+};
+
 const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boardCardsData: BoardCardsData }) => {
   const { filters } = useBoardFilters();
   const { queryClient, trpc } = useRouteContext();
   const [activeBoardCard, setActiveBoardCard] = useState<BoardCard | null>(null);
-
-  const queryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: boardData.board.id });
-
-  const setBoardColumnMutation = useMutation(
-    trpc.boardCard.setBoardColumn.mutationOptions({
-      onSuccess: ({ boardCard: updatedBoardCard }) => {
-        // Update board cards cache
-        queryClient.setQueryData(queryKey, (oldData: BoardCardsData | undefined) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            boardCards: oldData.boardCards.map((card) => (card.id === updatedBoardCard.id ? updatedBoardCard : card)),
-          };
-        });
-      },
-    }),
-  );
-
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: boardData.board.id });
+
+  const optimisticallyArchive = useOptimisticMutationWithUndo({
+    queryClient,
+    queryKey: boardCardsQueryKey,
+    onExecute: ({ boardCardId }) => {
+      queryClient.setQueryData(boardCardsQueryKey, (oldData: BoardCardsData | undefined) => {
+        if (!oldData) return oldData;
+        return { ...oldData, boardCards: oldData.boardCards.filter((card) => card.id !== boardCardId) };
+      });
+    },
+    successToast: 'Card archived',
+    errorToast: 'Failed to archive the card. Please try again.',
+    delayedMutation: useMutation(trpc.boardCard.setState.mutationOptions()),
+  });
+
+  const optimisticallyMove = useOptimisticMutation({
+    queryClient,
+    queryKey: boardCardsQueryKey,
+    onExecute: ({ boardCardId, boardColumnId }) => {
+      queryClient.setQueryData(boardCardsQueryKey, (oldData: BoardCardsData | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCards: oldData.boardCards.map((card) => (card.id === boardCardId ? { ...card, boardColumnId } : card)),
+        };
+      });
+    },
+    errorToast: 'Failed to move the card. Please try again.',
+    mutation: useMutation(trpc.boardCard.setBoardColumn.mutationOptions()),
+  });
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -277,20 +341,17 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
     if (!over) return;
 
     const boardCardId = active.id as string;
-    const boardColumnId = over.id as string;
     const boardCard = boardCardsData.boardCards.find((card) => card.id === boardCardId);
 
-    if (boardCard && boardCard.boardColumnId !== boardColumnId) {
-      // Optimistic update
-      queryClient.setQueryData(queryKey, (oldData: BoardCardsData | undefined) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCards: oldData.boardCards.map((card) => (card.id === boardCardId ? { ...card, boardColumnId } : card)),
-        };
-      });
+    if (!boardCard) return;
 
-      setBoardColumnMutation.mutate({ boardId: boardData.board.id, boardCardId, boardColumnId });
+    if (over.id === ARCHIVE_DROP_ZONE_ID) {
+      optimisticallyArchive({ boardId: boardData.board.id, boardCardId, status: BoardCardState.ARCHIVED });
+    } else {
+      const boardColumnId = over.id as string;
+      if (boardCard.boardColumnId !== boardColumnId) {
+        optimisticallyMove({ boardId: boardData.board.id, boardCardId, boardColumnId });
+      }
     }
   };
 
@@ -300,6 +361,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <ArchiveDropZone isDragging={!!activeBoardCard} />
       <div className="flex overflow-x-auto p-3 gap-3">
         {boardData.boardColumns.map((boardColumn) => {
           const boardCards = boardCardsData?.boardCards
