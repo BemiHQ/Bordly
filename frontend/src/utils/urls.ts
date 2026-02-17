@@ -5,6 +5,7 @@ export const ROUTES = {
   AUTH: '/auth',
   WELCOME: '/welcome',
   BOARD: '/boards/$boardId',
+  BOARD_CARD: '/boards/$boardId/c/$boardCardId',
   INTERNAL_HEALTH: '/internal/health',
 };
 

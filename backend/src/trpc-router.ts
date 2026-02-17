@@ -6,12 +6,16 @@ import { z } from 'zod';
 import { State } from '@/entities/board-card';
 import { Role } from '@/entities/board-member';
 import { BoardService } from '@/services/board.service';
+import { BoardCardService } from '@/services/board-card.service';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { BoardMemberService } from '@/services/board-member.service';
+import { EmailMessageService } from '@/services/email-message.service';
+import { GmailAccountService } from '@/services/gmail-account.service';
 import { UserService } from '@/services/user.service';
-import { BoardCardService } from './services/board-card.service';
-import { EmailMessageService } from './services/email-message.service';
-import { GmailAccountService } from './services/gmail-account.service';
+import { ENV } from '@/utils/env';
+import { sleep } from '@/utils/time';
+
+const DEVELOPMENT_MAX_DELAY_MS = 1_000;
 
 export const createContext = async ({ req }: CreateFastifyContextOptions) => {
   const userId = req.session.get('userId') as string | undefined;
@@ -24,6 +28,11 @@ const t = initTRPC.context<Context>().create({ transformer: superjson });
 const loggingMiddleware = t.middleware(async ({ path, type, next, ctx }) => {
   const start = Date.now();
   console.log(`[TRPC server] ${type} ${path} [userId=${ctx.user?.id || ''}]`);
+
+  if (ENV.NODE_ENV !== 'production') {
+    const delayMs = Math.floor(Math.random() * DEVELOPMENT_MAX_DELAY_MS);
+    await sleep(delayMs);
+  }
 
   const result = await next();
 

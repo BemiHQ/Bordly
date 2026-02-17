@@ -9,18 +9,18 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
-import { Archive, Circle, CircleDot, Mails } from 'lucide-react';
+import { Archive, Mail, MailCheck, Mails } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BoardNavbar } from '@/components/board-navbar';
 import { Navbar } from '@/components/navbar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { CoinFlip } from '@/components/ui/coin-flip';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -45,7 +45,7 @@ type BoardCardsData = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards
 type BoardCard = BoardCardsData['boardCards'][number];
 
 export const Route = createFileRoute('/boards/$boardId')({
-  component: Home,
+  component: BoardComponent,
   loader: async ({ context: { queryClient, trpc } }) => {
     const { currentUser, boards } = await queryClient.ensureQueryData(trpc.user.getCurrentUser.queryOptions());
     if (!currentUser) {
@@ -92,7 +92,9 @@ const BoardColumn = ({
       <div className="flex items-center gap-2 px-1">
         <h2 className="text-sm font-semibold">{`${boardColumn.name}`}</h2>
         {unreadBoardCardCount > 0 && (
-          <div className="pt-[1px] text-xs font-bold text-semi-muted">{unreadBoardCardCount}</div>
+          <Badge variant="default" size="sm">
+            {unreadBoardCardCount}
+          </Badge>
         )}
       </div>
       <div className={cn('flex flex-col gap-2 overflow-y-auto scrollbar-thin', isOver && 'opacity-0')}>{children}</div>
@@ -114,41 +116,22 @@ const BoardCardContent = ({
   const firstParticipant = boardCard.participants[0];
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
 
-  const avatar = (
-    <Avatar size="xs">
-      <AvatarImage src={boardCard.domain.iconUrl} alt={firstParticipantName} />
-      <AvatarFallback hashForBgColor={firstParticipantName}>
-        {firstParticipantName.charAt(0).toUpperCase()}
-      </AvatarFallback>
-    </Avatar>
-  );
-
   return (
-    <>
-      <div className="flex items-center">
-        <CoinFlip
-          isFlipped={isHovered}
-          front={
-            onToggleReadStatus ? (
-              <button onClick={onToggleReadStatus} className="cursor-pointer">
-                <Tooltip delayDuration={200}>
-                  <TooltipTrigger asChild>
-                    {unread ? (
-                      <Circle className="size-5 text-muted-foreground hover:text-primary" />
-                    ) : (
-                      <CircleDot className="size-5 text-muted-foreground hover:text-accent-blue" />
-                    )}
-                  </TooltipTrigger>
-                  <TooltipContent side="top">{unread ? 'Mark as read' : 'Mark as unread'}</TooltipContent>
-                </Tooltip>
-              </button>
-            ) : (
-              avatar
-            )
-          }
-          back={avatar}
-        />
-        <div className="ml-2 text-sm flex items-center min-w-0 flex-1">
+    <div className="flex flex-col">
+      <div className="flex items-center mb-1.5">
+        <Avatar
+          size="xs"
+          className={cn(
+            'transition-filter duration-200',
+            unread || isHovered === true || isHovered === undefined ? '' : 'grayscale-100 opacity-60',
+          )}
+        >
+          <AvatarImage src={boardCard.domain.iconUrl} alt={firstParticipantName} />
+          <AvatarFallback hashForBgColor={firstParticipantName}>
+            {firstParticipantName.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="mx-2 text-sm flex items-center min-w-0 flex-1">
           {unread && <div className="bg-blue-500 rounded-full min-w-2 min-h-2 mr-1.5 flex-shrink-0" />}
           <div className="truncate">
             <span className={unread ? 'font-bold' : 'font-medium'}>{firstParticipantName}</span>
@@ -163,24 +146,50 @@ const BoardCardContent = ({
             )}
           </div>
         </div>
-        <div className="ml-1 text-2xs pt-0.5 text-muted-foreground flex-shrink-0">
-          {formattedTimeAgo(boardCard.lastEventAt)}
-        </div>
+        {isHovered && onToggleReadStatus ? (
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onToggleReadStatus}
+                className={cn(
+                  'cursor-pointer p-0.5',
+                  unread ? 'text-primary' : 'text-muted-foreground hover:text-primary',
+                )}
+              >
+                {unread ? <MailCheck className="size-4" /> : <Mail className="size-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{unread ? 'Mark as read' : 'Mark as unread'}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <div
+            className={cn(
+              'text-2xs pt-0.5 text-muted-foreground text-right',
+              isHovered && onToggleReadStatus ? 'opacity-0' : 'opacity-100',
+            )}
+          >
+            {formattedTimeAgo(boardCard.lastEventAt)}
+          </div>
+        )}
       </div>
-      <div className={cn('text-xs truncate', unread ? 'font-medium' : 'text-text-secondary')}>{boardCard.subject}</div>
+      <div className={cn('text-xs truncate mb-1', unread ? 'font-medium' : 'text-text-secondary')}>
+        {boardCard.subject}
+      </div>
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
       {boardCard.emailMessageCount > 1 && (
-        <div className="flex items-center gap-1 mt-0.5 text-2xs text-muted-foreground">
+        <div className="flex items-center gap-1 mt-1 text-2xs text-muted-foreground">
           <Mails className="size-3.5" />
           <span>{boardCard.emailMessageCount}</span>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
 const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard }) => {
   const { queryClient, trpc } = useRouteContext();
+  const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
   const unread = !!boardCard.unreadEmailMessageIds;
 
@@ -211,7 +220,9 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
         if (!oldData) return oldData;
         return {
           ...oldData,
-          boardCards: oldData.boardCards.map((c) => (c.id === boardCardId ? { ...c, unreadEmailMessageIds: [] } : c)),
+          boardCards: oldData.boardCards.map((c) =>
+            c.id === boardCardId ? { ...c, unreadEmailMessageIds: undefined } : c,
+          ),
         };
       });
     },
@@ -249,15 +260,20 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
     setIsHovered(false);
   };
 
+  const handleCardClick = () => {
+    navigate({ to: ROUTES.BOARD_CARD.replace('$boardId', board.friendlyId).replace('$boardCardId', boardCard.id) });
+  };
+
   return (
     <Card
       ref={setNodeRef}
       style={isDragging ? { opacity: 0 } : undefined}
       {...attributes}
       {...listeners}
-      className="cursor-pointer p-3 transition-shadow rounded-lg shadow-xs flex flex-col gap-1.5"
+      className={`p-3 transition-shadow rounded-lg shadow-xs cursor-pointer ${isHovered ? 'border-semi-muted' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={handleCardClick}
     >
       <BoardCardContent
         boardCard={boardCard}
@@ -407,10 +423,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
       </div>
       <DragOverlay dropAnimation={null}>
         {activeBoardCard ? (
-          <Card
-            className="cursor-grabbing p-3 rounded-lg shadow-lg flex flex-col gap-1.5 w-64"
-            style={{ transform: 'rotate(5deg)' }}
-          >
+          <Card className="cursor-grabbing p-3 rounded-lg shadow-lg w-64" style={{ transform: 'rotate(5deg)' }}>
             <BoardCardContent boardCard={activeBoardCard} unread={!!activeBoardCard.unreadEmailMessageIds} />
           </Card>
         ) : null}
@@ -419,7 +432,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
   );
 };
 
-function Home() {
+function BoardComponent() {
   const { currentUser } = Route.useLoaderData();
   const context = Route.useRouteContext();
   const params = Route.useParams();
@@ -477,6 +490,7 @@ function Home() {
           </BoardNavbar>
         </RouteProvider>
       )}
+      <Outlet />
     </div>
   );
 }
