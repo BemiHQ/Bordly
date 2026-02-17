@@ -3,6 +3,12 @@ import type { Attachment } from '@/entities/attachment';
 import { BaseEntity } from '@/entities/base-entity';
 import type { GmailAccount } from '@/entities/gmail-account';
 
+export const LABELS = {
+  SPAM: 'SPAM',
+  TRASH: 'TRASH',
+  SENT: 'SENT',
+};
+
 @Entity({ tableName: 'email_messages' })
 @Unique({ properties: ['gmailAccount', 'externalId'] })
 @Index({ properties: ['externalThreadId'] })
@@ -99,6 +105,9 @@ export class EmailMessage extends BaseEntity {
       subject: this.subject,
       snippet: this.snippet,
       to: this.to,
+      cc: this.cc,
+      bcc: this.bcc,
+      isSent: this.labels.includes(LABELS.SENT),
     };
   }
 

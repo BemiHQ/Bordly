@@ -20,15 +20,15 @@ export const Navbar = ({ currentUser }: { currentUser: { name: string; photoUrl:
 
   return (
     <nav className="border-b px-6 py-3 bg-secondary border-border">
-      <div className="flex items-center justify-between h-8">
+      <div className="flex items-center justify-between h-5">
         <Link to={ROUTES.HOME} className="flex items-center gap-2">
-          <img src="/images/logo.png" alt="Bordly Logo" className="w-6 h-6" />
-          <span className="font-semibold">Bordly</span>
+          <img src="/images/logo.png" alt="Bordly Logo" className="w-5 h-5" />
+          <span className="font-semibold text-sm">Bordly</span>
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
-              <Avatar className="size-7">
+              <Avatar size="sm">
                 <AvatarImage src={currentUser.photoUrl} alt={currentUser.name} />
                 <AvatarFallback>{initals}</AvatarFallback>
               </Avatar>

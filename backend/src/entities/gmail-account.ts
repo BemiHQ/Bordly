@@ -74,6 +74,13 @@ export class GmailAccount extends BaseEntity {
     this.accessTokenExpiresAt = expiresAt;
   }
 
+  toJson() {
+    return {
+      id: this.id,
+      email: this.email,
+    };
+  }
+
   private validate() {
     if (!this.user) throw new Error('User is required');
     if (!this.email) throw new Error('Email is required');

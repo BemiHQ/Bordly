@@ -4,7 +4,7 @@ import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 import { Attachment } from '@/entities/attachment';
 import { BoardCard } from '@/entities/board-card';
 import { BoardColumn, SPAM_POSITION, TRASH_POSITION } from '@/entities/board-column';
-import { EmailMessage } from '@/entities/email-message';
+import { EmailMessage, LABELS } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { AgentService } from '@/services/agent.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
@@ -14,17 +14,13 @@ import { orm } from '@/utils/orm';
 const CREATE_INITIAL_EMAILS_LIMIT = 50;
 const MAX_INITIAL_BOARD_COUNT = 5;
 
-const LABELS = {
-  SPAM: 'SPAM',
-  TRASH: 'TRASH',
-};
-
 const CATEGORIES = {
-  CUSTOMERS: 'Customers',
   ENGINEERING: 'Engineering',
   FINANCE: 'Finance',
   MEETINGS: 'Meetings',
   PROMOTIONS: 'Promotions',
+  SCHOOL: 'School',
+  SECURITY: 'Security',
   SOCIAL: 'Social',
   OTHERS: 'Others',
   // Special categories

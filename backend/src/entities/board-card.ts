@@ -40,6 +40,7 @@ export class BoardCard extends BaseEntity {
   toJson() {
     return {
       id: this.id,
+      boardColumnId: this.boardColumn.id,
       externalThreadId: this.externalThreadId,
       pinnedPosition: this.pinnedPosition,
     };

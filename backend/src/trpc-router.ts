@@ -62,8 +62,10 @@ const ROUTES = {
         gmailAccounts: board.gmailAccounts.getItems(),
         threadIds: unique(board.boardCards.getItems().map((card) => card.externalThreadId)),
       });
+
       return {
         board: board.toJson(),
+        gmailAccounts: board.gmailAccounts.getItems().map((acc) => acc.toJson()),
         boardColumns: board.boardColumns.getItems().map((col) => col.toJson()),
         boardCards: board.boardCards.getItems().map((card) => card.toJson()),
         emailMessagesByThreadId: Object.fromEntries(

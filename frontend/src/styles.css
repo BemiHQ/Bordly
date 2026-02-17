@@ -52,6 +52,7 @@ code {
 
   --contrast: oklch(51.1% 0.262 276.966); /* indigo-600 */
   --contrast-foreground: oklch(45.7% 0.24 277.023); /* indigo-700 */
+  --text-xs: 0.813rem; /* 13px */
 }
 
 .dark {
@@ -90,6 +91,7 @@ code {
 
   --contrast: oklch(45.7% 0.24 277.023); /* indigo-700 */
   --contrast-foreground: oklch(51.1% 0.262 276.966); /* indigo-600 */
+  --text-xs: 0.813rem; /* 13px */
 }
 
 @theme inline {
@@ -132,6 +134,7 @@ code {
 
   --color-contrast: var(--contrast);
   --color-contrast-foreground: var(--contrast-foreground);
+  --text-xs: var(--text-xs);
 }
 
 @layer base {
