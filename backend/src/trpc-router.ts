@@ -78,6 +78,22 @@ const ROUTES = {
       const boardCards = await BoardCardService.findCardsByBoard(board, { populate: ['domain'] });
       return { boardCards: boardCards.map((card) => card.toJson()) };
     }),
+    markAsRead: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+        const boardCard = await BoardCardService.markAsRead(input.boardCardId, { board });
+        return { boardCard: boardCard.toJson() };
+      }),
+    markAsUnread: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+        const boardCard = await BoardCardService.markAsUnread(input.boardCardId, { board });
+        return { boardCard: boardCard.toJson() };
+      }),
   } satisfies TRPCRouterRecord,
   boardInvite: {
     createInvites: publicProcedure
@@ -85,8 +101,7 @@ const ROUTES = {
       .mutation(async ({ input, ctx }) => {
         if (!ctx.user) throw new Error('Not authenticated');
         const board = BoardService.findAsAdmin(input.boardId, { user: ctx.user });
-        const invites = await BoardInviteService.createInvites({ board, emails: input.emails, invitedBy: ctx.user });
-        return { invites: invites.map((invite) => invite.toJson()) };
+        await BoardInviteService.createInvites({ board, emails: input.emails, invitedBy: ctx.user });
       }),
   } satisfies TRPCRouterRecord,
 };

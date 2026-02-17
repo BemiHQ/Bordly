@@ -1,17 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { QUERY_PARAMS } from 'bordly-backend/utils/shared';
+import { Circle, CircleDot } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { type BoardFilters, BoardNavbar, LOCAL_STORAGE_KEY_FILTERS_PREFIX } from '@/components/board-navbar';
+import { BoardNavbar } from '@/components/board-navbar';
 import { Navbar } from '@/components/navbar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
-import { RouteProvider } from '@/hooks/use-route-context';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useBoardFilters } from '@/hooks/use-board-filters';
+import { RouteProvider, useRouteContext } from '@/hooks/use-route-context';
 import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
 import { formattedTimeAgo } from '@/utils/time';
@@ -20,6 +23,7 @@ import { ROUTES } from '@/utils/urls';
 const REFETCH_INTERVAL_MS = 30_000;
 
 type BoardData = inferRouterOutputs<TRPCRouter>['board']['getBoard'];
+type Board = BoardData['board'];
 type BoardColumn = BoardData['boardColumns'][number];
 
 type BoardCardsData = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards'];
@@ -73,24 +77,102 @@ const BoardColumn = ({
   );
 };
 
-const BoardCard = ({ boardCard }: { boardCard: BoardCard }) => {
+const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard }) => {
+  const { queryClient, trpc } = useRouteContext();
+  const [isHovered, setIsHovered] = useState(false);
   const unread = !!boardCard.unreadEmailMessageIds;
   const firstParticipant = boardCard.participants[0];
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
 
+  const markAsReadMutation = useMutation(
+    trpc.boardCard.markAsRead.mutationOptions({
+      onSuccess: ({ boardCard: updatedBoardCard }) => {
+        queryClient.setQueryData(
+          trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }),
+          (oldData: BoardCardsData | undefined) => {
+            if (!oldData) return oldData;
+            return {
+              ...oldData,
+              boardCards: oldData.boardCards.map((card) => (card.id === updatedBoardCard.id ? updatedBoardCard : card)),
+            };
+          },
+        );
+      },
+    }),
+  );
+  const markAsUnreadMutation = useMutation(
+    trpc.boardCard.markAsUnread.mutationOptions({
+      onSuccess: ({ boardCard: updatedBoardCard }) => {
+        queryClient.setQueryData(
+          trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }),
+          (oldData: BoardCardsData | undefined) => {
+            if (!oldData) return oldData;
+            return {
+              ...oldData,
+              boardCards: oldData.boardCards.map((card) => (card.id === updatedBoardCard.id ? updatedBoardCard : card)),
+            };
+          },
+        );
+      },
+    }),
+  );
+
+  const handleToggleRead = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (unread) {
+      markAsReadMutation.mutate({ boardId: board.id, boardCardId: boardCard.id });
+    } else {
+      markAsUnreadMutation.mutate({ boardId: board.id, boardCardId: boardCard.id });
+    }
+  };
+
   return (
-    <Card className="cursor-pointer p-3 transition-shadow hover:bg-background rounded-lg shadow-xs flex flex-col gap-1.5">
+    <Card
+      className="cursor-pointer p-3 transition-shadow hover:bg-background rounded-lg shadow-xs flex flex-col gap-1.5"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div className="flex items-center">
-        <Avatar size="xs">
-          <AvatarImage src={boardCard.domain.iconUrl} alt={firstParticipantName} />
-          <AvatarFallback hashForBgColor={firstParticipantName}>
-            {firstParticipantName.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <div className="relative w-5 h-5" style={{ perspective: '200px' }}>
+          <button
+            onClick={handleToggleRead}
+            className="absolute left-0 transition-all duration-400 ease-in-out cursor-pointer"
+            style={{
+              transformStyle: 'preserve-3d',
+              transform: isHovered ? 'rotateY(0deg)' : 'rotateY(180deg)',
+              backfaceVisibility: 'hidden',
+            }}
+          >
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                {unread ? (
+                  <Circle className="size-5 text-muted-foreground hover:text-primary" />
+                ) : (
+                  <CircleDot className="size-5 text-muted-foreground hover:text-blue-700" />
+                )}
+              </TooltipTrigger>
+              <TooltipContent side="top">{unread ? 'Mark as read' : 'Mark as unread'}</TooltipContent>
+            </Tooltip>
+          </button>
+          <Avatar
+            size="xs"
+            className="absolute left-0 transition-all duration-400 ease-in-out"
+            style={{
+              transformStyle: 'preserve-3d',
+              transform: isHovered ? 'rotateY(180deg)' : 'rotateY(0deg)',
+              backfaceVisibility: 'hidden',
+            }}
+          >
+            <AvatarImage src={boardCard.domain.iconUrl} alt={firstParticipantName} />
+            <AvatarFallback hashForBgColor={firstParticipantName}>
+              {firstParticipantName.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        </div>
         <div className="ml-2 text-sm flex items-center min-w-0 flex-1">
           {unread && <div className="bg-blue-500 rounded-full min-w-2 min-h-2 mr-1.5 flex-shrink-0" />}
           <div className="truncate">
-            <span className={unread ? 'font-bold' : 'font-medium'}>{firstParticipantName}</span>
+            <span className={unread ? 'font-bold' : 'font-medium text-text-secondary'}>{firstParticipantName}</span>
             {boardCard.participants.length > 1 && (
               <span className="text-muted-foreground">
                 ,{' '}
@@ -106,9 +188,55 @@ const BoardCard = ({ boardCard }: { boardCard: BoardCard }) => {
           {formattedTimeAgo(boardCard.lastEventAt)}
         </div>
       </div>
-      <div className={cn('text-xs truncate', unread && 'font-medium')}>{boardCard.subject}</div>
+      <div className={cn('text-xs truncate', unread ? 'font-medium' : 'text-text-secondary')}>{boardCard.subject}</div>
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
     </Card>
+  );
+};
+
+const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boardCardsData: BoardCardsData }) => {
+  const { filters } = useBoardFilters();
+
+  if (boardData.boardColumns.length === 0) {
+    return <EmptyState />;
+  }
+
+  return (
+    <div className="flex overflow-x-auto p-3 gap-3">
+      {boardData.boardColumns.map((boardColumn) => {
+        const boardCards = boardCardsData?.boardCards
+          .filter((card) => card.boardColumnId === boardColumn.id)
+          .sort((a, b) => b.lastEventAt.getTime() - a.lastEventAt.getTime());
+
+        const filteredBoardCards = boardCards?.filter((card) => {
+          const hasUnreadOrSentFilter = filters.unread || filters.sent;
+          if (hasUnreadOrSentFilter) {
+            const matchesUnread = filters.unread && card.unreadEmailMessageIds;
+            const matchesSent = filters.sent && card.hasSent;
+            if (!matchesUnread && !matchesSent) return false;
+          }
+
+          if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
+            return false;
+          }
+          return true;
+        });
+
+        const unreadBoardCards = boardCards?.filter((card) => card.unreadEmailMessageIds);
+
+        return (
+          <BoardColumn
+            key={boardColumn.id}
+            boardColumn={boardColumn}
+            unreadBoardCardCount={unreadBoardCards?.length || 0}
+          >
+            {filteredBoardCards?.map((boardCard) => (
+              <BoardCard key={boardCard.id} board={boardData.board} boardCard={boardCard} />
+            ))}
+          </BoardColumn>
+        );
+      })}
+    </div>
   );
 };
 
@@ -145,19 +273,6 @@ function Home() {
     }
   }, []);
 
-  // Filters
-  const [filters, setFilters] = useState<BoardFilters>({ unread: false, sent: false, gmailAccountIds: [] });
-  useEffect(() => {
-    const savedFiltersJson =
-      !isSsr() && boardData && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${boardData.board.id}`);
-    if (savedFiltersJson) setFilters(JSON.parse(savedFiltersJson));
-  }, [boardData]);
-  useEffect(() => {
-    if (!isSsr() && boardData) {
-      localStorage.setItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${boardData.board.id}`, JSON.stringify(filters));
-    }
-  }, [filters, boardData]);
-
   // Dynamic page title
   useEffect(() => {
     const unreadBoardCardCount = Object.values(boardCardsData?.boardCards || []).filter(
@@ -178,51 +293,10 @@ function Home() {
       <Navbar currentUser={currentUser} />
       {boardData && (
         <RouteProvider value={context}>
-          <BoardNavbar
-            board={boardData.board}
-            gmailAccounts={boardData.gmailAccounts}
-            filters={filters}
-            setFilters={setFilters}
-          />
+          <BoardNavbar board={boardData.board} gmailAccounts={boardData.gmailAccounts}>
+            {boardCardsData && <BoardContent boardData={boardData} boardCardsData={boardCardsData} />}
+          </BoardNavbar>
         </RouteProvider>
-      )}
-      {boardData?.boardColumns.length === 0 && <EmptyState />}
-      {boardData && boardData.boardColumns.length > 0 && (
-        <div className="flex overflow-x-auto p-3 gap-3">
-          {boardData.boardColumns.map((boardColumn) => {
-            const boardCards = boardCardsData?.boardCards
-              .filter((card) => card.boardColumnId === boardColumn.id)
-              .sort((a, b) => b.lastEventAt.getTime() - a.lastEventAt.getTime());
-
-            const filteredBoardCards = boardCards?.filter((card) => {
-              const hasUnreadOrSentFilter = filters.unread || filters.sent;
-              if (hasUnreadOrSentFilter) {
-                const matchesUnread = filters.unread && card.unreadEmailMessageIds;
-                const matchesSent = filters.sent && card.hasSent;
-                if (!matchesUnread && !matchesSent) return false;
-              }
-
-              if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
-                return false;
-              }
-              return true;
-            });
-
-            const unreadBoardCards = boardCards?.filter((card) => card.unreadEmailMessageIds);
-
-            return (
-              <BoardColumn
-                key={boardColumn.id}
-                boardColumn={boardColumn}
-                unreadBoardCardCount={unreadBoardCards?.length || 0}
-              >
-                {filteredBoardCards?.map((boardCard) => (
-                  <BoardCard key={boardCard.id} boardCard={boardCard} />
-                ))}
-              </BoardColumn>
-            );
-          })}
-        </div>
       )}
     </div>
   );

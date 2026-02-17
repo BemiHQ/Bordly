@@ -209,7 +209,11 @@ export class EmailMessageService {
 
     const lastExistingEmailMessage =
       lastEmailMessageCache ||
-      (await orm.em.findOne(EmailMessage, { gmailAccount }, { orderBy: { externalCreatedAt: 'DESC' } }));
+      (await orm.em.findOne(
+        EmailMessage,
+        { gmailAccount },
+        { orderBy: { externalCreatedAt: 'DESC', externalId: 'DESC' } },
+      ));
 
     const query = lastExistingEmailMessage
       ? `after:${Math.floor((lastExistingEmailMessage.externalCreatedAt.getTime() - OVERLAP_EMAIL_MESSAGES_MS) / 1_000)}`
@@ -531,6 +535,10 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
     }
 
     return { emailMessage, attachments };
+  }
+
+  static async findFirstByExternalThreadId(externalThreadId: string) {
+    return orm.em.findOneOrFail(EmailMessage, { externalThreadId }, { orderBy: { externalCreatedAt: 'ASC' } });
   }
 
   private static parseParticipant(emailAddress?: string) {

@@ -130,6 +130,11 @@ export class BoardCard extends BaseEntity {
     this.validate();
   }
 
+  setUnreadEmailMessageIds(unreadEmailMessageIds: string[] | undefined) {
+    this.unreadEmailMessageIds = unreadEmailMessageIds;
+    this.validate();
+  }
+
   toJson() {
     return {
       id: this.id,

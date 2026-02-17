@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { Ellipsis, Link2, ListFilter } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,7 +18,9 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { type BoardFilters, BoardFiltersProvider, useBoardFilters } from '@/hooks/use-board-filters';
 import { useRouteContext } from '@/hooks/use-route-context';
+import { isSsr } from '@/utils/ssr';
 import { ROUTES } from '@/utils/urls';
 
 type BoardData = inferRouterOutputs<TRPCRouter>['board']['getBoard'];
@@ -26,21 +28,9 @@ type Board = BoardData['board'];
 type GmailAccount = BoardData['gmailAccounts'][number];
 
 export const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
-export interface BoardFilters {
-  unread: boolean;
-  sent: boolean;
-  gmailAccountIds: string[];
-}
 
-const FilterButton = ({
-  gmailAccounts,
-  filters,
-  setFilters,
-}: {
-  gmailAccounts: GmailAccount[];
-  filters: BoardFilters;
-  setFilters: (value: BoardFilters) => void;
-}) => {
+const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
+  const { filters, setFilters } = useBoardFilters();
   const hasActiveFilters = !!filters.unread || filters.gmailAccountIds.length > 0;
   const toggleEmailAccount = (accountId: string) => {
     setFilters({
@@ -119,6 +109,7 @@ const RemoveAccountPopover = ({
   children: React.ReactNode;
 }) => {
   const { queryClient, trpc } = useRouteContext();
+  const { setFilters } = useBoardFilters();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -130,7 +121,17 @@ const RemoveAccountPopover = ({
           queryClient.removeQueries({ queryKey: trpc.user.getCurrentUser.queryKey(), exact: true });
           navigate({ to: ROUTES.WELCOME });
         } else {
-          queryClient.invalidateQueries({ queryKey: trpc.board.getBoard.queryKey({ boardId: board.id }), exact: true });
+          setFilters((prev) => ({
+            ...prev,
+            gmailAccountIds: prev.gmailAccountIds.filter((id) => id !== gmailAccount.id),
+          }));
+          queryClient.setQueryData(
+            trpc.board.getBoard.queryKey({ boardId: board.id }),
+            (oldData: BoardData | undefined) => {
+              if (!oldData) return oldData;
+              return { ...oldData, gmailAccounts: oldData.gmailAccounts.filter((a) => a.id !== gmailAccount.id) };
+            },
+          );
         }
         setOpen(false);
       },
@@ -239,21 +240,36 @@ const MenuButton = ({ board, gmailAccounts }: { board: Board; gmailAccounts: Gma
 export const BoardNavbar = ({
   board,
   gmailAccounts,
-  filters,
-  setFilters,
+  children,
 }: {
   board: Board;
   gmailAccounts: GmailAccount[];
-  filters: BoardFilters;
-  setFilters: (value: BoardFilters) => void;
+  children?: React.ReactNode;
 }) => {
+  const [filters, setFilters] = useState<BoardFilters>({ unread: false, sent: false, gmailAccountIds: [] });
+  // Load filters from localStorage
+  useEffect(() => {
+    const savedFiltersJson = !isSsr() && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`);
+    if (savedFiltersJson) setFilters(JSON.parse(savedFiltersJson));
+  }, [board.id]);
+
+  // Update filters in localStorage
+  useEffect(() => {
+    if (!isSsr()) {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`, JSON.stringify(filters));
+    }
+  }, [filters, board.id]);
+
   return (
-    <div className="border-b bg-background px-6 py-2.5 flex items-center justify-between">
-      <h1 className="font-semibold">{board.name}</h1>
-      <div className="flex items-center gap-2">
-        <FilterButton gmailAccounts={gmailAccounts} filters={filters} setFilters={setFilters} />
-        <MenuButton board={board} gmailAccounts={gmailAccounts} />
+    <BoardFiltersProvider value={{ filters, setFilters }}>
+      <div className="border-b bg-background px-6 py-2.5 flex items-center justify-between">
+        <h1 className="font-semibold">{board.name}</h1>
+        <div className="flex items-center gap-2">
+          <FilterButton gmailAccounts={gmailAccounts} />
+          <MenuButton board={board} gmailAccounts={gmailAccounts} />
+        </div>
       </div>
-    </div>
+      {children}
+    </BoardFiltersProvider>
   );
 };
