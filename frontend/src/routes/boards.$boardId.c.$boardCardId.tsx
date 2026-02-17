@@ -20,6 +20,8 @@ import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
 type EmailMessage = EmailMessagesData['emailMessages'][number];
 
+const DEFAULT_IFRAME_HEIGHT = 150;
+
 export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
   component: BoardCardComponent,
   beforeLoad: async ({ context: { queryClient, trpc } }) => {
@@ -147,7 +149,7 @@ const setIframeContent = (
   iframe: HTMLIFrameElement,
   { styles, body }: { styles: string; body: string },
 ): ResizeObserver => {
-  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  const iframeDoc = iframe.contentDocument;
   if (!iframeDoc) {
     throw new Error('Unable to access iframe document');
   }
@@ -169,8 +171,15 @@ const setIframeContent = (
   });
 
   const resizeObserver = new ResizeObserver(() => {
-    const height = Math.ceil(iframeDoc.documentElement.getBoundingClientRect().height);
-    iframe.style.height = `${height}px`;
+    const iframeHtmlScrollHeight = iframeDoc.documentElement.scrollHeight;
+    const bodyRectHeight = iframeDoc.body.getBoundingClientRect().height; // Can be float
+    const bodyChildrenRectHeight = [...iframeDoc.body.children].reduce(
+      (sum, e) => sum + e.getBoundingClientRect().height,
+      0,
+    ); // Can be float
+
+    const height = Math.max(iframeHtmlScrollHeight, bodyRectHeight, bodyChildrenRectHeight);
+    iframe.style.height = `${Math.ceil(height)}px`;
   });
   resizeObserver.observe(iframeDoc.body);
 
@@ -191,76 +200,64 @@ const ToggleQuotesButton = ({ onClick }: { onClick: () => void }) => {
 };
 
 const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
-  const [cleanedHtml, setCleanedHtml] = useState('');
-  const [emailStyles, setEmailStyles] = useState('');
-  const [trailingBlockquotesHtml, setTrailingBlockquotesHtml] = useState('');
-  const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
   const [mainText, setMainText] = useState('');
+
+  const [styles, setStyles] = useState('');
+  const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
+  const [blockquotesHtml, setBlockquotesHtml] = useState('');
   const [backquotesText, setBackquotesText] = useState('');
   const bodyIframeRef = useRef<HTMLIFrameElement>(null);
   const backquotesIframeRef = useRef<HTMLIFrameElement>(null);
 
+  const { bodyHtml, bodyText } = emailMessage;
+
   useEffect(() => {
-    if (!emailMessage.bodyHtml) return;
+    if (bodyHtml || !bodyText) {
+      // HTML body
+      const sanitized = DOMPurify.sanitize(bodyHtml || '', {
+        WHOLE_DOCUMENT: true,
+        ADD_TAGS: ['style', 'head'],
+        ADD_ATTR: ['style'],
+      });
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(sanitized, 'text/html');
 
-    const sanitized = DOMPurify.sanitize(emailMessage.bodyHtml, {
-      WHOLE_DOCUMENT: true,
-      ADD_TAGS: ['style', 'head'],
-      ADD_ATTR: ['style'],
-    });
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(sanitized, 'text/html');
-
-    // Extract trailing blockquotes
-    const trailingBlockquotes = parseTrailingBlockquotes(doc.body);
-    if (trailingBlockquotes.length > 0) {
-      const quotesArray = trailingBlockquotes.map((bq) => bq.outerHTML);
-      setTrailingBlockquotesHtml(quotesArray.join(''));
+      // Extract and set trailing blockquotes
+      const trailingBlockquotes = parseTrailingBlockquotes(doc.body);
+      setBlockquotesHtml(trailingBlockquotes.map((bq) => bq.outerHTML).join(''));
       trailingBlockquotes.forEach((bq) => {
         bq.remove(); // remove from main content
       });
+
+      // Get HTML body
+      removeTrailingEmpty(doc.body);
+      const mainHtml = doc.body.innerHTML;
+
+      // Get head styles
+      const styles = Array.from(doc.head.querySelectorAll('style'))
+        .map((style) => style.textContent || '')
+        .join('\n');
+      setStyles(styles);
+
+      // Insert body into iframe
+      if (bodyIframeRef.current) {
+        const resizeObserver = setIframeContent(bodyIframeRef.current, { styles, body: mainHtml });
+        return () => resizeObserver.disconnect();
+      }
+    } else {
+      // Text body
+      const { mainText: parsedMainText, backquotesText: parsedBackquotesText } = parseTrailingBackquotes(bodyText);
+      setMainText(parsedMainText);
+      setBackquotesText(parsedBackquotesText);
     }
+  }, [bodyHtml, bodyText]);
 
-    // Set cleaned inner HTML
-    removeTrailingEmpty(doc.body);
-    setCleanedHtml(doc.body.innerHTML);
-
-    // Extract styles
-    const styles = Array.from(doc.head.querySelectorAll('style'))
-      .map((style) => style.textContent || '')
-      .join('\n');
-    setEmailStyles(styles);
-  }, [emailMessage.bodyHtml]);
-
-  // HTML body
+  // HTML blockquotes
   useEffect(() => {
-    if (!bodyIframeRef.current || (!cleanedHtml && emailMessage.bodyText)) return;
-    const resizeObserver = setIframeContent(bodyIframeRef.current, {
-      styles: emailStyles,
-      body: cleanedHtml,
-    });
+    if (!backquotesIframeRef.current || !blockquotesHtml || !blockquotesExpanded) return;
+    const resizeObserver = setIframeContent(backquotesIframeRef.current, { styles, body: blockquotesHtml });
     return () => resizeObserver.disconnect();
-  }, [cleanedHtml, emailMessage.bodyText, emailStyles]);
-
-  // HTML trailing blockquotes
-  useEffect(() => {
-    if (!backquotesIframeRef.current || !trailingBlockquotesHtml || !blockquotesExpanded) return;
-    const resizeObserver = setIframeContent(backquotesIframeRef.current, {
-      styles: emailStyles,
-      body: trailingBlockquotesHtml,
-    });
-    return () => resizeObserver.disconnect();
-  }, [trailingBlockquotesHtml, blockquotesExpanded, emailStyles]);
-
-  // Text body
-  useEffect(() => {
-    if (emailMessage.bodyHtml || !emailMessage.bodyText) return;
-    const { mainText: parsedMainText, backquotesText: parsedBackquotesText } = parseTrailingBackquotes(
-      emailMessage.bodyText,
-    );
-    setMainText(parsedMainText);
-    setBackquotesText(parsedBackquotesText);
-  }, [emailMessage.bodyText, emailMessage.bodyHtml]);
+  }, [blockquotesHtml, blockquotesExpanded, styles]);
 
   if (emailMessage.bodyHtml) {
     return (
@@ -269,9 +266,9 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
           ref={bodyIframeRef}
           title="Email content"
           sandbox="allow-same-origin allow-popups"
-          className="w-full border-0 block"
+          className="w-full border-0 block overflow-hidden"
         />
-        {trailingBlockquotesHtml && (
+        {blockquotesHtml && (
           <>
             <ToggleQuotesButton onClick={() => setBlockquotesExpanded(!blockquotesExpanded)} />
             {blockquotesExpanded && (
@@ -279,7 +276,7 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
                 ref={backquotesIframeRef}
                 title="Email quotes"
                 sandbox="allow-same-origin allow-popups"
-                className="w-full border-0 block"
+                className="w-full border-0 block overflow-hidden"
               />
             )}
           </>

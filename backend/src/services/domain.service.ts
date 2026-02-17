@@ -16,15 +16,6 @@ const SKIP_CONSUMER_DOMAINS = [
   'hey.com',
 ];
 
-const CUSTOM_ROOT_DOMAIN_ICONS = {
-  // 400 Bad Request
-  'gusto.com': '/domain-icons/gusto.com.ico',
-  // 429 Too Many Requests
-  'brex.com': '/domain-icons/brex.com.ico',
-  // 500 Internal Server Error
-  'remote-comms.com': '/domain-icons/remote.com.ico',
-} as Record<string, string>;
-
 const DOUBLE_DOMAIN_NAMESPACES = [
   'co.uk',
   'ac.uk',
@@ -66,58 +57,56 @@ export class DomainService {
   }
 
   static async fetchIcon(domain: Domain) {
-    if (domain.iconUrl) {
-      return { iconUrl: domain.iconUrl };
-    }
-
-    let iconUrl: string | undefined;
-    let fetchErrorStatus: number | undefined;
+    if (domain.iconUrl) return;
 
     const rootDomainName = domain.name
       .split('.')
       .slice(DOUBLE_DOMAIN_NAMESPACES.some((ns) => domain.name.endsWith(`.${ns}`)) ? -3 : -2)
       .join('.'); // e.g., sub.example.com -> example.com, sub.example.co.uk -> example.co.uk
 
-    if (SKIP_CONSUMER_DOMAINS.includes(rootDomainName)) {
-      // Skip
-    } else if (CUSTOM_ROOT_DOMAIN_ICONS[rootDomainName]) {
-      iconUrl = CUSTOM_ROOT_DOMAIN_ICONS[rootDomainName];
-    } else {
-      // Try `${rootDomainName}/favicon.ico` first
+    if (SKIP_CONSUMER_DOMAINS.includes(rootDomainName)) return;
+
+    let iconUrl: string | undefined;
+    let fetchErrorStatus: number | undefined;
+
+    // Try `${rootDomainName}/favicon.ico` first
+    try {
+      const faviconUrl = `https://${rootDomainName}/favicon.ico`;
+      const response = await DomainService.sendGet(faviconUrl);
+      if (response.ok && response.url.endsWith('/favicon.ico')) {
+        iconUrl = response.url;
+      } else if (!response.ok) {
+        fetchErrorStatus = response.status;
+      }
+    } catch (_error) {}
+    // If not found, go to `https://${rootDomainName}` and search for <link rel="icon" href="..."> or <link rel="shortcut icon" href="...">
+    if (!iconUrl) {
       try {
-        const faviconUrl = `https://${rootDomainName}/favicon.ico`;
-        const response = await DomainService.sendGet(faviconUrl);
-        if (response.ok && response.url.endsWith('/favicon.ico')) {
-          iconUrl = response.url;
-        } else if (!response.ok) {
+        const response = await DomainService.sendGet(`https://${rootDomainName}`);
+        if (response.ok) {
+          const html = await response.text();
+          const $ = cheerio.load(html);
+          const iconLink = $('link[rel="icon"], link[rel="shortcut icon"]').first();
+          if (iconLink.length) {
+            const href = iconLink.attr('href');
+            if (href) {
+              iconUrl = href.startsWith('http')
+                ? href
+                : new URL(href, `https://${new URL(response.url).hostname}`).href; // Handle relative URLs
+            }
+          }
+        } else {
           fetchErrorStatus = response.status;
         }
-      } catch (_error) {}
-
-      // If not found, go to `https://${rootDomainName}` and search for <link rel="icon" href="..."> or <link rel="shortcut icon" href="...">
-      if (!iconUrl) {
-        try {
-          const response = await DomainService.sendGet(`https://${rootDomainName}`);
-          if (response.ok) {
-            const html = await response.text();
-            const $ = cheerio.load(html);
-            const iconLink = $('link[rel="icon"], link[rel="shortcut icon"]').first();
-            if (iconLink.length) {
-              const href = iconLink.attr('href');
-              if (href) {
-                iconUrl = href.startsWith('http')
-                  ? href
-                  : new URL(href, `https://${new URL(response.url).hostname}`).href; // Handle relative URLs
-              }
-            }
-          } else {
-            fetchErrorStatus = response.status;
-          }
-        } catch (_error) {} // Could not fetch or parse HTML
-      }
+      } catch (_error) {} // Could not fetch or parse HTML
+    }
+    // Try finding another domain by rootDomainName
+    if (!iconUrl) {
+      const rootDomain = await orm.em.findOne(Domain, { name: rootDomainName });
+      if (rootDomain?.iconUrl) iconUrl = rootDomain.iconUrl;
     }
 
-    return { iconUrl, fetchErrorStatus };
+    domain.setIcon({ iconUrl, fetchErrorStatus });
   }
 
   private static async sendGet(url: string) {

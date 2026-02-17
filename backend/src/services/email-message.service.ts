@@ -103,7 +103,7 @@ export class EmailMessageService {
       const existingDomain = existingDomainByName[domain.name];
       if (existingDomain) return existingDomain;
 
-      domain.setIcon(await DomainService.fetchIcon(domain));
+      await DomainService.fetchIcon(domain);
       orm.em.persist(domain);
       existingDomainByName[domain.name] = domain;
       return domain;
@@ -266,7 +266,7 @@ export class EmailMessageService {
       const existingDomain = existingDomainByName[domain.name];
       if (existingDomain) return existingDomain;
 
-      domain.setIcon(await DomainService.fetchIcon(domain));
+      await DomainService.fetchIcon(domain);
       orm.em.persist(domain);
       existingDomainByName[domain.name] = domain;
       return domain;
