@@ -216,10 +216,12 @@ export class BoardCardService {
     emailMessagesDesc: EmailMessage[];
     gmailAccount: GmailAccount;
   }) {
+    const gmailAccountEmails = new Set<string>(gmailAccount.emailAddresses.map((a) => a.email));
+
     const participantsAsc = emailMessagesDesc
       .reverse()
       .flatMap(BoardCardService.emailMessageParticipantsAsc)
-      .filter((p) => p.email !== gmailAccount.email);
+      .filter((p) => !gmailAccountEmails.has(p.email));
 
     const participantsByEmail: { [email: string]: Participant } = {};
     const uniqueParticipants: Participant[] = [];

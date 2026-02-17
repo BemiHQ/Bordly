@@ -4,6 +4,7 @@ import * as cheerio from 'cheerio';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 import { Attachment } from '@/entities/attachment';
 import type { Board } from '@/entities/board';
+import type { BoardCard } from '@/entities/board-card';
 import { BoardColumn } from '@/entities/board-column';
 import { Domain } from '@/entities/domain';
 import { EmailMessage, type Participant } from '@/entities/email-message';
@@ -54,7 +55,7 @@ export class EmailMessageService {
 
     while (true) {
       const gmailAccounts = (
-        await GmailAccountService.findAllAccountsWithBoards({ populate: ['board.boardColumns'] })
+        await GmailAccountService.findAllAccountsWithBoards({ populate: ['board.boardColumns', 'emailAddresses'] })
       ).filter((acc) => acc.board?.initialized);
 
       const gmailAccountIds = new Set(gmailAccounts.map((acc) => acc.id));
@@ -95,7 +96,7 @@ export class EmailMessageService {
 
   // Creates: EmailMessage, Attachment, *BoardColumn*, Domain, BoardCard
   static async createInitialBoardEmailMessages(gmailAccountId: string) {
-    const gmailAccount = await GmailAccountService.findById(gmailAccountId, { populate: ['board'] });
+    const gmailAccount = await GmailAccountService.findById(gmailAccountId, { populate: ['board', 'emailAddresses'] });
     if (!gmailAccount.board) throw new Error('Gmail account does not have an associated board');
 
     const gmail = await GmailAccountService.initGmail(gmailAccount);
@@ -208,12 +209,25 @@ export class EmailMessageService {
     { boardCardId, populate }: { boardCardId: string; populate?: Populate<EmailMessage, Hint> },
   ) {
     const boardCard = await BoardCardService.findById(board, { boardCardId, populate: ['boardColumn', 'emailDraft'] });
-    const emailMessagesAsc = await orm.em.find(
+    const emailMessagesAsc = await EmailMessageService.findEmailMessageByBoardCard(boardCard, {
+      populate,
+      orderBy: { externalCreatedAt: 'ASC' },
+    });
+    return { boardCard, emailMessagesAsc };
+  }
+
+  static async findEmailMessageByBoardCard<Hint extends string = never>(
+    boardCard: BoardCard,
+    {
+      populate,
+      orderBy,
+    }: { populate?: Populate<EmailMessage, Hint>; orderBy?: { externalCreatedAt: 'ASC' | 'DESC' } } = {},
+  ) {
+    return orm.em.find(
       EmailMessage,
       { gmailAccount: boardCard.gmailAccount, externalThreadId: boardCard.externalThreadId },
-      { populate, orderBy: { externalCreatedAt: 'ASC' } },
+      { populate, orderBy },
     );
-    return { boardCard, emailMessagesAsc };
   }
 
   static parseParticipant(emailAddress?: string) {
@@ -601,7 +615,7 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
       externalThreadId: messageData.threadId as string,
       externalCreatedAt: parsedInternalDate > now ? now : parsedInternalDate,
       from,
-      subject: GoogleApi.gmailHeaderValue(headers, 'subject') as string,
+      subject: GoogleApi.gmailHeaderValue(headers, 'subject') || '(No Subject)',
       snippet: cheerio.load(messageData.snippet!).text(),
       sent: labels.includes(LABEL.SENT),
       labels,

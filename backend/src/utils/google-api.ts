@@ -12,6 +12,8 @@ export const LABEL = {
   DRAFT: 'DRAFT',
 };
 
+export const MAX_SNIPPET_LENGTH = 190;
+
 export class GoogleApi {
   static newOauth2Client(credentials?: { accessToken: string; accessTokenExpiresAt: Date; refreshToken: string }) {
     const oauth2Client: Auth.OAuth2Client = new google.auth.OAuth2(
@@ -170,5 +172,55 @@ export class GoogleApi {
   static async gmailListSendAs(gmail: gmail_v1.Gmail) {
     const response = await gmail.users.settings.sendAs.list({ userId: 'me' });
     return response.data.sendAs || [];
+  }
+
+  static async gmailSendEmail(
+    gmail: gmail_v1.Gmail,
+    {
+      from,
+      to,
+      cc,
+      bcc,
+      subject,
+      bodyHtml,
+      threadId,
+    }: {
+      from: string;
+      to?: string[];
+      cc?: string[];
+      bcc?: string[];
+      subject?: string;
+      bodyHtml?: string;
+      threadId?: string;
+    },
+  ) {
+    const headers = [
+      `From: ${from}`,
+      to && to.length > 0 ? `To: ${to.join(', ')}` : undefined,
+      cc && cc.length > 0 ? `Cc: ${cc.join(', ')}` : undefined,
+      bcc && bcc.length > 0 ? `Bcc: ${bcc.join(', ')}` : undefined,
+      `Subject: ${subject || ''}`,
+      'Content-Type: text/html; charset=utf-8',
+      'MIME-Version: 1.0',
+    ]
+      .filter(Boolean)
+      .join('\r\n');
+
+    const message = `${headers}\r\n\r\n${bodyHtml || ''}`;
+    const encodedMessage = Buffer.from(message)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const response = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedMessage,
+        threadId,
+      },
+    });
+
+    return response.data;
   }
 }

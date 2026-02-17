@@ -30,5 +30,23 @@ export const EMAIL_DRAFT_ROUTES = {
         await EmailDraftService.delete(board, input);
         return { success: true };
       }),
+    send: publicProcedure
+      .input(
+        z.object({
+          boardId: z.uuid(),
+          boardCardId: z.uuid(),
+          from: z.string().min(1),
+          to: z.array(z.string().min(1)).min(1).optional(),
+          cc: z.array(z.string().min(1)).min(1).optional(),
+          bcc: z.array(z.string().min(1)).min(1).optional(),
+          subject: z.string().optional(),
+          bodyHtml: z.string().optional(),
+        }),
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { board } = authAsBoardMember({ ctx, input });
+        const { emailMessage, boardCard } = await EmailDraftService.send(board, input);
+        return { emailMessage: emailMessage.toJson(), boardCard: boardCard.toJson() };
+      }),
   } satisfies TRPCRouterRecord,
 };

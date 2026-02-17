@@ -9,7 +9,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
-import { type ChangeEvent, useEffect, useState } from 'react';
+import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 import {
   COLORS,
   DEFAULT_FONT_FAMILY,
@@ -22,11 +22,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
 import { cn } from '@/utils/strings';
 
-const AUTO_SAVE_INTERVAL_MS = 2_000;
+const AUTO_SAVE_INTERVAL_MS = 1_000;
 
 type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
 type EmailDraft = EmailMessagesData['boardCard']['emailDraft'];
@@ -63,23 +64,29 @@ export const ReplyCard = ({
   const { queryClient, trpc } = useRouteContext();
 
   const lastEmailMessage = emailMessagesAsc[emailMessagesAsc.length - 1];
-  const defaultTo = emailDraft?.to
-    ? participantsToInput(emailDraft.to)
-    : lastEmailMessage?.from
-      ? participantToInput(lastEmailMessage.from)
-      : '';
-  const defaultCc = emailDraft?.cc
-    ? participantsToInput(emailDraft.cc)
-    : lastEmailMessage?.cc
-      ? participantsToInput(lastEmailMessage.cc)
-      : '';
 
-  const [fromInput, setFromInput] = useState(emailDraft?.from ? participantToInput(emailDraft.from) : '');
+  let defaultFrom = '';
+  let defaultTo = '';
+  let defaultCc = '';
+  let defaultBcc = '';
+  if (emailDraft) {
+    defaultFrom = participantToInput(emailDraft.from);
+    defaultTo = participantsToInput(emailDraft.to);
+    defaultCc = participantsToInput(emailDraft.cc);
+    defaultBcc = participantsToInput(emailDraft.bcc);
+  } else if (lastEmailMessage) {
+    defaultTo = lastEmailMessage.sent
+      ? participantsToInput(lastEmailMessage.to)
+      : participantToInput(lastEmailMessage.from);
+    defaultCc = participantsToInput(lastEmailMessage.cc);
+  }
+  const [fromInput, setFromInput] = useState(defaultFrom);
   const [toInput, setToInput] = useState(defaultTo);
   const [ccInput, setCcInput] = useState(defaultCc);
-  const [bccInput, setBccInput] = useState(participantsToInput(emailDraft?.bcc));
-  const [showCcBcc, setShowCcBcc] = useState((emailDraft?.cc?.length ?? 0) > 0 || (emailDraft?.bcc?.length ?? 0) > 0);
+  const [bccInput, setBccInput] = useState(defaultBcc);
+  const [showCcBcc, setShowCcBcc] = useState(defaultCc !== '' || defaultBcc !== '');
   const [hasChanges, setHasChanges] = useState(false);
+  const autosaveIntervalRef = useRef<number | null>(null);
 
   const { data: emailAddressesData } = useQuery({ ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
   const emailAddresses = emailAddressesData?.emailAddresses || [];
@@ -147,6 +154,30 @@ export const ReplyCard = ({
     errorToast: 'Failed to discard draft. Please try again.',
     delayedMutation: useMutation(trpc.emailDraft.delete.mutationOptions()),
   });
+
+  const emailDraftSendMutation = useMutation(
+    trpc.emailDraft.send.mutationOptions({
+      onSuccess: ({ emailMessage, boardCard }) => {
+        queryClient.setQueryData(emailMessagesQueryKey, (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            boardCard,
+            emailMessagesAsc: [...oldData.emailMessagesAsc, emailMessage],
+          } satisfies typeof oldData;
+        });
+        queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCard.id ? boardCard : c)),
+          } satisfies typeof oldData;
+        });
+        editor.commands.clearContent();
+        onDiscard();
+      },
+    }),
+  );
 
   const editor = useEditor({
     extensions: [
@@ -261,11 +292,14 @@ export const ReplyCard = ({
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignore emailDraftUpsertMutation to avoid unnecessary re-renders
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      if (!editor || emailDraftUpsertMutation.isPending || !hasChanges) return;
+      if (!editor || !lastEmailMessage || emailDraftUpsertMutation.isPending || !hasChanges) return;
 
       emailDraftUpsertMutation.mutate({
         boardId,
         boardCardId,
+        subject: lastEmailMessage.subject.includes('Re:')
+          ? lastEmailMessage.subject
+          : `Re: ${lastEmailMessage.subject}`,
         bodyHtml: editor.getHTML(),
         from: fromInput.trim(),
         to: toInput ? parseParticipantsInput(toInput) : undefined,
@@ -275,9 +309,15 @@ export const ReplyCard = ({
       setHasChanges(false);
     }, AUTO_SAVE_INTERVAL_MS);
 
-    return () => window.clearInterval(intervalId);
+    autosaveIntervalRef.current = intervalId;
+
+    return () => {
+      window.clearInterval(intervalId);
+      autosaveIntervalRef.current = null;
+    };
   }, [
     editor,
+    lastEmailMessage,
     emailDraftUpsertMutation.isPending,
     hasChanges,
     boardCardId,
@@ -289,14 +329,25 @@ export const ReplyCard = ({
   ]);
 
   const handleSend = () => {
-    if (!editor) return;
+    if (!editor || !lastEmailMessage) return;
 
-    const html = editor.getHTML();
-    console.log('Sending reply:', html);
-    // TODO: Implement send functionality
+    // Cancel autosave to avoid race conditions
+    if (autosaveIntervalRef.current !== null) {
+      window.clearInterval(autosaveIntervalRef.current);
+      autosaveIntervalRef.current = null;
+    }
+    setHasChanges(false);
 
-    editor.commands.clearContent();
-    onDiscard();
+    emailDraftSendMutation.mutate({
+      boardId,
+      boardCardId,
+      subject: lastEmailMessage.subject.includes('Re:') ? lastEmailMessage.subject : `Re: ${lastEmailMessage.subject}`,
+      bodyHtml: editor.getHTML(),
+      from: fromInput.trim(),
+      to: toInput ? parseParticipantsInput(toInput) : undefined,
+      cc: ccInput ? parseParticipantsInput(ccInput) : undefined,
+      bcc: bccInput ? parseParticipantsInput(bccInput) : undefined,
+    });
   };
 
   const handleDiscard = () => {
@@ -379,8 +430,15 @@ export const ReplyCard = ({
         <Button variant="outline" size="sm" onClick={handleDiscard}>
           {emailDraft ? 'Discard' : 'Cancel'}
         </Button>
-        <Button size="sm" onClick={handleSend}>
-          Send
+        <Button size="sm" onClick={handleSend} disabled={emailDraftSendMutation.isPending}>
+          {emailDraftSendMutation.isPending ? (
+            <>
+              <Spinner data-icon="inline-start" />
+              Sending...
+            </>
+          ) : (
+            'Send'
+          )}
         </Button>
       </div>
     </Card>

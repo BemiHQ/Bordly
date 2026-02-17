@@ -4,6 +4,7 @@ import type { Attachment } from '@/entities/attachment';
 import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
+import type { EmailAddress } from '@/entities/email-address';
 import type { EmailMessage } from '@/entities/email-message';
 import type { User } from '@/entities/user';
 import { Encryption } from '@/utils/encryption';
@@ -24,6 +25,8 @@ export class GmailAccount extends BaseEntity {
   emailMessages = new Collection<EmailMessage>(this);
   @OneToMany({ mappedBy: (attachment: Attachment) => attachment.gmailAccount })
   attachments = new Collection<Attachment>(this);
+  @OneToMany({ mappedBy: (emailAddress: EmailAddress) => emailAddress.gmailAccount })
+  emailAddresses = new Collection<EmailAddress>(this);
 
   @Property()
   name: string;
