@@ -589,7 +589,7 @@ function BoardCardComponent() {
           aria-describedby={undefined}
           closeClassName="hover:bg-border top-3.5"
         >
-          <DialogHeader className="pl-6 pr-13 flex flex-row items-center justify-between mt-[-6px]">
+          <DialogHeader className="pl-6 pr-13 flex flex-row items-start justify-between mt-[-6px]">
             <DialogTitle className="leading-6">{boardCard?.subject}</DialogTitle>
             <div className="flex items-center gap-3 mr-2 mt-[-4px]">
               <Tooltip delayDuration={1_000}>

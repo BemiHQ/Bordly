@@ -104,7 +104,7 @@ export class EmailMessageService {
     const messages = await GoogleApi.gmailListMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
     if (messages.length === 0) return;
 
-    // Create EmailMessages and Attachments
+    // Collect EmailMessages and Attachments
     let lastExternalHistoryId: string | undefined;
     const emailMessagesDescByThreadId: Record<string, EmailMessage[]> = {};
     const domainNames: string[] = [];
@@ -112,8 +112,7 @@ export class EmailMessageService {
       if (!message.id) continue;
       console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${message.id}...`);
       const messageData = await GoogleApi.gmailGetMessage(gmail, message.id);
-      const { emailMessage, attachments } = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
-      orm.em.persist([emailMessage, ...attachments]);
+      const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
 
       (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
       domainNames.push(emailMessage.domain.name);
@@ -173,9 +172,10 @@ export class EmailMessageService {
       }
 
       for (const threadId of threadIds) {
-        // Update or create Domains for EmailMessages
+        // Update or create Domains, create EmailMessages
         for (const emailMessage of emailMessagesDescByThreadId[threadId]!) {
           emailMessage.domain = await persistDomainOnce(emailMessage.domain);
+          orm.em.persist(emailMessage);
         }
 
         const boardCard = BoardCardService.buildFromEmailMessages({
@@ -271,7 +271,7 @@ export class EmailMessageService {
     // - Board columns
     const boardColumnsAsc = gmailAccount.board!.boardColumns.getItems().sort((a, b) => a.position - b.position);
 
-    // Handle add: create EmailMessages & Attachments
+    // Handle add: collect EmailMessages & Attachments
     console.log(`[GMAIL] Processing additions for ${gmailAccount.email}...`);
     const domainNames: string[] = [];
     const alreadDeletedExternalMessageIds = new Set();
@@ -282,8 +282,7 @@ export class EmailMessageService {
       try {
         console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${externalMessageId}...`);
         const messageData = await GoogleApi.gmailGetMessage(gmail, externalMessageId);
-        const { emailMessage, attachments } = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
-        orm.em.persist([emailMessage, ...attachments]);
+        const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
         affectedEmailMessageByExternalId[externalMessageId] = emailMessage;
 
         const threadId = emailMessage.externalThreadId;
@@ -321,9 +320,10 @@ export class EmailMessageService {
       const threadId = emailMessage.externalThreadId;
       const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;
 
-      // Update or create Domains for EmailMessages
+      // Update or create Domains, create EmailMessages
       for (const emailMessage of emailMessagesDesc) {
         emailMessage.domain = await persistDomainOnce(emailMessage.domain);
+        orm.em.persist(emailMessage);
       }
 
       const boardCard = boardCardByThreadId[threadId];
@@ -588,7 +588,7 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
     }
 
     emailMessage.attachments.set(attachments);
-    return { emailMessage, attachments };
+    return emailMessage;
   }
 
   private static parseParticipant(emailAddress?: string) {
