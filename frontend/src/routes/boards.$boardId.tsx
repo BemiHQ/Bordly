@@ -35,12 +35,7 @@ export const Route = createFileRoute('/boards/$boardId')({
     if (currentUser.boards.length === 0) {
       throw redirect({ to: ROUTES.WELCOME });
     }
-
-    const boardData = await context.queryClient.ensureQueryData(
-      context.trpc.board.getBoard.queryOptions({ boardId: extractUuid(params.boardId) }),
-    );
-
-    return { currentUser, boardData };
+    return { currentUser };
   },
 });
 
@@ -118,17 +113,23 @@ const BoardCard = ({ boardCard }: { boardCard: BoardCard }) => {
 };
 
 function Home() {
-  const { currentUser, boardData } = Route.useLoaderData();
+  const { currentUser } = Route.useLoaderData();
   const context = Route.useRouteContext();
   const params = Route.useParams();
+
+  const { data: boardData } = useQuery({
+    ...context.trpc.board.getBoard.queryOptions({ boardId: extractUuid(params.boardId) }),
+    refetchInterval: ({ state: { data } }) => (data?.boardColumns.length === 0 ? REFETCH_INTERVAL_MS : false),
+    refetchIntervalInBackground: true,
+  });
+
   const { data: boardCardsData } = useQuery({
     ...context.trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
     refetchInterval: REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: true,
   });
 
-  const { board, boardColumns, gmailAccounts } = boardData;
-
+  // Toast for added Gmail account
   useEffect(() => {
     const addedGmailAccount = !isSsr()
       ? new URLSearchParams(window.location.search).get(QUERY_PARAMS.ADDED_GMAIL_ACCOUNT)
@@ -147,14 +148,15 @@ function Home() {
   // Filters
   const [filters, setFilters] = useState<BoardFilters>({ unread: false, sent: false, gmailAccountIds: [] });
   useEffect(() => {
-    const savedFiltersJson = !isSsr() && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`);
+    const savedFiltersJson =
+      !isSsr() && boardData && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${boardData.board.id}`);
     if (savedFiltersJson) setFilters(JSON.parse(savedFiltersJson));
-  }, [board.id]);
+  }, [boardData]);
   useEffect(() => {
-    if (!isSsr()) {
-      localStorage.setItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`, JSON.stringify(filters));
+    if (!isSsr() && boardData) {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${boardData.board.id}`, JSON.stringify(filters));
     }
-  }, [filters, board.id]);
+  }, [filters, boardData]);
 
   // Dynamic page title
   useEffect(() => {
@@ -162,21 +164,30 @@ function Home() {
       (card) => !!card.unreadEmailMessageIds,
     ).length;
 
-    if (unreadBoardCardCount === 0) {
-      document.title = `${board.name} – Bordly`;
+    if (!boardData) {
+      document.title = `Bordly`;
+    } else if (unreadBoardCardCount === 0) {
+      document.title = `${boardData.board.name} – Bordly`;
     } else {
-      document.title = `(${unreadBoardCardCount}) ${board.name} – Bordly`;
+      document.title = `(${unreadBoardCardCount}) ${boardData.board.name} – Bordly`;
     }
-  }, [board.name, boardCardsData]);
+  }, [boardData, boardCardsData]);
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar currentUser={currentUser} />
-      <BoardNavbar board={board} gmailAccounts={gmailAccounts} filters={filters} setFilters={setFilters} />
-      {boardColumns.length === 0 && <EmptyState />}
-      {boardColumns.length > 0 && (
+      {boardData && (
+        <BoardNavbar
+          board={boardData.board}
+          gmailAccounts={boardData.gmailAccounts}
+          filters={filters}
+          setFilters={setFilters}
+        />
+      )}
+      {boardData?.boardColumns.length === 0 && <EmptyState />}
+      {boardData?.boardColumns.length && (
         <div className="flex overflow-x-auto p-3 gap-3">
-          {boardColumns.map((boardColumn) => {
+          {boardData.boardColumns.map((boardColumn) => {
             const boardCards = boardCardsData?.boardCards
               .filter((card) => card.boardColumnId === boardColumn.id)
               .sort((a, b) => b.lastEventAt.getTime() - a.lastEventAt.getTime());

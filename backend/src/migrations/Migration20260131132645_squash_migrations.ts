@@ -1,6 +1,6 @@
 import { Migration } from '@mikro-orm/migrations';
 
-export class Migration20260131122536_squash_migrations extends Migration {
+export class Migration20260131132645_squash_migrations extends Migration {
   override async up(): Promise<void> {
     this.addSql(`create extension if not exists "uuid-ossp";`);
     this.addSql(
@@ -61,7 +61,7 @@ export class Migration20260131122536_squash_migrations extends Migration {
     );
 
     this.addSql(
-      `create table "board_members" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "user_id" uuid not null, "role" text check ("role" in ('ADMIN')) not null, "board_id" uuid not null, constraint "board_members_pkey" primary key ("id"));`,
+      `create table "board_members" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "user_id" uuid not null, "role" text check ("role" in ('ADMIN', 'MEMBER')) not null, "board_id" uuid not null, constraint "board_members_pkey" primary key ("id"));`,
     );
     this.addSql(`create index "board_members_user_id_index" on "board_members" ("user_id");`);
     this.addSql(

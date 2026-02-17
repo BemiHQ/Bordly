@@ -1150,7 +1150,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "enumItems": ["ADMIN"],
+          "enumItems": ["ADMIN", "MEMBER"],
           "mappedType": "enum"
         },
         "board_id": {

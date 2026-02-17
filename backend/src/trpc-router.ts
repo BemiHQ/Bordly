@@ -4,7 +4,6 @@ import type { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify'
 import superjson from 'superjson';
 import { z } from 'zod';
 
-import type { User } from '@/entities/user';
 import { BoardService } from '@/services/board.service';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { UserService } from '@/services/user.service';
@@ -12,10 +11,7 @@ import { BoardCardService } from './services/board-card.service';
 
 export const createContext = async ({ req }: CreateFastifyContextOptions) => {
   const userId = req.session.get('userId') as string | undefined;
-  let user: User | null = null;
-  if (userId) {
-    user = await UserService.tryFindById(userId, { populate: ['boards'] });
-  }
+  const user = await UserService.tryFindById(userId, { populate: ['boardMembers.board'] });
   return { user };
 };
 type Context = Awaited<ReturnType<typeof createContext>>;
@@ -53,10 +49,8 @@ const ROUTES = {
   board: {
     getBoard: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       if (!ctx.user) throw new Error('Not authenticated');
-      const board = await BoardService.findByIdForUser(input.boardId, {
-        user: ctx.user,
-        populate: ['boardColumns', 'gmailAccounts'],
-      });
+      const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+      await BoardService.populate(board, ['boardColumns', 'gmailAccounts']);
       return {
         board: board.toJson(),
         boardColumns: board.boardColumns.map((col) => col.toJson()),
@@ -72,10 +66,8 @@ const ROUTES = {
   boardCard: {
     getBoardCards: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       if (!ctx.user) throw new Error('Not authenticated');
-      const boardCards = await BoardCardService.findCardsByBoardId(input.boardId, {
-        user: ctx.user,
-        populate: ['domain'],
-      });
+      const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+      const boardCards = await BoardCardService.findCardsByBoard(board, { populate: ['domain'] });
       return { boardCards: boardCards.map((card) => card.toJson()) };
     }),
   } satisfies TRPCRouterRecord,
@@ -84,11 +76,8 @@ const ROUTES = {
       .input(z.object({ boardId: z.uuid(), emails: z.array(z.email()) }))
       .mutation(async ({ input, ctx }) => {
         if (!ctx.user) throw new Error('Not authenticated');
-        const invites = await BoardInviteService.createInvites({
-          boardId: input.boardId,
-          emails: input.emails,
-          invitedBy: ctx.user,
-        });
+        const board = BoardService.findAsAdmin(input.boardId, { user: ctx.user });
+        const invites = await BoardInviteService.createInvites({ board, emails: input.emails, invitedBy: ctx.user });
         return { invites: invites.map((invite) => invite.toJson()) };
       }),
   } satisfies TRPCRouterRecord,

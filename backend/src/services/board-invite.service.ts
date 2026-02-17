@@ -1,7 +1,7 @@
 import type { Populate } from '@mikro-orm/postgresql';
+import type { Board } from '@/entities/board';
 import { BoardInvite, State } from '@/entities/board-invite';
 import type { User } from '@/entities/user';
-import { BoardService } from '@/services/board.service';
 import { Emailer, NO_REPLY_EMAIL } from '@/utils/emailer';
 import { ENV } from '@/utils/env';
 import { orm } from '@/utils/orm';
@@ -22,10 +22,9 @@ export class BoardInviteService {
     return orm.em.find(BoardInvite, { email, state: State.PENDING }, { populate });
   }
 
-  static async createInvites({ boardId, emails, invitedBy }: { boardId: string; emails: string[]; invitedBy: User }) {
+  static async createInvites({ board, emails, invitedBy }: { board: Board; emails: string[]; invitedBy: User }) {
     if (emails.length === 0) return [];
 
-    const board = await BoardService.findByIdForUser(boardId, { user: invitedBy });
     const existingBoardInvites = await orm.em.find(BoardInvite, {
       board,
       email: { $in: emails },

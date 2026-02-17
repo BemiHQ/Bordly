@@ -152,6 +152,7 @@ export class BoardCard extends BaseEntity {
   private validate() {
     if (!this.gmailAccount) throw new Error('GmailAccount is required');
     if (!this.boardColumn) throw new Error('BoardColumn is required');
+    if (!this.domain) throw new Error('Domain is required');
     if (!this.externalThreadId) throw new Error('ExternalThreadId is required');
     if (!this.state) throw new Error('State is required');
     if (!this.subject) throw new Error('Subject is required');
@@ -159,6 +160,7 @@ export class BoardCard extends BaseEntity {
     if (!this.participants || this.participants.length === 0)
       throw new Error('Participants is required and cannot be empty');
     if (!this.lastEventAt) throw new Error('LastEventAt is required');
+    if (this.hasSent === undefined || this.hasSent === null) throw new Error('HasSent is required');
     if (this.emailMessageCount !== undefined && this.emailMessageCount !== null && this.emailMessageCount < 0)
       throw new Error('EmailMessageCount must be non-negative');
     if (this.unreadEmailMessageIds && this.unreadEmailMessageIds.length === 0)

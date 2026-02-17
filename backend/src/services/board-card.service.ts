@@ -1,8 +1,8 @@
 import type { Populate } from '@mikro-orm/postgresql';
 
+import type { Board } from '@/entities/board';
 import { BoardCard, State } from '@/entities/board-card';
 import type { GmailAccount } from '@/entities/gmail-account';
-import type { User } from '@/entities/user';
 import { orm } from '@/utils/orm';
 
 export class BoardCardService {
@@ -26,22 +26,10 @@ export class BoardCardService {
     return boardCardByThreadId;
   }
 
-  static findCardsByBoardId<Hint extends string = never>(
-    boardId: string,
-    { user, state = State.INBOX, populate = [] }: { user: User; state?: State; populate?: Populate<BoardCard, Hint> },
+  static async findCardsByBoard<Hint extends string = never>(
+    board: Board,
+    { state = State.INBOX, populate = [] }: { state?: State; populate?: Populate<BoardCard, Hint> },
   ) {
-    return orm.em.find(
-      BoardCard,
-      {
-        state,
-        boardColumn: {
-          board: {
-            id: boardId,
-            users: { id: user.id },
-          },
-        },
-      },
-      { populate },
-    );
+    return orm.em.find(BoardCard, { state, boardColumn: { board: { id: board.id } } }, { populate });
   }
 }

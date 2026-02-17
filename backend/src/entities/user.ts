@@ -1,8 +1,7 @@
-import { Collection, Entity, ManyToMany, OneToMany, Property, Unique } from '@mikro-orm/postgresql';
+import { Collection, Entity, OneToMany, Property, Unique } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
-import type { Board } from '@/entities/board';
-import { BoardMember } from '@/entities/board-member';
+import type { BoardMember } from '@/entities/board-member';
 import type { GmailAccount } from '@/entities/gmail-account';
 
 @Entity({ tableName: 'users' })
@@ -12,8 +11,6 @@ export class User extends BaseEntity {
   gmailAccounts = new Collection<GmailAccount>(this);
   @OneToMany({ mappedBy: (boardMember: BoardMember) => boardMember.user })
   boardMembers = new Collection<BoardMember>(this);
-  @ManyToMany({ mappedBy: (board: Board) => board.users, owner: true, pivotEntity: () => BoardMember })
-  boards = new Collection<Board>(this);
 
   @Property()
   email: string;
@@ -50,7 +47,7 @@ export class User extends BaseEntity {
       id: this.id,
       name: this.name,
       photoUrl: this.photoUrl,
-      boards: this.boards.map((board) => board.toJson()),
+      boards: this.boardMembers.getItems().map((bm) => bm.board.toJson()),
     };
   }
 

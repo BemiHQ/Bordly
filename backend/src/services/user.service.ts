@@ -1,5 +1,5 @@
 import type { Populate } from '@mikro-orm/postgresql';
-import { BoardMember } from '@/entities/board-member';
+import { BoardMember, Role } from '@/entities/board-member';
 import { GmailAccount } from '@/entities/gmail-account';
 import { User } from '@/entities/user';
 import { BoardInviteService } from '@/services/board-invite.service';
@@ -7,7 +7,7 @@ import { orm } from '@/utils/orm';
 
 export class UserService {
   static tryFindById<Hint extends string = never>(
-    id: string,
+    id?: string,
     { populate }: { populate?: Populate<User, Hint> } = { populate: [] },
   ) {
     if (!id) return null;
@@ -47,7 +47,7 @@ export class UserService {
     const boardInvites = await BoardInviteService.findPendingInvites(email, { populate: ['board'] });
     if (boardInvites && boardInvites.length > 0) {
       for (const boardInvite of boardInvites) {
-        const boardMember = new BoardMember({ board: boardInvite.board, user });
+        const boardMember = new BoardMember({ board: boardInvite.board, user, role: Role.MEMBER });
         boardInvite.markAsAccepted();
         orm.em.persist([boardMember, boardInvite]);
       }

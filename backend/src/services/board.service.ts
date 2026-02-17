@@ -1,22 +1,43 @@
-import type { Populate } from '@mikro-orm/postgresql';
+import type { AutoPath, PopulatePath } from '@mikro-orm/postgresql';
 import { Board } from '@/entities/board';
-import { BoardMember } from '@/entities/board-member';
+import { BoardMember, Role } from '@/entities/board-member';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { orm } from '@/utils/orm';
 
 export class BoardService {
-  static async findByIdForUser<Hint extends string = never>(
-    boardId: string,
-    { user, populate = [] }: { user: User; populate?: Populate<Board, Hint> },
+  static findAsAdmin(boardId: string, { user }: { user: User }) {
+    const board = user.boardMembers.find((bm) => bm.board.id === boardId && bm.role === Role.ADMIN)?.board;
+    if (!board) {
+      throw new Error(`User ${user.id} is not an admin of board ${boardId}`);
+    }
+
+    return board;
+  }
+
+  static findAsMember(boardId: string, { user }: { user: User }) {
+    const board = user.boardMembers.find(
+      (bm) => bm.board.id === boardId && [Role.ADMIN, Role.MEMBER].includes(bm.role),
+    )?.board;
+    if (!board) {
+      throw new Error(`User ${user.id} is not a member of board ${boardId}`);
+    }
+
+    return board;
+  }
+
+  static async populate<Hint extends string = never>(
+    board: Board,
+    populate: readonly AutoPath<Board, Hint, PopulatePath.ALL>[],
   ) {
-    return orm.em.findOneOrFail(Board, { id: boardId, boardMembers: { user } }, { populate });
+    await orm.em.populate(board, populate);
+    return board;
   }
 
   static async createFirstBoard({ name, user }: { name: string; user: User }) {
     const board = new Board({ name });
-    const boardMember = new BoardMember({ board, user });
+    const boardMember = new BoardMember({ board, user, role: Role.ADMIN });
 
     await orm.em.populate(user, ['gmailAccounts']);
     if (user.gmailAccounts.length !== 1) {
@@ -26,7 +47,7 @@ export class BoardService {
     gmailAccount.addToBoard(board);
 
     await orm.em.persist([board, boardMember, gmailAccount]).flush();
-    user.boards.add(board);
+    user.boardMembers.add(boardMember);
 
     await enqueue(QUEUES.CREATE_INITIAL_EMAIL_MESSAGES, { gmailAccountId: gmailAccount.id });
 

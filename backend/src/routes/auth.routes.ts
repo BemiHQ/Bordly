@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import type { User } from '@/entities/user';
+import { BoardService } from '@/services/board.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
@@ -41,7 +42,7 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       let gmailAccount = await GmailAccountService.tryFindByGoogleId(userInfo.data.id, { populate: ['user'] });
       let user = gmailAccount?.user as User;
       if (!user) {
-        const userAndGmailAccount = await UserService.createWithGmailAccount({
+        const userWithGmailAccount = await UserService.createWithGmailAccount({
           email: userInfo.data.email as string,
           name: userInfo.data.name as string,
           photoUrl: userInfo.data.picture as string,
@@ -50,28 +51,24 @@ export const authRoutes = async (fastify: FastifyInstance) => {
           refreshToken: tokens.refresh_token as string,
           accessTokenExpiresAt: new Date(tokens.expiry_date as number),
         });
-        user = userAndGmailAccount.user;
-        gmailAccount = userAndGmailAccount.gmailAccount;
+        gmailAccount = userWithGmailAccount.gmailAccount;
+        user = userWithGmailAccount.user;
       }
 
-      await UserService.updateLastSessionAt(user);
-
-      let currentUser: User | null = null;
       const sessionUserId = request.session.get('userId');
-      if (sessionUserId) {
-        currentUser = await UserService.tryFindById(sessionUserId, { populate: ['boards'] });
-      }
+      const currentUser = await UserService.tryFindById(sessionUserId, { populate: ['boardMembers.board'] });
+      const { boardId } = JSON.parse(state || '{}') as { boardId?: string };
 
-      if (currentUser) {
-        const { boardId } = JSON.parse(state || '{}') as { boardId?: string };
-        if (boardId) {
-          await GmailAccountService.addToBoard(gmailAccount!, { boardId, user: currentUser });
-          return reply.redirect(
-            `${APP_ENDPOINTS.BOARD.replace('$boardId', boardId)}?${QUERY_PARAMS.ADDED_GMAIL_ACCOUNT}=1`,
-          );
-        }
+      if (currentUser && currentUser.id !== user.id && boardId) {
+        // Add a new Gmail account to an existing board
+        const board = BoardService.findAsAdmin(boardId, { user: currentUser });
+        await GmailAccountService.addToBoard(gmailAccount!, { board });
+        const boardEndpoint = APP_ENDPOINTS.BOARD.replace('$boardId', boardId);
+        return reply.redirect(`${boardEndpoint}?${QUERY_PARAMS.ADDED_GMAIL_ACCOUNT}=1`);
       } else {
+        // Log in as the OAuth user
         request.session.set('userId', user.id);
+        await UserService.updateLastSessionAt(user);
       }
 
       return reply.redirect(ENV.APP_ENDPOINT);

@@ -1,8 +1,8 @@
 import type { Populate } from '@mikro-orm/postgresql';
 import type { Auth } from 'googleapis';
-
+import type { Board } from '@/entities/board';
+import { BoardMember, Role } from '@/entities/board-member';
 import { GmailAccount } from '@/entities/gmail-account';
-import type { User } from '@/entities/user';
 import { newOauth2Client } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
 
@@ -28,13 +28,11 @@ export class GmailAccountService {
     return orm.em.find(GmailAccount, {}, { populate });
   }
 
-  static async addToBoard(gmailAccount: GmailAccount, { boardId, user }: { boardId: string; user: User }) {
-    const board = user.boards.find((board) => board.id === boardId);
-    if (!board) throw new Error(`User ${user.id} does not have access to board ${boardId}`);
-
+  static async addToBoard(gmailAccount: GmailAccount, { board }: { board: Board }) {
     gmailAccount.addToBoard(board);
+    const boardMember = new BoardMember({ board, user: gmailAccount.user, role: Role.MEMBER });
 
-    await orm.em.persist(gmailAccount).flush();
+    await orm.em.persist([gmailAccount, boardMember]).flush();
   }
 
   static async refreshAccessToken(
