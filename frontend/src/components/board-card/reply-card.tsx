@@ -730,6 +730,7 @@ export const ReplyCard = ({
     };
   }, [editor]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ignore emailDraftUpsertMutation to avoid unnecessary re-renders
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       if (!editor || emailDraftUpsertMutation.isPending || !hasChanges) return;

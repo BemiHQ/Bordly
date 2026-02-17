@@ -117,60 +117,28 @@ export class GoogleApi {
   }
 
   static async gmailMarkThreadAsRead(gmail: gmail_v1.Gmail, threadId: string) {
-    await gmail.users.threads.modify({
-      userId: 'me',
-      id: threadId,
-      requestBody: {
-        removeLabelIds: [LABEL.UNREAD],
-      },
-    });
+    await gmail.users.threads.modify({ userId: 'me', id: threadId, requestBody: { removeLabelIds: [LABEL.UNREAD] } });
   }
 
   static async gmailMarkThreadAsUnread(gmail: gmail_v1.Gmail, threadId: string) {
-    await gmail.users.threads.modify({
-      userId: 'me',
-      id: threadId,
-      requestBody: {
-        addLabelIds: [LABEL.UNREAD],
-      },
-    });
+    await gmail.users.threads.modify({ userId: 'me', id: threadId, requestBody: { addLabelIds: [LABEL.UNREAD] } });
   }
 
   static async gmailMarkThreadAsTrash(gmail: gmail_v1.Gmail, threadId: string) {
-    await gmail.users.threads.modify({
-      userId: 'me',
-      id: threadId,
-      requestBody: {
-        addLabelIds: [LABEL.TRASH],
-      },
-    });
+    await gmail.users.threads.modify({ userId: 'me', id: threadId, requestBody: { addLabelIds: [LABEL.TRASH] } });
   }
 
   static async gmailMarkThreadAsSpam(gmail: gmail_v1.Gmail, threadId: string) {
-    await gmail.users.threads.modify({
-      userId: 'me',
-      id: threadId,
-      requestBody: {
-        addLabelIds: [LABEL.SPAM],
-      },
-    });
+    await gmail.users.threads.modify({ userId: 'me', id: threadId, requestBody: { addLabelIds: [LABEL.SPAM] } });
   }
 
   static async gmailListMessages(gmail: gmail_v1.Gmail, { limit }: { limit: number }) {
-    const listResponse = await gmail.users.messages.list({
-      userId: 'me',
-      maxResults: limit,
-      includeSpamTrash: false,
-    });
+    const listResponse = await gmail.users.messages.list({ userId: 'me', maxResults: limit, includeSpamTrash: false });
     return listResponse.data.messages || [];
   }
 
   static async gmailGetMessage(gmail: gmail_v1.Gmail, messageId: string) {
-    const getResponse = await gmail.users.messages.get({
-      userId: 'me',
-      id: messageId,
-      format: 'full',
-    });
+    const getResponse = await gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' });
     return getResponse.data;
   }
 
@@ -195,11 +163,12 @@ export class GoogleApi {
     gmail: gmail_v1.Gmail,
     { messageId, attachmentId }: { messageId: string; attachmentId: string },
   ) {
-    const response = await gmail.users.messages.attachments.get({
-      userId: 'me',
-      messageId,
-      id: attachmentId,
-    });
+    const response = await gmail.users.messages.attachments.get({ userId: 'me', messageId, id: attachmentId });
     return response.data;
+  }
+
+  static async gmailListSendAs(gmail: gmail_v1.Gmail) {
+    const response = await gmail.users.settings.sendAs.list({ userId: 'me' });
+    return response.data.sendAs || [];
   }
 }

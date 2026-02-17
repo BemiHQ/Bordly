@@ -2,6 +2,7 @@ import type { Populate } from '@mikro-orm/postgresql';
 import { GmailAccount } from '@/entities/gmail-account';
 import { User } from '@/entities/user';
 import { BoardInviteService } from '@/services/board-invite.service';
+import { EmailAddressService } from '@/services/email-address.service';
 import { orm } from '@/utils/orm';
 
 export class UserService {
@@ -47,7 +48,9 @@ export class UserService {
       orm.em.persist([boardInvite, boardMember]);
     }
 
+    await EmailAddressService.createAddresses(gmailAccount);
     await orm.em.flush();
+
     return { user, gmailAccount };
   }
 
