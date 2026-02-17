@@ -162,6 +162,12 @@ const setIframeContent = (
   <body class="bordly-email">${body}</body>
 </html>`;
 
+  const links = iframeDoc.querySelectorAll('a');
+  links.forEach((link) => {
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+  });
+
   const resizeObserver = new ResizeObserver(() => {
     iframe.style.height = `${iframeDoc.documentElement.scrollHeight}px`;
   });
