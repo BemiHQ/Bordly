@@ -11,6 +11,6 @@ replServer.context.orm = orm;
 console.log(`Example:
 
 const { DomainService } = await import("@/services/domain.service.ts");
-const { User } = await import("@/entities/user.ts");
+const { Domain } = await import("@/entities/domain.ts");
 await orm.em.find(User, {})
 `);

@@ -42,7 +42,7 @@ format:
 	devbox run "pnpm run check"
 
 check: format
-	devbox run "cd backend && rm -f tsconfig.tsbuildinfo && pnpm run build && \
+	devbox run "cd backend && pnpm run build && \
 		cd ../frontend && pnpm tsc --noEmit && \
 		rm -rf ../backend/dist"
 

@@ -76,6 +76,7 @@ export const listenToQueues = async () => {
       CONFIG_BY_QUEUE[queueName].handler as (job: Job<QueueDataMap[typeof queueName]>) => Promise<void>,
     );
   }
+  console.log('[PG-BOSS] All workers started successfully');
 };
 
 export const enqueue = async <Q extends keyof QueueDataMap>(queueName: Q, data: QueueDataMap[Q]) => {
@@ -96,6 +97,7 @@ async function startWorker<Q extends keyof QueueDataMap>(
         try {
           console.log(`[PG-BOSS] Processing job ${job.id} [queue=${queueName}]`);
           await jobHandler(job);
+          console.log(`[PG-BOSS] Completed job ${job.id} [queue=${queueName}]`);
         } catch (error) {
           console.error(`[PG-BOSS] Error processing job ${job.id} [queue=${queueName}]:`, error);
           throw error;
@@ -103,4 +105,5 @@ async function startWorker<Q extends keyof QueueDataMap>(
       }
     });
   });
+  console.log(`[PG-BOSS] Worker started [queue=${queueName}]`);
 }

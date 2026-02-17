@@ -5,6 +5,7 @@ import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import Fastify from 'fastify';
 import { listenToQueues } from '@/pg-boss-queues';
 import { authRoutes } from '@/routes/auth.routes';
+import { internalRoutes } from '@/routes/internal.routes';
 import { createContext, trpcRouter } from '@/trpc-router';
 import { ENV } from '@/utils/env';
 import { setupFastifyErrorHandler } from '@/utils/error-tracking';
@@ -45,16 +46,16 @@ fastify.register(secureSession, {
 });
 fastify.register(fastifyTRPCPlugin, { prefix: '/trpc', trpcOptions: { router: trpcRouter, createContext } });
 
+fastify.register(internalRoutes);
 fastify.register(authRoutes);
 
 const start = async () => {
   try {
     await listenToQueues();
-
-    await fastify.listen({ port: ENV.PORT });
+    await fastify.listen({ port: ENV.PORT, host: '::' });
     console.log(`[HTTP] Server listening on port ${ENV.PORT}`);
   } catch (err) {
-    fastify.log.error(err);
+    console.error('[SERVER] Failed to start:', err);
     process.exit(1);
   }
 };

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "NODE_EXTRA_CA_CERTS=\"$(mkcert -CAROOT)/rootCA.pem\" vite dev --port 3001",
     "build": "vite build",
+    "start": "node dist/server/server.js",
     "preview": "vite preview",
     "test": "vitest run"
   },
