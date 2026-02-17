@@ -1,19 +1,15 @@
 import { Attachment } from '@/entities/attachment';
 import { EmailMessage } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
-import { Encryption } from '@/utils/encryption';
-import { gmailAttachments, gmailBody, gmailHeaderValue, newGmail, newOauth2Client } from '@/utils/google-api';
+import { GmailAccountService } from '@/services/gmail-account.service';
+import { gmailAttachments, gmailBody, gmailHeaderValue, newGmail } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
 
 const CREATE_INITIAL_EMAILS_LIMIT = 50;
 
 export class EmailMessageService {
-  static async createInitialEmailMessages({ gmailAccount }: { gmailAccount: GmailAccount }) {
-    const oauth2Client = newOauth2Client({
-      accessToken: Encryption.decrypt(gmailAccount.accessTokenEncrypted),
-      refreshToken: Encryption.decrypt(gmailAccount.refreshTokenEncrypted),
-      accessTokenExpiresAt: gmailAccount.accessTokenExpiresAt,
-    });
+  static async createInitialEmailMessages({ gmailAccount: gmailAcc }: { gmailAccount: GmailAccount }) {
+    const { gmailAccount, oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAcc);
     const gmail = newGmail(oauth2Client);
 
     console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails...`);
@@ -32,9 +28,15 @@ export class EmailMessageService {
       const payload = messageData.data.payload;
       const headers = payload?.headers || [];
 
-      const to = (gmailHeaderValue(headers, 'to') || '').split(',').map((e) => e.trim());
-      const cc = (gmailHeaderValue(headers, 'cc') || '').split(',').map((e) => e.trim());
-      const bcc = (gmailHeaderValue(headers, 'bcc') || '').split(',').map((e) => e.trim());
+      const to = gmailHeaderValue(headers, 'to')
+        ?.split(',')
+        .map((e) => e.trim());
+      const cc = gmailHeaderValue(headers, 'cc')
+        ?.split(',')
+        .map((e) => e.trim());
+      const bcc = gmailHeaderValue(headers, 'bcc')
+        ?.split(',')
+        .map((e) => e.trim());
       const { bodyText, bodyHtml } = gmailBody(payload);
 
       const emailMessage = new EmailMessage({
@@ -46,10 +48,10 @@ export class EmailMessageService {
         subject: gmailHeaderValue(headers, 'subject') as string,
         snippet: messageData.data.snippet as string,
         labels: messageData.data.labelIds as string[],
-        to: to.length > 0 ? to : undefined,
+        to,
         replyTo: gmailHeaderValue(headers, 'reply-to'),
-        cc: cc.length > 0 ? cc : undefined,
-        bcc: bcc.length > 0 ? bcc : undefined,
+        cc,
+        bcc,
         bodyText,
         bodyHtml,
       });

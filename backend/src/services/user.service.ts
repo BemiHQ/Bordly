@@ -27,7 +27,7 @@ export class UserService {
     googleId: string;
     accessToken: string;
     refreshToken: string;
-    accessTokenExpiresAt?: Date;
+    accessTokenExpiresAt: Date;
   }) {
     const user = new User({ email, name, photoUrl });
     const gmailAccount = new GmailAccount({ user, email, googleId, accessToken, refreshToken, accessTokenExpiresAt });

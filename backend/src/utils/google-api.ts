@@ -43,7 +43,11 @@ export const gmailBody = (payload?: gmail_v1.Schema$MessagePart) => {
   let bodyHtml: string | undefined;
 
   if (payload.body?.data) {
-    bodyText = Buffer.from(payload.body.data, 'base64').toString('utf-8');
+    if (payload.mimeType === 'text/plain') {
+      bodyText = Buffer.from(payload.body.data, 'base64').toString('utf-8');
+    } else if (payload.mimeType === 'text/html') {
+      bodyHtml = Buffer.from(payload.body.data, 'base64').toString('utf-8');
+    }
   }
 
   if (payload.parts) {

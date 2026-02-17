@@ -38,13 +38,13 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       let user = gmailAccount?.user as User;
       if (!user) {
         user = await UserService.createWithGmailAccount({
-          email: userInfo.data.email || '',
-          name: userInfo.data.name || '',
-          photoUrl: userInfo.data.picture || '',
-          googleId: userInfo.data.id || '',
-          accessToken: tokens.access_token || '',
-          refreshToken: tokens.refresh_token || '',
-          accessTokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
+          email: userInfo.data.email as string,
+          name: userInfo.data.name as string,
+          photoUrl: userInfo.data.picture as string,
+          googleId: userInfo.data.id as string,
+          accessToken: tokens.access_token as string,
+          refreshToken: tokens.refresh_token as string,
+          accessTokenExpiresAt: new Date(tokens.expiry_date as number),
         });
       }
       await UserService.updateLastSessionAt(user);

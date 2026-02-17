@@ -7,8 +7,6 @@ import type { EmailMessage } from '@/entities/email-message';
 import type { User } from '@/entities/user';
 import { Encryption } from '@/utils/encryption';
 
-const ACCESS_TOKEN_EXPIRATION_MS = (3_600 - 5) * 1_000; // 1 hour - 5 seconds buffer
-
 @Entity({ tableName: 'gmail_accounts' })
 @Unique({ properties: ['googleId'] })
 @Index({ properties: ['user'] })
@@ -47,16 +45,33 @@ export class GmailAccount extends BaseEntity {
     googleId: string;
     accessToken: string;
     refreshToken: string;
-    accessTokenExpiresAt?: Date;
+    accessTokenExpiresAt: Date;
   }) {
     super();
     this.email = email;
     this.user = user;
     this.googleId = googleId;
     this.accessTokenEncrypted = Encryption.encrypt(accessToken);
-    this.accessTokenExpiresAt = accessTokenExpiresAt || new Date(Date.now() + ACCESS_TOKEN_EXPIRATION_MS);
+    this.accessTokenExpiresAt = accessTokenExpiresAt;
     this.refreshTokenEncrypted = Encryption.encrypt(refreshToken);
     this.validate();
+  }
+
+  get accessToken(): string {
+    return Encryption.decrypt(this.accessTokenEncrypted);
+  }
+
+  get refreshToken(): string {
+    return Encryption.decrypt(this.refreshTokenEncrypted);
+  }
+
+  isAccessTokenExpired(): boolean {
+    return this.accessTokenExpiresAt <= new Date();
+  }
+
+  updateAccessToken(accessToken: string, expiresAt: Date) {
+    this.accessTokenEncrypted = Encryption.encrypt(accessToken);
+    this.accessTokenExpiresAt = expiresAt;
   }
 
   private validate() {
