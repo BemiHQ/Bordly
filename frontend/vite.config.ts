@@ -13,12 +13,12 @@ const config = defineConfig({
           headers: {
             'Content-Security-Policy': [
               "default-src 'none'",
-              "script-src 'self' 'unsafe-inline'",
               "img-src 'self' https:",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "frame-src 'none'",
               `connect-src 'self' ${process.env.VITE_API_ENDPOINT}`,
+              "script-src 'self' 'unsafe-inline'",
+              "frame-src 'none'",
               "manifest-src 'self'",
               "base-uri 'self'",
               "form-action 'self'",

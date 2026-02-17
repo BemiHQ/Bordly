@@ -8,7 +8,7 @@
       "frontend/index.html",
       "frontend/vite.config.js",
       "!frontend/src/routeTree.gen.ts",
-      "!frontend/src/styles.css",
+      "frontend/src/styles.css",
       "backend/src/**/*"
     ]
   },
@@ -58,6 +58,11 @@
       "quoteStyle": "single",
       "attributePosition": "auto",
       "bracketSpacing": true
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
     }
   }
 }

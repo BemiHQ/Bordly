@@ -4,13 +4,14 @@ import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import DOMPurify from 'dompurify';
 import { ChevronDownIcon, Ellipsis } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
+import emailIframeStyles from '@/email-iframe.css?inline';
 import { RouteProvider } from '@/hooks/use-route-context';
 import { extractUuid } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
@@ -73,38 +74,103 @@ const parseTrailingBlockquotes = (doc: Document) => {
   return trailingBlockquotes;
 };
 
+const setIframeContent = (
+  iframe: HTMLIFrameElement,
+  { styles, body }: { styles: string; body: string },
+): ResizeObserver => {
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!iframeDoc) {
+    throw new Error('Unable to access iframe document');
+  }
+
+  iframeDoc.documentElement.innerHTML = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <style>${emailIframeStyles}</style>
+    ${styles ? `<style>${styles}</style>` : ''}
+  </head>
+  <body class="bordly-email">${body}</body>
+</html>`;
+
+  const resizeObserver = new ResizeObserver(() => {
+    iframe.style.height = `${iframeDoc.documentElement.scrollHeight}px`;
+  });
+  resizeObserver.observe(iframeDoc.body);
+
+  return resizeObserver;
+};
+
 const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
   const [cleanedHtml, setCleanedHtml] = useState('');
+  const [emailStyles, setEmailStyles] = useState('');
   const [trailingBlockquotesHtml, setTrailingBlockquotesHtml] = useState('');
   const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
+  const bodyIframeRef = useRef<HTMLIFrameElement>(null);
+  const backquotesIframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!emailMessage.bodyHtml) return;
 
-    const sanitized = DOMPurify.sanitize(emailMessage.bodyHtml);
+    const sanitized = DOMPurify.sanitize(emailMessage.bodyHtml, {
+      WHOLE_DOCUMENT: true,
+      ADD_TAGS: ['style', 'head'],
+      ADD_ATTR: ['style'],
+    });
     const parser = new DOMParser();
     const doc = parser.parseFromString(sanitized, 'text/html');
-    const trailingBlockquotes = parseTrailingBlockquotes(doc);
 
+    // Extract trailing blockquotes
+    const trailingBlockquotes = parseTrailingBlockquotes(doc);
     if (trailingBlockquotes.length > 0) {
       const quotesArray = trailingBlockquotes.map((bq) => bq.outerHTML);
       setTrailingBlockquotesHtml(quotesArray.join(''));
       trailingBlockquotes.forEach((bq) => {
-        bq.remove(); // remove trailing blockquotes from main content
+        bq.remove(); // remove from main content
       });
     }
 
+    // Set cleaned inner HTML
     removeTrailingEmpty(doc.body);
     setCleanedHtml(doc.body.innerHTML);
+
+    // Extract styles
+    const styles = Array.from(doc.head.querySelectorAll('style'))
+      .map((style) => style.textContent || '')
+      .join('\n');
+    setEmailStyles(styles);
   }, [emailMessage.bodyHtml]);
+
+  useEffect(() => {
+    if (!bodyIframeRef.current || !cleanedHtml) return;
+
+    const resizeObserver = setIframeContent(bodyIframeRef.current, {
+      styles: emailStyles,
+      body: cleanedHtml,
+    });
+
+    return () => resizeObserver.disconnect();
+  }, [cleanedHtml, emailStyles]);
+
+  useEffect(() => {
+    if (!backquotesIframeRef.current || !trailingBlockquotesHtml || !blockquotesExpanded) return;
+
+    const resizeObserver = setIframeContent(backquotesIframeRef.current, {
+      styles: emailStyles,
+      body: trailingBlockquotesHtml,
+    });
+
+    return () => resizeObserver.disconnect();
+  }, [trailingBlockquotesHtml, blockquotesExpanded, emailStyles]);
 
   if (emailMessage.bodyHtml) {
     return (
       <div className="flex flex-col">
-        <div
-          className="text-sm email-body"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Using DOMPurify to sanitize HTML content
-          dangerouslySetInnerHTML={{ __html: cleanedHtml }}
+        <iframe
+          ref={bodyIframeRef}
+          title="Email content"
+          sandbox="allow-same-origin"
+          className="w-full border-0 block"
         />
         {trailingBlockquotesHtml && (
           <>
@@ -117,10 +183,11 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
               <Ellipsis className="size-4" />
             </Button>
             {blockquotesExpanded && (
-              <div
-                className="text-sm email-body"
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: Using DOMPurify to sanitize HTML content
-                dangerouslySetInnerHTML={{ __html: trailingBlockquotesHtml }}
+              <iframe
+                ref={backquotesIframeRef}
+                title="Email quotes"
+                sandbox="allow-same-origin"
+                className="w-full border-0 block"
               />
             )}
           </>
@@ -266,7 +333,7 @@ function BoardCardComponent() {
   return (
     <RouteProvider value={context}>
       <Dialog open={true} onOpenChange={handleOpenChange}>
-        <DialogContent className="min-w-5xl h-[90vh] flex flex-col bg-secondary px-0 pb-0">
+        <DialogContent className="min-w-5xl h-[90vh] flex flex-col bg-secondary px-0 pb-0" aria-describedby={undefined}>
           <DialogHeader className="px-6">
             <DialogTitle>{emailMessagesData?.boardCard.subject}</DialogTitle>
           </DialogHeader>
