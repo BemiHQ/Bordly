@@ -1,6 +1,6 @@
 import * as crypto from 'node:crypto';
 
-import { Env } from '@/utils/env';
+import { ENV } from '@/utils/env';
 
 const ENCRYPTION_ALGORITHM = 'aes256';
 const HASHING_ALGORITHM = 'sha3-512';
@@ -33,6 +33,6 @@ export class Encryption {
   }
 
   private static saltedKey(): Buffer {
-    return crypto.scryptSync(Env.ENCRYPTION_KEY, 'salt', 32);
+    return crypto.scryptSync(ENV.ENCRYPTION_KEY, 'salt', 32);
   }
 }

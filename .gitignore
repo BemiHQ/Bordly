@@ -1,8 +1,11 @@
 node_modules/
 dist/
-.tanstack/
 temp/
 
 .DS_Store
 .env
-devbox.d/nginx/nginx.conf
+tsconfig.tsbuildinfo
+
+/devbox.d/nginx/nginx.conf
+/frontend/.tanstack/
+/frontend/src/routeTree.gen.ts

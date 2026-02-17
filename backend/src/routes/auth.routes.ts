@@ -1,13 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { type Auth, google } from 'googleapis';
 
-import { createUser, findUserByGoogleId, updateLastSessionAt } from '@/services/user-service';
-import { Env } from '@/utils/env';
+import { UserService } from '@/services/user.service';
+import { ENV } from '@/utils/env';
 
 const OAUTH2_CLIENT: Auth.OAuth2Client = new google.auth.OAuth2(
-  Env.GOOGLE_OAUTH_CLIENT_ID,
-  Env.GOOGLE_OAUTH_CLIENT_SECRET,
-  Env.GOOGLE_OAUTH_CALLBACK_URL,
+  ENV.GOOGLE_OAUTH_CLIENT_ID,
+  ENV.GOOGLE_OAUTH_CLIENT_SECRET,
+  ENV.GOOGLE_OAUTH_CALLBACK_URL,
 );
 
 const GOOGLE_SCOPES = [
@@ -35,9 +35,9 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       const oauth2 = google.oauth2({ version: 'v2', auth: OAUTH2_CLIENT });
       const userInfo = await oauth2.userinfo.get();
 
-      let user = await findUserByGoogleId(userInfo.data.id);
+      let user = await UserService.findUserByGoogleId(userInfo.data.id);
       if (!user) {
-        user = await createUser({
+        user = await UserService.createUser({
           email: userInfo.data.email || '',
           name: userInfo.data.name || '',
           photoUrl: userInfo.data.picture || '',
@@ -47,11 +47,10 @@ export const authRoutes = async (fastify: FastifyInstance) => {
           accessTokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
         });
       }
-      await updateLastSessionAt(user);
-      request.session.userId = user.id;
-      await request.session.save();
+      await UserService.updateLastSessionAt(user);
+      request.session.set('userId', user.id);
 
-      return reply.redirect(Env.APP_ENDPOINT);
+      return reply.redirect(ENV.APP_ENDPOINT);
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Authentication failed' });

@@ -3,14 +3,14 @@ import type { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify'
 import superjson from 'superjson';
 
 import type { User } from '@/entities/user';
-import { findUserById } from '@/services/user-service';
+import { UserService } from '@/services/user.service';
 
 export const createContext = async ({ req }: CreateFastifyContextOptions) => {
-  const userId = req.session.userId as string | undefined;
+  const userId = req.session.get('userId') as string | undefined;
 
   let user: User | null = null;
   if (userId) {
-    user = await findUserById(userId);
+    user = await UserService.findUserById(userId);
   }
 
   return { user };

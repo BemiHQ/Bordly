@@ -4,19 +4,19 @@ import { Migrator } from '@mikro-orm/migrations';
 import { defineConfig } from '@mikro-orm/postgresql';
 import { TsMorphMetadataProvider } from '@mikro-orm/reflection';
 
-import { Env } from '@/utils/env';
+import { ENV } from '@/utils/env';
 
 const CURRENT_DIR = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  dbName: Env.DB_DATABASE,
-  user: Env.DB_USERNAME,
-  password: Env.DB_PASSWORD,
-  host: Env.DB_HOSTNAME,
-  port: Env.DB_PORT,
+  dbName: ENV.DB_DATABASE,
+  user: ENV.DB_USERNAME,
+  password: ENV.DB_PASSWORD,
+  host: ENV.DB_HOSTNAME,
+  port: ENV.DB_PORT,
   driverOptions: {
     connection: {
-      ssl: Env.DB_SSL ? { rejectUnauthorized: false } : false,
+      ssl: ENV.DB_SSL ? { rejectUnauthorized: false } : false,
     },
   },
   debug: true,

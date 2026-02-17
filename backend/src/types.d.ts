@@ -1,7 +1,7 @@
-import '@fastify/session';
+import '@fastify/secure-session';
 
-declare module 'fastify' {
-  interface Session {
+declare module '@fastify/secure-session' {
+  interface SessionData {
     userId?: string;
   }
 }
