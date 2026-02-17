@@ -41,8 +41,11 @@ export class BoardCardService {
     return orm.em.findOneOrFail(BoardCard, { id: boardCardId, boardColumn: { board: { id: board.id } } }, { populate });
   }
 
-  static async markAsRead(boardCardId: string, { board }: { board: Board }) {
-    const boardCard = await BoardCardService.findById(boardCardId, { board });
+  static async markAsRead<Hint extends string = never>(
+    boardCardId: string,
+    { board, populate }: { board: Board; populate?: Populate<BoardCard, Hint> },
+  ) {
+    const boardCard = await BoardCardService.findById(boardCardId, { board, populate });
 
     boardCard.setUnreadEmailMessageIds(undefined);
     await orm.em.flush();
@@ -50,8 +53,11 @@ export class BoardCardService {
     return boardCard;
   }
 
-  static async markAsUnread(boardCardId: string, { board }: { board: Board }) {
-    const boardCard = await BoardCardService.findById(boardCardId, { board });
+  static async markAsUnread<Hint extends string = never>(
+    boardCardId: string,
+    { board, populate }: { board: Board; populate?: Populate<BoardCard, Hint> },
+  ) {
+    const boardCard = await BoardCardService.findById(boardCardId, { board, populate });
     const firstEmailMessage = await EmailMessageService.findFirstByExternalThreadId(boardCard.externalThreadId);
 
     boardCard.setUnreadEmailMessageIds([firstEmailMessage.id]);

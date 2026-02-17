@@ -88,14 +88,16 @@ export class DomainService {
       try {
         const faviconUrl = `https://${rootDomainName}/favicon.ico`;
         const response = await DomainService.sendGet(faviconUrl);
-        if (response.ok) foundIconUrl = response.url;
+        if (response.ok && response.url.endsWith('/favicon.ico') && DomainService.allowedCORS(response)) {
+          foundIconUrl = response.url;
+        }
       } catch (_error) {}
 
       // If not found, go to `https://${rootDomainName}` and search for <link rel="icon" href="..."> or <link rel="shortcut icon" href="...">
       if (!foundIconUrl) {
         try {
           const response = await DomainService.sendGet(`https://${rootDomainName}`);
-          if (response.ok) {
+          if (response.ok && DomainService.allowedCORS(response)) {
             const html = await response.text();
             const $ = cheerio.load(html);
             const iconLink = $('link[rel="icon"], link[rel="shortcut icon"]').first();
@@ -113,6 +115,20 @@ export class DomainService {
     }
 
     return foundIconUrl;
+  }
+
+  private static allowedCORS(response: Response) {
+    const result =
+      response.headers.get('Access-Control-Allow-Origin') === '*' ||
+      !response.headers.get('Access-Control-Allow-Origin');
+
+    if (!result) {
+      console.log(
+        `[FETCH] Skipping due to CORS restrictions: ${response.url} (${response.headers.get('Access-Control-Allow-Origin')})`,
+      );
+    }
+
+    return result;
   }
 
   private static async sendGet(url: string) {

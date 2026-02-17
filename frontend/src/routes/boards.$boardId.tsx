@@ -3,7 +3,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { QUERY_PARAMS } from 'bordly-backend/utils/shared';
-import { Circle, CircleDot } from 'lucide-react';
+import { Circle, CircleDot, Mails } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BoardNavbar } from '@/components/board-navbar';
@@ -124,6 +124,7 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
     } else {
       markAsUnreadMutation.mutate({ boardId: board.id, boardCardId: boardCard.id });
     }
+    setIsHovered(false);
   };
 
   return (
@@ -172,7 +173,7 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
         <div className="ml-2 text-sm flex items-center min-w-0 flex-1">
           {unread && <div className="bg-blue-500 rounded-full min-w-2 min-h-2 mr-1.5 flex-shrink-0" />}
           <div className="truncate">
-            <span className={unread ? 'font-bold' : 'font-medium text-text-secondary'}>{firstParticipantName}</span>
+            <span className={unread ? 'font-bold' : 'font-medium'}>{firstParticipantName}</span>
             {boardCard.participants.length > 1 && (
               <span className="text-muted-foreground">
                 ,{' '}
@@ -190,6 +191,12 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
       </div>
       <div className={cn('text-xs truncate', unread ? 'font-medium' : 'text-text-secondary')}>{boardCard.subject}</div>
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
+      {boardCard.emailMessageCount > 1 && (
+        <div className="flex items-center gap-1 mt-0.5 text-2xs text-muted-foreground">
+          <Mails className="size-3.5" />
+          <span>{boardCard.emailMessageCount}</span>
+        </div>
+      )}
     </Card>
   );
 };
