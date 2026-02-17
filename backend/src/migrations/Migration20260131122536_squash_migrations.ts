@@ -1,6 +1,6 @@
 import { Migration } from '@mikro-orm/migrations';
 
-export class Migration20260130223046_squash_migrations extends Migration {
+export class Migration20260131122536_squash_migrations extends Migration {
   override async up(): Promise<void> {
     this.addSql(`create extension if not exists "uuid-ossp";`);
     this.addSql(
@@ -44,7 +44,7 @@ export class Migration20260130223046_squash_migrations extends Migration {
     );
 
     this.addSql(
-      `create table "board_cards" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "gmail_account_id" uuid not null, "board_column_id" uuid not null, "domain_id" uuid not null, "external_thread_id" varchar(255) not null, "state" text check ("state" in ('INBOX', 'ARCHIVED', 'SPAM', 'TRASHED')) not null, "subject" varchar(255) not null, "snippet" varchar(255) not null, "participants" jsonb not null, "last_event_at" timestamptz not null, "unread_email_message_ids" jsonb null, "pinned_position" int null, "moved_to_trash_at" timestamptz null, constraint "board_cards_pkey" primary key ("id"));`,
+      `create table "board_cards" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "gmail_account_id" uuid not null, "board_column_id" uuid not null, "domain_id" uuid not null, "external_thread_id" varchar(255) not null, "state" text check ("state" in ('INBOX', 'ARCHIVED', 'SPAM', 'TRASHED')) not null, "subject" varchar(255) not null, "snippet" varchar(255) not null, "participants" jsonb not null, "last_event_at" timestamptz not null, "has_sent" boolean not null, "email_message_count" int not null, "unread_email_message_ids" jsonb null, "pinned_position" int null, "moved_to_trash_at" timestamptz null, constraint "board_cards_pkey" primary key ("id"));`,
     );
     this.addSql(`create index "board_cards_last_event_at_index" on "board_cards" ("last_event_at");`);
     this.addSql(`create index "board_cards_gmail_account_id_index" on "board_cards" ("gmail_account_id");`);

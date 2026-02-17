@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -23,6 +24,7 @@ type GmailAccount = BoardData['gmailAccounts'][number];
 export const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
 export interface BoardFilters {
   unread: boolean;
+  sent: boolean;
   gmailAccountIds: string[];
 }
 
@@ -62,26 +64,35 @@ const FilterButton = ({
           <h3 className="font-semibold text-sm text-center">Filters</h3>
           <div className="flex flex-col gap-2">
             <div className="text-2xs font-medium text-muted-foreground">Card status</div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <Checkbox
-                checked={filters.unread}
-                onCheckedChange={(checked) => setFilters({ ...filters, unread: !!checked })}
-              />
-              <span className="text-xs">Unread</span>
-            </label>
+            <div className="flex flex-col gap-2.5">
+              <Label className="flex items-center gap-2">
+                <Checkbox
+                  checked={filters.unread}
+                  onCheckedChange={(checked) => setFilters({ ...filters, unread: !!checked })}
+                />
+                <span>Unread</span>
+              </Label>
+              <Label className="flex items-center gap-2">
+                <Checkbox
+                  checked={filters.sent}
+                  onCheckedChange={(checked) => setFilters({ ...filters, sent: !!checked })}
+                />
+                <span>Sent</span>
+              </Label>
+            </div>
           </div>
           {gmailAccounts.length > 0 && (
             <div className="flex flex-col gap-2">
               <div className="text-2xs font-medium text-muted-foreground">Email accounts</div>
               <div className="flex flex-col gap-2.5">
                 {gmailAccounts.map((account) => (
-                  <label key={account.id} className="flex items-center gap-2 cursor-pointer">
+                  <Label key={account.id} className="flex gap-2">
                     <Checkbox
                       checked={filters.gmailAccountIds.includes(account.id)}
                       onCheckedChange={() => toggleEmailAccount(account.id)}
                     />
-                    <span className="text-xs">{account.email}</span>
-                  </label>
+                    <span>{account.email}</span>
+                  </Label>
                 ))}
               </div>
             </div>

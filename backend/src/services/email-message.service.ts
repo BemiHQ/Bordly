@@ -180,6 +180,8 @@ export class EmailMessageService {
           snippet: lastEmailMessage.snippet,
           participants,
           lastEventAt: lastEmailMessage.externalCreatedAt,
+          hasSent: emailMessagesDesc.some((msg) => msg.sent),
+          emailMessageCount: emailMessagesDesc.length,
           unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
           movedToTrashAt: state === State.TRASHED ? new Date() : undefined,
         });
@@ -305,6 +307,8 @@ export class EmailMessageService {
           snippet: lastEmailMessage.snippet,
           participants,
           lastEventAt: lastEmailMessage.externalCreatedAt,
+          hasSent: boardCard.hasSent || emailMessagesDesc.some((msg) => msg.sent),
+          emailMessageCount: boardCard.emailMessageCount + emailMessagesDesc.length,
           unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
           movedToTrashAt: state === State.TRASHED ? new Date() : boardCard.movedToTrashAt,
         });
@@ -346,6 +350,8 @@ export class EmailMessageService {
           snippet: lastEmailMessage.snippet,
           participants,
           lastEventAt: lastEmailMessage.externalCreatedAt,
+          hasSent: emailMessagesDesc.some((msg) => msg.sent),
+          emailMessageCount: emailMessagesDesc.length,
           unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
           movedToTrashAt: state === State.TRASHED ? new Date() : undefined,
         });

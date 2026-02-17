@@ -38,6 +38,11 @@ export class BoardCard extends BaseEntity {
   participants: Participant[];
   @Property()
   lastEventAt: Date;
+
+  @Property()
+  hasSent: boolean;
+  @Property()
+  emailMessageCount: number;
   @Property({ type: 'jsonb', nullable: true })
   unreadEmailMessageIds?: string[];
 
@@ -56,6 +61,8 @@ export class BoardCard extends BaseEntity {
     snippet,
     participants,
     lastEventAt,
+    hasSent,
+    emailMessageCount,
     unreadEmailMessageIds,
     pinnedPosition,
     movedToTrashAt,
@@ -69,6 +76,8 @@ export class BoardCard extends BaseEntity {
     snippet: string;
     participants: Participant[];
     lastEventAt: Date;
+    hasSent: boolean;
+    emailMessageCount: number;
     unreadEmailMessageIds?: string[];
     pinnedPosition?: number;
     movedToTrashAt?: Date;
@@ -83,6 +92,8 @@ export class BoardCard extends BaseEntity {
     this.snippet = snippet;
     this.participants = participants;
     this.lastEventAt = lastEventAt;
+    this.hasSent = hasSent;
+    this.emailMessageCount = emailMessageCount;
     this.unreadEmailMessageIds = unreadEmailMessageIds;
     this.pinnedPosition = pinnedPosition;
     this.movedToTrashAt = movedToTrashAt;
@@ -94,6 +105,8 @@ export class BoardCard extends BaseEntity {
     snippet,
     participants,
     lastEventAt,
+    hasSent,
+    emailMessageCount,
     unreadEmailMessageIds,
     movedToTrashAt,
   }: {
@@ -101,6 +114,8 @@ export class BoardCard extends BaseEntity {
     snippet: string;
     participants: Participant[];
     lastEventAt: Date;
+    hasSent: boolean;
+    emailMessageCount: number;
     unreadEmailMessageIds?: string[];
     movedToTrashAt?: Date;
   }) {
@@ -108,6 +123,8 @@ export class BoardCard extends BaseEntity {
     this.snippet = snippet;
     this.participants = participants;
     this.lastEventAt = lastEventAt;
+    this.hasSent = hasSent;
+    this.emailMessageCount = emailMessageCount;
     this.unreadEmailMessageIds = unreadEmailMessageIds;
     this.movedToTrashAt = movedToTrashAt;
     this.validate();
@@ -125,6 +142,8 @@ export class BoardCard extends BaseEntity {
       snippet: this.snippet,
       participants: this.participants,
       lastEventAt: this.lastEventAt,
+      hasSent: this.hasSent,
+      emailMessageCount: this.emailMessageCount,
       unreadEmailMessageIds: this.unreadEmailMessageIds,
       pinnedPosition: this.pinnedPosition,
     };
@@ -140,6 +159,8 @@ export class BoardCard extends BaseEntity {
     if (!this.participants || this.participants.length === 0)
       throw new Error('Participants is required and cannot be empty');
     if (!this.lastEventAt) throw new Error('LastEventAt is required');
+    if (this.emailMessageCount !== undefined && this.emailMessageCount !== null && this.emailMessageCount < 0)
+      throw new Error('EmailMessageCount must be non-negative');
     if (this.unreadEmailMessageIds && this.unreadEmailMessageIds.length === 0)
       throw new Error('UnreadEmailMessageIds cannot be an empty array');
     if (this.pinnedPosition !== undefined && this.pinnedPosition !== null && this.pinnedPosition < 0)

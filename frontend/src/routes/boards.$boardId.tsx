@@ -145,7 +145,7 @@ function Home() {
   }, []);
 
   // Filters
-  const [filters, setFilters] = useState<BoardFilters>({ unread: false, gmailAccountIds: [] });
+  const [filters, setFilters] = useState<BoardFilters>({ unread: false, sent: false, gmailAccountIds: [] });
   useEffect(() => {
     const savedFiltersJson = !isSsr() && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`);
     if (savedFiltersJson) setFilters(JSON.parse(savedFiltersJson));
@@ -182,9 +182,13 @@ function Home() {
               .sort((a, b) => b.lastEventAt.getTime() - a.lastEventAt.getTime());
 
             const filteredBoardCards = boardCards?.filter((card) => {
-              if (filters.unread && !card.unreadEmailMessageIds) {
-                return false;
+              const hasUnreadOrSentFilter = filters.unread || filters.sent;
+              if (hasUnreadOrSentFilter) {
+                const matchesUnread = filters.unread && card.unreadEmailMessageIds;
+                const matchesSent = filters.sent && card.hasSent;
+                if (!matchesUnread && !matchesSent) return false;
               }
+
               if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
                 return false;
               }

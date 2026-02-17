@@ -852,6 +852,24 @@
           "length": 6,
           "mappedType": "datetime"
         },
+        "has_sent": {
+          "name": "has_sent",
+          "type": "boolean",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "boolean"
+        },
+        "email_message_count": {
+          "name": "email_message_count",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "integer"
+        },
         "unread_email_message_ids": {
           "name": "unread_email_message_ids",
           "type": "jsonb",
