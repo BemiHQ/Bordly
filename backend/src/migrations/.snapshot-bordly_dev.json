@@ -563,6 +563,15 @@
           "nullable": false,
           "mappedType": "uuid"
         },
+        "domain_id": {
+          "name": "domain_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "uuid"
+        },
         "external_id": {
           "name": "external_id",
           "type": "varchar(255)",
@@ -739,6 +748,14 @@
           "localTableName": "public.email_messages",
           "referencedColumnNames": ["id"],
           "referencedTableName": "public.gmail_accounts",
+          "updateRule": "cascade"
+        },
+        "email_messages_domain_id_foreign": {
+          "constraintName": "email_messages_domain_id_foreign",
+          "columnNames": ["domain_id"],
+          "localTableName": "public.email_messages",
+          "referencedColumnNames": ["id"],
+          "referencedTableName": "public.domains",
           "updateRule": "cascade"
         }
       },

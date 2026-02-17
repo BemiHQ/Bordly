@@ -1,6 +1,6 @@
 import { Migration } from '@mikro-orm/migrations';
 
-export class Migration20260202181859_squash_migrations extends Migration {
+export class Migration20260203131943_squash_migrations extends Migration {
   override async up(): Promise<void> {
     this.addSql(`create extension if not exists "uuid-ossp";`);
     this.addSql(
@@ -37,7 +37,7 @@ export class Migration20260202181859_squash_migrations extends Migration {
     );
 
     this.addSql(
-      `create table "email_messages" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "gmail_account_id" uuid not null, "external_id" varchar(255) not null, "external_thread_id" varchar(255) not null, "external_created_at" timestamptz not null, "from" jsonb not null, "to" jsonb null, "reply_to" jsonb null, "cc" jsonb null, "bcc" jsonb null, "sent" boolean not null, "labels" text[] not null, "subject" varchar(255) not null, "snippet" varchar(255) not null, "body_text" text null, "body_html" text null, constraint "email_messages_pkey" primary key ("id"));`,
+      `create table "email_messages" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "gmail_account_id" uuid not null, "domain_id" uuid not null, "external_id" varchar(255) not null, "external_thread_id" varchar(255) not null, "external_created_at" timestamptz not null, "from" jsonb not null, "to" jsonb null, "reply_to" jsonb null, "cc" jsonb null, "bcc" jsonb null, "sent" boolean not null, "labels" text[] not null, "subject" varchar(255) not null, "snippet" varchar(255) not null, "body_text" text null, "body_html" text null, constraint "email_messages_pkey" primary key ("id"));`,
     );
     this.addSql(`create index "email_messages_external_created_at_index" on "email_messages" ("external_created_at");`);
     this.addSql(`create index "email_messages_external_thread_id_index" on "email_messages" ("external_thread_id");`);
@@ -92,6 +92,9 @@ export class Migration20260202181859_squash_migrations extends Migration {
     this.addSql(
       `alter table "email_messages" add constraint "email_messages_gmail_account_id_foreign" foreign key ("gmail_account_id") references "gmail_accounts" ("id") on update cascade;`,
     );
+    this.addSql(
+      `alter table "email_messages" add constraint "email_messages_domain_id_foreign" foreign key ("domain_id") references "domains" ("id") on update cascade;`,
+    );
 
     this.addSql(
       `alter table "board_cards" add constraint "board_cards_gmail_account_id_foreign" foreign key ("gmail_account_id") references "gmail_accounts" ("id") on update cascade;`,
@@ -135,6 +138,8 @@ export class Migration20260202181859_squash_migrations extends Migration {
     this.addSql(`alter table "board_invites" drop constraint "board_invites_board_id_foreign";`);
 
     this.addSql(`alter table "board_cards" drop constraint "board_cards_board_column_id_foreign";`);
+
+    this.addSql(`alter table "email_messages" drop constraint "email_messages_domain_id_foreign";`);
 
     this.addSql(`alter table "board_cards" drop constraint "board_cards_domain_id_foreign";`);
 

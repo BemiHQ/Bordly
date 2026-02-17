@@ -211,7 +211,7 @@ const ROUTES = {
         const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
         const { boardCard, emailMessages } = await EmailMessageService.findEmailMessages(board, {
           boardCardId: input.boardCardId,
-          populate: ['attachments'],
+          populate: ['domain', 'attachments'],
         });
         return {
           boardCard: boardCard.toJson(),

@@ -3,7 +3,6 @@ import * as cheerio from 'cheerio';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 import { Attachment } from '@/entities/attachment';
 import type { Board } from '@/entities/board';
-import { BoardCard } from '@/entities/board-card';
 import { BoardColumn } from '@/entities/board-column';
 import { Domain } from '@/entities/domain';
 import { EmailMessage, type Participant } from '@/entities/email-message';
@@ -68,13 +67,16 @@ export class EmailMessageService {
 
     // Create EmailMessages and Attachments
     const emailMessagesDescByThreadId: Record<string, EmailMessage[]> = {};
+    const domainNames: string[] = [];
     for (const message of messages) {
       if (!message.id) continue;
       console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${message.id}...`);
       const messageData = await GoogleApi.gmailGetMessage(gmail, message.id);
       const { emailMessage, attachments } = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
       orm.em.persist([emailMessage, ...attachments]);
+
       (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
+      domainNames.push(emailMessage.domain.name);
     }
 
     // Categorize email threads
@@ -95,8 +97,8 @@ export class EmailMessageService {
       .slice(0, MAX_INITIAL_BOARD_COUNT - 1);
     topCategories.push(CATEGORIES.OTHER);
 
-    // Collect domain names
-    const domainByName = await EmailMessageService.findDomainByName(emailMessagesDescByThreadId);
+    // Find existing Domains
+    const existingDomainByName = await DomainService.findDomainByName(unique(domainNames));
 
     // Create BoardColumns and BoardCards
     const boardColumnsByCategory: Record<string, BoardColumn> = {};
@@ -120,24 +122,26 @@ export class EmailMessageService {
 
       for (const threadId of threadIds) {
         const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;
-        const domainName = EmailMessageService.domainName(emailMessagesDesc);
 
-        let domain = domainByName[domainName];
-        if (!domain) {
-          domain = new Domain({ name: domainName });
-          domain.setIconUrl(await DomainService.fetchIconUrl(domain));
-          orm.em.persist(domain);
-        } else if (!domain.iconUrl) {
-          domain.setIconUrl(await DomainService.fetchIconUrl(domain));
-          if (domain.iconUrl) orm.em.persist(domain);
+        // Update or create Domains
+        for (const emailMessage of emailMessagesDesc) {
+          const existingDomain = existingDomainByName[emailMessage.domain.name];
+          if (existingDomain) {
+            emailMessage.domain = existingDomain;
+          } else {
+            const { domain } = emailMessage;
+            domain.setIconUrl(await DomainService.fetchIconUrl(domain));
+            orm.em.persist(domain);
+            existingDomainByName[domain.name] = domain;
+          }
         }
-        domainByName[domain.name] = domain;
 
+        const firstDomain = emailMessagesDesc[emailMessagesDesc.length - 1]!.domain;
         const boardCard = BoardCardService.buildFromEmailMessages({
           gmailAccount,
           boardColumn: boardColumnsByCategory[category]!,
           emailMessagesDesc: emailMessagesDescByThreadId[threadId]!,
-          domain,
+          domain: firstDomain,
         });
         orm.em.persist(boardCard);
       }
@@ -256,6 +260,7 @@ export class EmailMessageService {
     const boardColumnsAsc = gmailAccount.board.boardColumns.getItems().sort((a, b) => a.position - b.position);
 
     // Handle add: create EmailMessages & Attachments
+    const domainNames: string[] = [];
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
       const emailMessageToCreate = affectedEmailMessageByExternalId[externalMessageId];
       if (emailMessageToCreate) continue; // Already exists
@@ -270,17 +275,32 @@ export class EmailMessageService {
       const emailMessagesDesc = [emailMessage, ...(emailMessagesDescByThreadId[threadId] || [])];
       emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
 
+      domainNames.push(emailMessage.domain.name);
+
       if (!lastExternalHistoryId && messageData.historyId) {
         lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId if not set from the first DESC message
       }
     }
     // Load domains
-    const domainByName = await EmailMessageService.findDomainByName(emailMessagesDescByThreadId);
+    const existingDomainByName = await DomainService.findDomainByName(unique(domainNames));
     // Handle add: create or update Domains & BoardCards
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
       const emailMessage = affectedEmailMessageByExternalId[externalMessageId]!;
       const threadId = emailMessage.externalThreadId;
       const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;
+
+      // Update or create Domains
+      for (const emailMessage of emailMessagesDesc) {
+        const existingDomain = existingDomainByName[emailMessage.domain.name];
+        if (existingDomain) {
+          emailMessage.domain = existingDomain;
+        } else {
+          const { domain } = emailMessage;
+          domain.setIconUrl(await DomainService.fetchIconUrl(domain));
+          orm.em.persist(domain);
+          existingDomainByName[domain.name] = domain;
+        }
+      }
 
       const boardCard = boardCardByThreadId[threadId];
       if (boardCard) {
@@ -292,28 +312,16 @@ export class EmailMessageService {
         orm.em.persist(rebuiltBoardCard);
         boardCardByThreadId[threadId] = rebuiltBoardCard;
       } else {
-        const domainName = EmailMessageService.domainName(emailMessagesDesc);
-        let domain = domainByName[domainName];
-        if (!domain) {
-          domain = new Domain({ name: domainName });
-          domain.setIconUrl(await DomainService.fetchIconUrl(domain));
-          orm.em.persist(domain);
-        } else if (!domain.iconUrl) {
-          domain.setIconUrl(await DomainService.fetchIconUrl(domain));
-          if (domain.iconUrl) orm.em.persist(domain);
-        }
-        domainByName[domain.name] = domain;
-
         const category = await EmailMessageService.categorizeEmailThread({
           categories: boardColumnsAsc.map((col) => col.name),
           emailMessages: emailMessagesDesc,
         });
-
+        const firstDomain = emailMessagesDesc[emailMessagesDesc.length - 1]!.domain;
         const boardCard = BoardCardService.buildFromEmailMessages({
           gmailAccount,
           boardColumn: boardColumnsAsc.find((col) => col.name === category) || boardColumnsAsc[0]!,
           emailMessagesDesc,
-          domain,
+          domain: firstDomain,
         });
         orm.em.persist(boardCard);
         boardCardByThreadId[threadId] = boardCard;
@@ -449,37 +457,6 @@ export class EmailMessageService {
     };
   }
 
-  private static async findDomainByName(emailMessagesDescByThreadId: Record<string, EmailMessage[]>) {
-    const domainNames: string[] = [];
-    for (const [_, emailMessagesDesc] of Object.entries(emailMessagesDescByThreadId)) {
-      domainNames.push(EmailMessageService.domainName(emailMessagesDesc));
-    }
-
-    return DomainService.findDomainByName(unique(domainNames));
-  }
-
-  private static domainName(emailMessagesDesc: EmailMessage[]) {
-    if (emailMessagesDesc.length === 0) {
-      throw new Error('Cannot determine domain name from empty email messages');
-    }
-    const firstEmailMessage = emailMessagesDesc[emailMessagesDesc.length - 1]!;
-
-    if (firstEmailMessage.sent) {
-      [
-        ...(firstEmailMessage.to?.map((p) => p.email.split('@')[1]) || []),
-        ...(firstEmailMessage.cc?.map((p) => p.email.split('@')[1]) || []),
-        ...(firstEmailMessage.bcc?.map((p) => p.email.split('@')[1]) || []),
-      ].find((domainName): domainName is string => !!domainName)!;
-    }
-
-    return [
-      firstEmailMessage.from.email.split('@')[1],
-      firstEmailMessage.replyTo?.email.split('@')[1],
-      ...(firstEmailMessage.cc?.map((p) => p.email.split('@')[1]) || []),
-      ...(firstEmailMessage.bcc?.map((p) => p.email.split('@')[1]) || []),
-    ].find((domainName): domainName is string => !!domainName)!;
-  }
-
   private static async categorizeEmailThread({
     categories,
     emailMessages,
@@ -529,35 +506,70 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
     const labels = messageData.labelIds || [];
     const headers = messageData.payload?.headers || [];
 
-    const toEmails = GoogleApi.gmailHeaderValue(headers, 'to')
-      ?.split(',')
-      .map((e) => e.trim());
-    const ccEmails = GoogleApi.gmailHeaderValue(headers, 'cc')
-      ?.split(',')
-      .map((e) => e.trim());
-    const bccEmails = GoogleApi.gmailHeaderValue(headers, 'bcc')
-      ?.split(',')
-      .map((e) => e.trim());
+    const from = EmailMessageService.parseParticipant(GoogleApi.gmailHeaderValue(headers, 'from'))!;
+    const to = presence(
+      GoogleApi.gmailHeaderValue(headers, 'to')
+        ?.split(',')
+        .map((e) => e.trim())
+        .map(EmailMessageService.parseParticipant)
+        .filter((p): p is Participant => !!p),
+    );
+    const replyTo = EmailMessageService.parseParticipant(GoogleApi.gmailHeaderValue(headers, 'reply-to'));
+    const cc = presence(
+      GoogleApi.gmailHeaderValue(headers, 'cc')
+        ?.split(',')
+        .map((e) => e.trim())
+        .map(EmailMessageService.parseParticipant)
+        .filter((p): p is Participant => !!p),
+    );
+    const bcc = presence(
+      GoogleApi.gmailHeaderValue(headers, 'bcc')
+        ?.split(',')
+        .map((e) => e.trim())
+        .map(EmailMessageService.parseParticipant)
+        .filter((p): p is Participant => !!p),
+    );
+
     const { bodyText, bodyHtml } = GoogleApi.gmailBody(messageData.payload);
 
     // Gmail sometimes returns future dates
     const parsedInternalDate = new Date(parseInt(messageData.internalDate as string, 10));
     const now = new Date();
 
+    const sent = labels.includes(LABEL.SENT);
+
+    let domainName: string;
+    if (sent) {
+      domainName = [
+        ...(to?.map((p) => p.email.split('@')[1]) || []),
+        ...(cc?.map((p) => p.email.split('@')[1]) || []),
+        ...(bcc?.map((p) => p.email.split('@')[1]) || []),
+      ].find((domainName): domainName is string => !!domainName)!;
+    } else {
+      domainName = [
+        from.email.split('@')[1],
+        replyTo?.email.split('@')[1],
+        ...(cc?.map((p) => p.email.split('@')[1]) || []),
+        ...(bcc?.map((p) => p.email.split('@')[1]) || []),
+      ].find((domainName): domainName is string => !!domainName)!;
+    }
+    const domain = new Domain({ name: domainName });
+
     const emailMessage = new EmailMessage({
       gmailAccount,
+      domain,
       externalId: messageData.id as string,
       externalThreadId: messageData.threadId as string,
       externalCreatedAt: parsedInternalDate > now ? now : parsedInternalDate,
-      from: EmailMessageService.parseParticipant(GoogleApi.gmailHeaderValue(headers, 'from'))!,
+      from,
       subject: GoogleApi.gmailHeaderValue(headers, 'subject') as string,
       snippet: cheerio.load(messageData.snippet!).text(),
-      sent: labels.includes(LABEL.SENT),
+      sent,
       labels,
-      to: presence(toEmails?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p)),
-      replyTo: EmailMessageService.parseParticipant(GoogleApi.gmailHeaderValue(headers, 'reply-to')),
-      cc: presence(ccEmails?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p)),
-      bcc: presence(bccEmails?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p)),
+      to,
+      replyTo,
+      cc,
+      bcc,
       bodyText,
       bodyHtml,
     });

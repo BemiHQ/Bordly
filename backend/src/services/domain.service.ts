@@ -19,8 +19,12 @@ const SKIP_CONSUMER_DOMAINS = [
 const CUSTOM_ROOT_DOMAIN_ICONS = {
   // CORS issues
   'getsentry.com': '/domain-icons/getsentry.com.svg',
-  'instagram.com': '/domain-icons/instagram.com.png',
-  'gusto.com': '/domain-icons/gusto.com.png',
+  'instagram.com': '/domain-icons/instagram.com.ico',
+  'gusto.com': '/domain-icons/gusto.com.ico',
+  // 429 Too Many Requests
+  'brex.com': '/domain-icons/brex.com.ico',
+  // 500 Internal Server Error
+  'remote-comms.com': '/domain-icons/remote.com.ico',
 } as Record<string, string>;
 
 const DOUBLE_DOMAIN_NAMESPACES = [

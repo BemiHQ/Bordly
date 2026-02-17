@@ -1,6 +1,7 @@
 import { Collection, Entity, Index, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/postgresql';
 import type { Attachment } from '@/entities/attachment';
 import { BaseEntity } from '@/entities/base-entity';
+import type { Domain } from '@/entities/domain';
 import type { GmailAccount } from '@/entities/gmail-account';
 
 export interface Participant {
@@ -15,6 +16,8 @@ export interface Participant {
 export class EmailMessage extends BaseEntity {
   @ManyToOne()
   gmailAccount: GmailAccount;
+  @ManyToOne()
+  domain: Domain;
 
   @OneToMany({ mappedBy: (attachment: Attachment) => attachment.emailMessage })
   attachments = new Collection<Attachment>(this);
@@ -53,6 +56,7 @@ export class EmailMessage extends BaseEntity {
 
   constructor({
     gmailAccount,
+    domain,
     externalId,
     externalThreadId,
     externalCreatedAt,
@@ -69,6 +73,7 @@ export class EmailMessage extends BaseEntity {
     bodyHtml,
   }: {
     gmailAccount: GmailAccount;
+    domain: Domain;
     externalId: string;
     externalThreadId: string;
     externalCreatedAt: Date;
@@ -86,6 +91,7 @@ export class EmailMessage extends BaseEntity {
   }) {
     super();
     this.gmailAccount = gmailAccount;
+    this.domain = domain;
     this.externalId = externalId;
     this.externalThreadId = externalThreadId;
     this.externalCreatedAt = externalCreatedAt;
@@ -110,6 +116,8 @@ export class EmailMessage extends BaseEntity {
   toJson() {
     return {
       id: this.id,
+      domain: this.domain.toJson(),
+      attachments: this.attachments.getItems().map((attachment) => attachment.toJson()),
       from: this.from,
       subject: this.subject,
       snippet: this.snippet,
@@ -118,13 +126,14 @@ export class EmailMessage extends BaseEntity {
       bcc: this.bcc,
       sent: this.sent,
       externalCreatedAt: this.externalCreatedAt,
-      body: this.bodyHtml || this.bodyText,
-      attachments: this.attachments.getItems().map((attachment) => attachment.toJson()),
+      bodyHtml: this.bodyHtml,
+      bodyText: this.bodyHtml ? undefined : this.bodyText,
     };
   }
 
   private validate() {
     if (!this.gmailAccount) throw new Error('Gmail Account is required');
+    if (!this.domain) throw new Error('Domain is required');
     if (!this.externalId) throw new Error('External ID is required');
     if (!this.externalThreadId) throw new Error('External Thread ID is required');
     if (!this.externalCreatedAt) throw new Error('External Created At is required');
