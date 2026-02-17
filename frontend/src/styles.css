@@ -185,4 +185,10 @@ code {
   .email-body blockquote {
     @apply ml-1 border-l border-ring pl-2;
   }
+  .email-body ul {
+    @apply list-disc ml-5 pl-1 mt-2;
+  }
+  .email-body ol {
+    @apply list-decimal ml-5 pl-1 mt-2;
+  }
 }

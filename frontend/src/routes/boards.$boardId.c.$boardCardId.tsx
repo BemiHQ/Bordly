@@ -32,6 +32,47 @@ export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
   },
 });
 
+// Remove trailing empty elements like <div><br></div>. This includes nested empty elements within containers
+const removeTrailingEmpty = (container: Element | Document) => {
+  const children = Array.from(container.childNodes);
+  for (let i = children.length - 1; i >= 0; i--) {
+    const node = children[i];
+    if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
+      node.remove();
+      continue;
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const elem = node as Element;
+      if (!elem.textContent?.trim()) {
+        node.remove();
+        continue;
+      }
+      removeTrailingEmpty(elem); // recursively clean nested containers
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim())) {
+      break; // stop when we hit actual content
+    }
+  }
+};
+
+const parseTrailingBlockquotes = (doc: Document) => {
+  const bodyChildren = Array.from(doc.body.childNodes);
+
+  const trailingBlockquotes: Element[] = [];
+  for (let i = bodyChildren.length - 1; i >= 0; i--) {
+    const node = bodyChildren[i];
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BLOCKQUOTE') {
+      trailingBlockquotes.unshift(node as Element); // prepend to maintain order
+    } else if (node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim())) {
+      break; // stop when we hit a non-blockquote element or non-empty text
+    }
+  }
+
+  return trailingBlockquotes;
+};
+
 const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
   const [cleanedHtml, setCleanedHtml] = useState('');
   const [trailingBlockquotesHtml, setTrailingBlockquotesHtml] = useState('');
@@ -43,20 +84,8 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
     const sanitized = DOMPurify.sanitize(emailMessage.bodyHtml);
     const parser = new DOMParser();
     const doc = parser.parseFromString(sanitized, 'text/html');
-    const bodyChildren = Array.from(doc.body.childNodes);
+    const trailingBlockquotes = parseTrailingBlockquotes(doc);
 
-    const trailingBlockquotes: Element[] = [];
-    for (let i = bodyChildren.length - 1; i >= 0; i--) {
-      const node = bodyChildren[i];
-      if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BLOCKQUOTE') {
-        trailingBlockquotes.unshift(node as Element); // prepend to maintain order
-      } else if (
-        node.nodeType === Node.ELEMENT_NODE ||
-        (node.nodeType === Node.TEXT_NODE && node.textContent?.trim())
-      ) {
-        break; // stop when we hit a non-blockquote element or non-empty text
-      }
-    }
     if (trailingBlockquotes.length > 0) {
       const quotesArray = trailingBlockquotes.map((bq) => bq.outerHTML);
       setTrailingBlockquotesHtml(quotesArray.join(''));
@@ -65,30 +94,6 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
       });
     }
 
-    // Remove trailing empty elements like <div><br></div>. This includes nested empty elements within containers
-    const removeTrailingEmpty = (container: Element | Document) => {
-      const children = Array.from(container.childNodes);
-      for (let i = children.length - 1; i >= 0; i--) {
-        const node = children[i];
-        if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
-          node.remove();
-          continue;
-        }
-
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const elem = node as Element;
-          if (!elem.textContent?.trim()) {
-            node.remove();
-            continue;
-          }
-          removeTrailingEmpty(elem); // recursively clean nested containers
-        }
-
-        if (node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim())) {
-          break; // stop when we hit actual content
-        }
-      }
-    };
     removeTrailingEmpty(doc.body);
     setCleanedHtml(doc.body.innerHTML);
   }, [emailMessage.bodyHtml]);
