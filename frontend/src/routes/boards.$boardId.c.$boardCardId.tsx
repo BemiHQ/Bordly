@@ -58,20 +58,51 @@ const removeTrailingEmpty = (container: Element | Document) => {
   }
 };
 
-const parseTrailingBlockquotes = (doc: Document) => {
-  const bodyChildren = Array.from(doc.body.childNodes);
+// Recursively collect all trailing blockquote elements and "On ... wrote:" elements
+const parseTrailingBlockquotes = (container: Element): Element[] => {
+  const children = Array.from(container.childNodes);
+  const trailingElements: Element[] = [];
+  let foundQuoteContent = false;
 
-  const trailingBlockquotes: Element[] = [];
-  for (let i = bodyChildren.length - 1; i >= 0; i--) {
-    const node = bodyChildren[i];
-    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BLOCKQUOTE') {
-      trailingBlockquotes.unshift(node as Element); // prepend to maintain order
-    } else if (node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim())) {
-      break; // stop when we hit a non-blockquote element or non-empty text
+  for (let i = children.length - 1; i >= 0; i--) {
+    const node = children[i];
+    if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) continue; // Skip empty text nodes
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const elem = node as Element;
+
+      // Direct blockquote
+      if (elem.tagName === 'BLOCKQUOTE') {
+        trailingElements.unshift(elem);
+        foundQuoteContent = true;
+        continue;
+      }
+
+      // Check if this is an "On ... wrote:" element
+      const text = elem.textContent?.trim() || '';
+      if (foundQuoteContent && /^On\s+.+\s+wrote:\s*$/i.test(text)) {
+        trailingElements.unshift(elem);
+        continue;
+      }
+
+      // If element contains nested blockquotes, recurse into it
+      if (elem.querySelector('blockquote')) {
+        const nestedQuotes = parseTrailingBlockquotes(elem);
+        if (nestedQuotes.length > 0) {
+          trailingElements.unshift(...nestedQuotes);
+          foundQuoteContent = true;
+          continue;
+        }
+      }
+    }
+
+    // Stop when we hit actual content
+    if (node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim())) {
+      break;
     }
   }
 
-  return trailingBlockquotes;
+  return trailingElements;
 };
 
 const setIframeContent = (
@@ -121,7 +152,7 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
     const doc = parser.parseFromString(sanitized, 'text/html');
 
     // Extract trailing blockquotes
-    const trailingBlockquotes = parseTrailingBlockquotes(doc);
+    const trailingBlockquotes = parseTrailingBlockquotes(doc.body);
     if (trailingBlockquotes.length > 0) {
       const quotesArray = trailingBlockquotes.map((bq) => bq.outerHTML);
       setTrailingBlockquotesHtml(quotesArray.join(''));
