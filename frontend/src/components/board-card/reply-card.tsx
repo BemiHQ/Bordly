@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
 import { cn } from '@/utils/strings';
 
@@ -30,6 +31,7 @@ const AUTO_SAVE_INTERVAL_MS = 2_000;
 type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
 type EmailDraft = EmailMessagesData['boardCard']['emailDraft'];
 type Participant = NonNullable<EmailDraft>['from'];
+type EmailMessage = EmailMessagesData['emailMessagesAsc'][number];
 
 const participantToInput = (participant: Participant) =>
   participant.name ? `${participant.name} <${participant.email}>` : participant.email;
@@ -50,24 +52,17 @@ export const ReplyCard = ({
   boardCardId,
   emailDraft,
   emailMessagesAsc,
-  onCancel,
+  onDiscard,
 }: {
   boardId: string;
   boardCardId: string;
   emailDraft?: EmailDraft;
-  emailMessagesAsc: EmailMessagesData['emailMessagesAsc'];
-  onCancel: () => void;
+  emailMessagesAsc: EmailMessage[];
+  onDiscard: () => void;
 }) => {
   const { queryClient, trpc } = useRouteContext();
-  const { data: emailAddressesData } = useQuery({ ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
 
-  const emailAddresses = emailAddressesData?.emailAddresses || [];
-
-  // Smart backfill from the last email message
   const lastEmailMessage = emailMessagesAsc[emailMessagesAsc.length - 1];
-  const defaultFrom = emailDraft?.from
-    ? participantToInput(emailDraft.from)
-    : emailAddresses.find((addr) => addr.isDefault)?.email || emailAddresses[0]?.email;
   const defaultTo = emailDraft?.to
     ? participantsToInput(emailDraft.to)
     : lastEmailMessage?.from
@@ -79,12 +74,37 @@ export const ReplyCard = ({
       ? participantsToInput(lastEmailMessage.cc)
       : '';
 
-  const [fromInput, setFromInput] = useState(defaultFrom);
+  const [fromInput, setFromInput] = useState(emailDraft?.from ? participantToInput(emailDraft.from) : '');
   const [toInput, setToInput] = useState(defaultTo);
   const [ccInput, setCcInput] = useState(defaultCc);
   const [bccInput, setBccInput] = useState(participantsToInput(emailDraft?.bcc));
   const [showCcBcc, setShowCcBcc] = useState((emailDraft?.cc?.length ?? 0) > 0 || (emailDraft?.bcc?.length ?? 0) > 0);
   const [hasChanges, setHasChanges] = useState(false);
+
+  const { data: emailAddressesData } = useQuery({ ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
+  const emailAddresses = emailAddressesData?.emailAddresses || [];
+
+  // Set default "From" address using loaded email addresses
+  useEffect(() => {
+    if (emailAddresses.length === 0) return;
+
+    const lastEmailParticipantEmails = new Set<string>([
+      lastEmailMessage?.from.email,
+      ...(lastEmailMessage?.to?.map((p) => p.email) ?? []),
+      ...(lastEmailMessage?.cc?.map((p) => p.email) ?? []),
+      ...(lastEmailMessage?.bcc?.map((p) => p.email) ?? []),
+    ]);
+
+    setFromInput((prev) => {
+      if (prev) return prev;
+      return (
+        emailAddresses.find((addr) => lastEmailParticipantEmails.has(addr.email))?.email ||
+        emailAddresses.find((addr) => addr.isDefault)?.email ||
+        emailAddresses[0]?.email ||
+        ''
+      );
+    });
+  }, [lastEmailMessage, emailAddresses]);
 
   const emailDraftUpsertMutation = useMutation(
     trpc.emailDraft.upsert.mutationOptions({
@@ -103,6 +123,30 @@ export const ReplyCard = ({
       },
     }),
   );
+
+  const emailMessagesQueryKey = trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId });
+  const optimisticallyDiscardDraft = useOptimisticMutationWithUndo({
+    queryClient,
+    queryKey: emailMessagesQueryKey,
+    onExecute: () => {
+      queryClient.setQueryData(emailMessagesQueryKey, (oldData) => {
+        if (!oldData) return oldData;
+        return { ...oldData, boardCard: { ...oldData.boardCard, emailDraft: undefined } } satisfies typeof oldData;
+      });
+      queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCardsDesc: oldData.boardCardsDesc.map((c) =>
+            c.id === boardCardId ? { ...c, emailDraft: undefined } : c,
+          ),
+        } satisfies typeof oldData;
+      });
+    },
+    successToast: 'Draft discarded',
+    errorToast: 'Failed to discard draft. Please try again.',
+    delayedMutation: useMutation(trpc.emailDraft.delete.mutationOptions()),
+  });
 
   const editor = useEditor({
     extensions: [
@@ -252,7 +296,14 @@ export const ReplyCard = ({
     // TODO: Implement send functionality
 
     editor.commands.clearContent();
-    onCancel();
+    onDiscard();
+  };
+
+  const handleDiscard = () => {
+    if (emailDraft) {
+      optimisticallyDiscardDraft({ boardId, boardCardId });
+    }
+    onDiscard();
   };
 
   const handleFieldChange = (setter: (value: string) => void) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -325,8 +376,8 @@ export const ReplyCard = ({
         )}
       />
       <div className="flex justify-end gap-2.5 px-3 pb-3">
-        <Button variant="outline" size="sm" onClick={onCancel}>
-          Cancel
+        <Button variant="outline" size="sm" onClick={handleDiscard}>
+          {emailDraft ? 'Discard' : 'Cancel'}
         </Button>
         <Button size="sm" onClick={handleSend}>
           Send

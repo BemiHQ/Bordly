@@ -36,7 +36,7 @@ export const BoardCardContent = ({
   const firstParticipant = boardCard.participants[0];
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
   const { iconUrl } = boardCard.domain;
-  const draft = !!boardCard.emailDraft;
+  const draft = boardCard.emailDraft && !boardCard.emailDraft.generated;
   const grayscale = !unread && !draft && !isHovered && isHovered !== undefined;
 
   return (

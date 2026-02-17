@@ -63,4 +63,13 @@ export class EmailDraftService {
 
     return emailDraft;
   }
+
+  static async delete(board: Board, { boardCardId }: { boardCardId: string }) {
+    const boardCard = await BoardCardService.findById(board, { boardCardId, populate: ['emailDraft'] });
+
+    if (boardCard.emailDraft) {
+      orm.em.remove(boardCard.emailDraft);
+      await orm.em.flush();
+    }
+  }
 }

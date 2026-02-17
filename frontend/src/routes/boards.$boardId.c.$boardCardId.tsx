@@ -31,9 +31,9 @@ function BoardCardComponent() {
   const boardId = extractUuid(params.boardId);
   const boardCardId = extractUuid(params.boardCardId);
 
+  const [showReply, setShowReply] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
-  const [showReply, setShowReply] = useState(false);
   const scrollContainerRef = useCallback((node: HTMLDivElement | null) => {
     if (node) setScrollContainer(node);
   }, []);
@@ -42,10 +42,7 @@ function BoardCardComponent() {
     data: emailMessagesData,
     isLoading,
     error,
-  } = useQuery({
-    ...context.trpc.emailMessage.getEmailMessages.queryOptions({ boardId, boardCardId }),
-    retry: false,
-  });
+  } = useQuery({ ...context.trpc.emailMessage.getEmailMessages.queryOptions({ boardId, boardCardId }), retry: false });
   if (error && error.data?.code === 'NOT_FOUND') {
     navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
   }
@@ -77,6 +74,10 @@ function BoardCardComponent() {
 
     if (boardCard) {
       document.title = `${boardCard.subject} | Bordly`;
+    }
+
+    if (boardCard?.emailDraft && !boardCard.emailDraft.generated) {
+      setShowReply(true);
     }
   }, [boardCard, boardId, boardCardId]);
 
@@ -112,7 +113,7 @@ function BoardCardComponent() {
         <DialogContent
           className="min-w-5xl gap-2 h-[90vh] flex flex-col bg-secondary p-0 gap-0"
           aria-describedby={undefined}
-          closeClassName="hover:bg-border top-2 right-4 z-10"
+          closeClassName="hover:bg-border top-2 right-4"
         >
           <DialogTitle visuallyHidden>{boardCard?.subject}</DialogTitle>
           {isLoading && (
@@ -122,7 +123,7 @@ function BoardCardComponent() {
           )}
           {!isLoading && boardCard && boardColumn && emailMessagesAsc && (
             <>
-              <DialogHeader className={cn('px-6 pt-2 pb-1.5 z-10 transition-shadow', isScrolled && 'shadow-sm')}>
+              <DialogHeader className={cn('px-6 pt-2 pb-1.5 transition-shadow', isScrolled && 'shadow-sm')}>
                 <BoardCardDialogNavbar
                   context={context}
                   boardId={boardId}
@@ -148,7 +149,7 @@ function BoardCardComponent() {
                       boardCardId={boardCardId}
                       emailDraft={boardCard.emailDraft}
                       emailMessagesAsc={emailMessagesAsc}
-                      onCancel={() => setShowReply(false)}
+                      onDiscard={() => setShowReply(false)}
                     />
                   )}
                 </div>

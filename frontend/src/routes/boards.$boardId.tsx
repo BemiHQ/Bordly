@@ -223,7 +223,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
                 const matchesUnread = filters.unread && card.unreadEmailMessageIds;
                 const matchesSent = filters.sent && card.hasSent;
                 const matchesHasAttachments = filters.hasAttachments && card.hasAttachments;
-                const matchesHasDraft = filters.draft && card.emailDraft;
+                const matchesHasDraft = filters.draft && card.emailDraft && !card.emailDraft.generated;
                 if (!matchesUnread && !matchesSent && !matchesHasAttachments && !matchesHasDraft) return false;
               }
 

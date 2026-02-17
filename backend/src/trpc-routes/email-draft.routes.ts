@@ -23,5 +23,12 @@ export const EMAIL_DRAFT_ROUTES = {
         const emailDraft = await EmailDraftService.upsert(board, { ...input, generated: false });
         return { emailDraft: emailDraft.toJson() };
       }),
+    delete: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        const { board } = authAsBoardMember({ ctx, input });
+        await EmailDraftService.delete(board, input);
+        return { success: true };
+      }),
   } satisfies TRPCRouterRecord,
 };
