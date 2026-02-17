@@ -135,6 +135,26 @@ export class GoogleApi {
     });
   }
 
+  static async gmailMarkThreadAsTrash(gmail: gmail_v1.Gmail, threadId: string) {
+    await gmail.users.threads.modify({
+      userId: 'me',
+      id: threadId,
+      requestBody: {
+        addLabelIds: [LABEL.TRASH],
+      },
+    });
+  }
+
+  static async gmailMarkThreadAsSpam(gmail: gmail_v1.Gmail, threadId: string) {
+    await gmail.users.threads.modify({
+      userId: 'me',
+      id: threadId,
+      requestBody: {
+        addLabelIds: [LABEL.SPAM],
+      },
+    });
+  }
+
   static async gmailListMessages(gmail: gmail_v1.Gmail, { limit }: { limit: number }) {
     const listResponse = await gmail.users.messages.list({
       userId: 'me',

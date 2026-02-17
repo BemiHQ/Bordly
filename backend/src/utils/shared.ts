@@ -10,7 +10,7 @@ export enum BoardCardState {
   INBOX = 'INBOX',
   ARCHIVED = 'ARCHIVED',
   SPAM = 'SPAM',
-  TRASHED = 'TRASHED',
+  TRASH = 'TRASH',
 }
 
 export enum BoardMemberRole {

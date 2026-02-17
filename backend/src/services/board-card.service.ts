@@ -113,9 +113,16 @@ export class BoardCardService {
       populate: ['gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
 
+    const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
+
     if (state === State.ARCHIVED) {
-      const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
       await GoogleApi.gmailMarkThreadAsRead(gmail, boardCard.externalThreadId);
+    } else if (state === State.TRASH) {
+      console.log('[GMAIL] Marking thread as trash:', boardCard.externalThreadId);
+      await GoogleApi.gmailMarkThreadAsTrash(gmail, boardCard.externalThreadId);
+    } else if (state === State.SPAM) {
+      console.log('[GMAIL] Marking thread as spam:', boardCard.externalThreadId);
+      await GoogleApi.gmailMarkThreadAsSpam(gmail, boardCard.externalThreadId);
     }
 
     boardCard.setState(state);
@@ -155,7 +162,7 @@ export class BoardCardService {
       hasAttachments: emailMessagesDesc.some((msg) => msg.attachments.length > 0),
       emailMessageCount: emailMessagesDesc.length,
       unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
-      movedToTrashAt: state === State.TRASHED ? new Date() : undefined,
+      movedToTrashAt: state === State.TRASH ? new Date() : undefined,
     });
 
     return boardCard;
@@ -189,7 +196,7 @@ export class BoardCardService {
       hasAttachments: emailMessagesDesc.some((msg) => msg.attachments.length > 0),
       emailMessageCount: emailMessagesDesc.length,
       unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
-      movedToTrashAt: boardCard.movedToTrashAt || (state === State.TRASHED ? new Date() : undefined),
+      movedToTrashAt: boardCard.movedToTrashAt || (state === State.TRASH ? new Date() : undefined),
     });
 
     return boardCard;
@@ -236,7 +243,7 @@ export class BoardCardService {
     if (emailMessages.every((msg) => msg.labels.includes(LABEL.SPAM))) {
       return State.SPAM;
     } else if (emailMessages.every((msg) => msg.labels.includes(LABEL.TRASH))) {
-      return State.TRASHED;
+      return State.TRASH;
     }
     return State.INBOX;
   }

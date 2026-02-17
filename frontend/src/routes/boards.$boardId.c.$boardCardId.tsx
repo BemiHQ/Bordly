@@ -4,7 +4,7 @@ import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState } from 'bordly-backend/utils/shared';
 import DOMPurify from 'dompurify';
-import { Archive, ChevronDownIcon, Download, Ellipsis, Mail, Paperclip } from 'lucide-react';
+import { Archive, ChevronDownIcon, Download, Ellipsis, Mail, OctagonX, Paperclip, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -556,6 +556,40 @@ function BoardCardComponent() {
     delayedMutation: useMutation(context.trpc.boardCard.setState.mutationOptions()),
   });
 
+  const optimisticallyMarkAsSpam = useOptimisticMutationWithUndo({
+    queryClient: context.queryClient,
+    queryKey: boardCardsQueryKey,
+    onExecute: ({ boardCardId }) => {
+      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCardsDesc: oldData.boardCardsDesc.filter((card) => card.id !== boardCardId),
+        } satisfies typeof oldData;
+      });
+    },
+    successToast: 'Card marked as spam',
+    errorToast: 'Failed to mark the card as spam. Please try again.',
+    delayedMutation: useMutation(context.trpc.boardCard.setState.mutationOptions()),
+  });
+
+  const optimisticallyDelete = useOptimisticMutationWithUndo({
+    queryClient: context.queryClient,
+    queryKey: boardCardsQueryKey,
+    onExecute: ({ boardCardId }) => {
+      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCardsDesc: oldData.boardCardsDesc.filter((card) => card.id !== boardCardId),
+        } satisfies typeof oldData;
+      });
+    },
+    successToast: 'Card deleted',
+    errorToast: 'Failed to delete the card. Please try again.',
+    delayedMutation: useMutation(context.trpc.boardCard.setState.mutationOptions()),
+  });
+
   const markAsReadMutation = useMutation(
     context.trpc.boardCard.markAsRead.mutationOptions({
       onSuccess: ({ boardCard }) => {
@@ -598,6 +632,22 @@ function BoardCardComponent() {
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => {
+                      optimisticallyMarkAsUnread({ boardId, boardCardId });
+                      navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+                    }}
+                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                  >
+                    <Mail className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Mark as unread</TooltipContent>
+              </Tooltip>
+              <Tooltip delayDuration={1_000}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
                       optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
                       navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
                     }}
@@ -614,15 +664,31 @@ function BoardCardComponent() {
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => {
-                      optimisticallyMarkAsUnread({ boardId, boardCardId });
+                      optimisticallyMarkAsSpam({ boardId, boardCardId, state: BoardCardState.SPAM });
                       navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
                     }}
                     className="flex text-muted-foreground cursor-pointer hover:bg-border"
                   >
-                    <Mail className="size-4" />
+                    <OctagonX className="size-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Mark as unread</TooltipContent>
+                <TooltipContent side="bottom">Report spam</TooltipContent>
+              </Tooltip>
+              <Tooltip delayDuration={1_000}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      optimisticallyDelete({ boardId, boardCardId, state: BoardCardState.TRASH });
+                      navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+                    }}
+                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Delete</TooltipContent>
               </Tooltip>
             </div>
           </DialogHeader>

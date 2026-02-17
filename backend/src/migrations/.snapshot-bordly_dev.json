@@ -846,7 +846,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "enumItems": ["INBOX", "ARCHIVED", "SPAM", "TRASHED"],
+          "enumItems": ["INBOX", "ARCHIVED", "SPAM", "TRASH"],
           "mappedType": "enum"
         },
         "subject": {
@@ -903,7 +903,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": true,
+          "nullable": false,
           "mappedType": "boolean"
         },
         "email_message_count": {

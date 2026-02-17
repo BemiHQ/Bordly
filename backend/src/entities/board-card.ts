@@ -38,7 +38,7 @@ export class BoardCard extends BaseEntity {
   @Property()
   hasSent: boolean;
   @Property()
-  hasAttachments?: boolean; // TODO: make this required
+  hasAttachments: boolean;
   @Property()
   emailMessageCount: number;
   @Property({ type: 'jsonb' })
@@ -146,7 +146,7 @@ export class BoardCard extends BaseEntity {
 
   setState(state: State) {
     this.state = state;
-    if (state === State.TRASHED) {
+    if (state === State.TRASH) {
       this.movedToTrashAt = new Date();
     } else if (this.movedToTrashAt) {
       this.movedToTrashAt = undefined;
@@ -194,9 +194,9 @@ export class BoardCard extends BaseEntity {
       throw new Error('UnreadEmailMessageIds cannot be an empty array');
     if (this.pinnedPosition !== undefined && this.pinnedPosition !== null && this.pinnedPosition < 0)
       throw new Error('Position must be non-negative');
-    if (this.state === State.TRASHED && !this.movedToTrashAt)
-      throw new Error('MovedToTrashAt is required when state is TRASHED');
-    if (this.state !== State.TRASHED && this.movedToTrashAt)
-      throw new Error('MovedToTrashAt must be null unless state is TRASHED');
+    if (this.state === State.TRASH && !this.movedToTrashAt)
+      throw new Error('MovedToTrashAt is required when state is TRASH');
+    if (this.state !== State.TRASH && this.movedToTrashAt)
+      throw new Error('MovedToTrashAt must be null unless state is TRASH');
   }
 }
