@@ -19,7 +19,7 @@ export const sanitizeBodyHtml = ({
   attachments: Attachment[];
   boardId: string;
   boardCardId: string;
-}): { html: string; styles: string } => {
+}) => {
   const sanitized = DOMPurify.sanitize(bodyHtml, {
     WHOLE_DOCUMENT: true,
     ADD_TAGS: ['style', 'head'],
@@ -28,6 +28,7 @@ export const sanitizeBodyHtml = ({
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(sanitized, 'text/html');
+  const sanitizedHtml = doc.body.innerHTML;
 
   // Replace cid: references with proxy URLs for inline images using DOM
   for (const attachment of attachments) {
@@ -47,15 +48,14 @@ export const sanitizeBodyHtml = ({
       }
     });
   }
-
-  const html = doc.body.innerHTML;
+  const sanitizedDisplayHtml = doc.body.innerHTML;
 
   // Get head styles
   const styles = Array.from(doc.head.querySelectorAll('style'))
     .map((style) => style.textContent || '')
     .join('\n');
 
-  return { html, styles };
+  return { sanitizedHtml, sanitizedDisplayHtml, styles };
 };
 
 export const formatQuoteHeader = ({
@@ -69,7 +69,11 @@ export const formatQuoteHeader = ({
   const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
   const formattedDate = shortDateTime(date);
 
-  return `On ${dayOfWeek}, ${formattedDate} ${from.name || from.email} <${from.email}> wrote:`;
+  return (
+    `On ${dayOfWeek}, ${formattedDate} ` +
+    `${from.name || from.email} ` +
+    `<<a href="mailto:${from.email}" target="_blank" rel="noopener noreferrer">${from.email}</a>> wrote:`
+  );
 };
 
 const textToHtml = (text: string): string => {
@@ -89,5 +93,5 @@ export const createQuotedHtml = ({
   quoteHeader: string;
 }): string => {
   const quotedContent = bodyHtml || (bodyText ? textToHtml(bodyText) : '');
-  return `<div>${quoteHeader}</div><blockquote>${quotedContent}</blockquote>`;
+  return `<blockquote><div>${quoteHeader}</div><br />${quotedContent}</blockquote>`;
 };

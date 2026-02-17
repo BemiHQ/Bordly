@@ -8,6 +8,7 @@ import { BoardInvite } from '@/entities/board-invite';
 import { BoardMember, Role } from '@/entities/board-member';
 import { EmailMessage } from '@/entities/email-message';
 import { GmailAccount } from '@/entities/gmail-account';
+import { GmailApi } from '@/utils/gmail-api';
 import { GoogleApi } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
 
@@ -72,12 +73,12 @@ export class GmailAccountService {
 
   static async initGmail(gmailAccount: GmailAccount) {
     const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
-    return GoogleApi.newGmail(oauth2Client);
+    return GmailApi.newGmail(oauth2Client);
   }
 
   static async hasGmailAccess(gmailAccount: GmailAccount) {
     const { oauth2Client, accessToken } = await GmailAccountService.refreshAccessToken(gmailAccount);
-    return GoogleApi.hasGmailAccess(oauth2Client, accessToken);
+    return GmailApi.hasGmailAccess(oauth2Client, accessToken);
   }
 
   static async setTokens(

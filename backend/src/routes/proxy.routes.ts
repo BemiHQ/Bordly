@@ -6,7 +6,7 @@ import { GmailAccountService } from '@/services/gmail-account.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
-import { GoogleApi } from '@/utils/google-api';
+import { GmailApi } from '@/utils/gmail-api';
 import { ROUTES } from '@/utils/urls';
 
 const ALLOWED_ICON_CONTENT_TYPES = [
@@ -68,7 +68,7 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
       const gmailAccount = await GmailAccountService.findById(boardCard.gmailAccount.id);
       const gmail = await GmailAccountService.initGmail(gmailAccount);
 
-      const { data: attachmentData } = await GoogleApi.gmailGetAttachment(gmail, {
+      const { data: attachmentData } = await GmailApi.getAttachment(gmail, {
         messageId: attachment.emailMessage.externalId,
         attachmentId: attachment.externalId,
       });

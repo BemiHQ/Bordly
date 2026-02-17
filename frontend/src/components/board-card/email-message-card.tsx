@@ -150,7 +150,7 @@ const EmailMessageBody = ({
   useEffect(() => {
     if (bodyHtml || !bodyText) {
       // HTML body
-      const { html: sanitizedHtml, styles: extractedStyles } = sanitizeBodyHtml({
+      const { sanitizedDisplayHtml, styles: extractedStyles } = sanitizeBodyHtml({
         bodyHtml: bodyHtml || '',
         attachments: emailMessage.attachments,
         boardId,
@@ -158,7 +158,7 @@ const EmailMessageBody = ({
       });
 
       const parser = new DOMParser();
-      const doc = parser.parseFromString(`<body>${sanitizedHtml}</body>`, 'text/html');
+      const doc = parser.parseFromString(`<body>${sanitizedDisplayHtml}</body>`, 'text/html');
 
       // Extract and set trailing blockquotes
       const trailingBlockquotes = parseTrailingBlockquotes(doc.body);

@@ -3,13 +3,13 @@ import { EmailAddress } from '@/entities/email-address';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { GmailAccountService } from '@/services/gmail-account.service';
-import { GoogleApi } from '@/utils/google-api';
+import { GmailApi } from '@/utils/gmail-api';
 import { orm } from '@/utils/orm';
 
 export class EmailAddressService {
   static async createAddresses(gmailAccount: GmailAccount) {
     const gmail = await GmailAccountService.initGmail(gmailAccount);
-    const sendAsSettings = await GoogleApi.gmailListSendAs(gmail);
+    const sendAsSettings = await GmailApi.listSendAs(gmail);
 
     const emailAddresses: EmailAddress[] = [];
     for (const sendAs of sendAsSettings) {

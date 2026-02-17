@@ -7,7 +7,7 @@ import { BoardCardService } from '@/services/board-card.service';
 import { DomainService } from '@/services/domain.service';
 import { EmailMessageService } from '@/services/email-message.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
-import { GoogleApi, LABEL, MAX_SNIPPET_LENGTH } from '@/utils/google-api';
+import { GmailApi, LABEL, MAX_SNIPPET_LENGTH } from '@/utils/gmail-api';
 import { presence } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 
@@ -127,7 +127,7 @@ export class EmailDraftService {
     const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
     const participantToString = (p: Participant) => (p.name ? `${p.name} <${p.email}>` : p.email);
 
-    const sentMessage = await GoogleApi.gmailSendEmail(gmail, {
+    const sentMessage = await GmailApi.sendEmail(gmail, {
       from: participantToString(fromParticipant),
       to: toParticipants?.map(participantToString),
       cc: ccParticipants?.map(participantToString),

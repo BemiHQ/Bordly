@@ -192,6 +192,16 @@ export const ReplyCard = ({
       })
     : '';
 
+  const { sanitizedHtml: sanitizedQuotedHtml, sanitizedDisplayHtml: sanitizedDisplayQuotedHtml } = useMemo(() => {
+    if (!quotedHtml || !lastEmailMessage) return { sanitizedHtml: '', sanitizedDisplayHtml: '' };
+    return sanitizeBodyHtml({ bodyHtml: quotedHtml, attachments: lastEmailMessage.attachments, boardId, boardCardId });
+  }, [quotedHtml, lastEmailMessage, boardId, boardCardId]);
+
+  useEmailIframe(blockquotesIframeRef, {
+    html: sanitizedDisplayQuotedHtml,
+    enabled: blockquotesExpanded,
+  });
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -223,7 +233,7 @@ export const ReplyCard = ({
       FontFamily.configure({ types: ['textStyle'] }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
     ],
-    content: emailDraft?.bodyHtml?.split(quotedHtml)[0] ?? '',
+    content: emailDraft?.bodyHtml?.split(sanitizedQuotedHtml)[0] ?? '',
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none px-4 my-3 text-sm',
@@ -302,16 +312,6 @@ export const ReplyCard = ({
     };
   }, [editor]);
 
-  const { html: sanitizedQuotedHtml } = useMemo(() => {
-    if (!quotedHtml || !lastEmailMessage) return { html: '' };
-    return sanitizeBodyHtml({ bodyHtml: quotedHtml, attachments: lastEmailMessage.attachments, boardId, boardCardId });
-  }, [quotedHtml, lastEmailMessage, boardId, boardCardId]);
-
-  useEmailIframe(blockquotesIframeRef, {
-    html: sanitizedQuotedHtml,
-    enabled: blockquotesExpanded,
-  });
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignore emailDraftUpsertMutation to avoid unnecessary re-renders
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -323,7 +323,7 @@ export const ReplyCard = ({
         subject: lastEmailMessage.subject.includes('Re:')
           ? lastEmailMessage.subject
           : `Re: ${lastEmailMessage.subject}`,
-        bodyHtml: `${editor.getHTML()}${quotedHtml}`,
+        bodyHtml: `${editor.getHTML()}${sanitizedQuotedHtml}`,
         from: fromInput.trim(),
         to: toInput ? parseParticipantsInput(toInput) : undefined,
         cc: ccInput ? parseParticipantsInput(ccInput) : undefined,
@@ -366,7 +366,7 @@ export const ReplyCard = ({
       boardId,
       boardCardId,
       subject: lastEmailMessage.subject.includes('Re:') ? lastEmailMessage.subject : `Re: ${lastEmailMessage.subject}`,
-      bodyHtml: `${editor.getHTML()}${quotedHtml}`,
+      bodyHtml: `${editor.getHTML()}${sanitizedQuotedHtml}`,
       from: fromInput.trim(),
       to: toInput ? parseParticipantsInput(toInput) : undefined,
       cc: ccInput ? parseParticipantsInput(ccInput) : undefined,
@@ -450,7 +450,7 @@ export const ReplyCard = ({
           '[&_.tiptap_a]:underline',
         )}
       />
-      {quotedHtml && (
+      {sanitizedDisplayQuotedHtml && (
         <div className="flex flex-col px-4">
           <ToggleQuotesButton
             expanded={blockquotesExpanded}

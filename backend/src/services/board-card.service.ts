@@ -8,7 +8,7 @@ import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardColumnService } from '@/services/board-column.service';
 import { EmailMessageService } from '@/services/email-message.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
-import { GoogleApi, LABEL } from '@/utils/google-api';
+import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { mapBy } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 
@@ -59,7 +59,7 @@ export class BoardCardService {
 
     console.log('[GMAIL] Marking thread as read:', boardCard.externalThreadId);
     const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
-    await GoogleApi.gmailMarkThreadAsRead(gmail, boardCard.externalThreadId);
+    await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
 
     boardCard.setUnreadEmailMessageIds(undefined);
     await orm.em.flush();
@@ -79,7 +79,7 @@ export class BoardCardService {
 
     console.log('[GMAIL] Marking thread as unread:', boardCard.externalThreadId);
     const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
-    await GoogleApi.gmailMarkThreadAsUnread(gmail, boardCard.externalThreadId);
+    await GmailApi.markThreadAsUnread(gmail, boardCard.externalThreadId);
 
     boardCard.setUnreadEmailMessageIds([lastEmailMessage.id]);
     await orm.em.flush();
@@ -116,13 +116,13 @@ export class BoardCardService {
     const gmail = await GmailAccountService.initGmail(boardCard.gmailAccount);
 
     if (state === State.ARCHIVED) {
-      await GoogleApi.gmailMarkThreadAsRead(gmail, boardCard.externalThreadId);
+      await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
     } else if (state === State.TRASH) {
       console.log('[GMAIL] Marking thread as trash:', boardCard.externalThreadId);
-      await GoogleApi.gmailMarkThreadAsTrash(gmail, boardCard.externalThreadId);
+      await GmailApi.markThreadAsTrash(gmail, boardCard.externalThreadId);
     } else if (state === State.SPAM) {
       console.log('[GMAIL] Marking thread as spam:', boardCard.externalThreadId);
-      await GoogleApi.gmailMarkThreadAsSpam(gmail, boardCard.externalThreadId);
+      await GmailApi.markThreadAsSpam(gmail, boardCard.externalThreadId);
     }
 
     boardCard.setState(state);

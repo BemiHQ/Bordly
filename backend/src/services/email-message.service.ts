@@ -15,7 +15,7 @@ import { DomainService } from '@/services/domain.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
-import { GoogleApi, LABEL } from '@/utils/google-api';
+import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
@@ -101,7 +101,7 @@ export class EmailMessageService {
 
     const gmail = await GmailAccountService.initGmail(gmailAccount);
     console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
-    const messages = await GoogleApi.gmailListMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
+    const messages = await GmailApi.listMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
     if (messages.length === 0) return;
 
     // Collect EmailMessages and Attachments
@@ -111,7 +111,7 @@ export class EmailMessageService {
     for (const message of messages) {
       if (!message.id) continue;
       console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${message.id}...`);
-      const messageData = await GoogleApi.gmailGetMessage(gmail, message.id);
+      const messageData = await GmailApi.getMessage(gmail, message.id);
       if (messageData.labelIds?.includes(LABEL.DRAFT)) continue; // Skip drafts
 
       const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
@@ -288,7 +288,7 @@ export class EmailMessageService {
     const affectedEmailMessages = await orm.em.find(
       EmailMessage,
       { gmailAccount, externalId: { $in: affectedEmailMessageIds } },
-      { populate: ['attachments'] },
+      { populate: ['attachments', 'domain'] },
     );
     const affectedEmailMessageByExternalId = mapBy(affectedEmailMessages, (msg) => msg.externalId) as Record<
       string,
@@ -324,7 +324,7 @@ export class EmailMessageService {
 
       try {
         console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${externalMessageId}...`);
-        const messageData = await GoogleApi.gmailGetMessage(gmail, externalMessageId);
+        const messageData = await GmailApi.getMessage(gmail, externalMessageId);
         if (messageData.labelIds?.includes(LABEL.DRAFT)) {
           draftExternalMessageIds.add(externalMessageId);
           continue; // Skip drafts
@@ -486,7 +486,7 @@ export class EmailMessageService {
       console.log(`[GMAIL] Fetching ${gmailAccount.email} history since ${gmailAccount.externalHistoryId}...`);
       let pageToken: string | undefined;
       do {
-        const { historyItems, nextPageToken, historyId } = await GoogleApi.gmailListHistory(gmail, {
+        const { historyItems, nextPageToken, historyId } = await GmailApi.listHistory(gmail, {
           startHistoryId: lastExternalHistoryId,
           pageToken,
         });
@@ -517,7 +517,7 @@ export class EmailMessageService {
       } while (pageToken);
     } else {
       console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails...`);
-      const messages = await GoogleApi.gmailListMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
+      const messages = await GmailApi.listMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
       externalEmailMessageIdsToAdd.push(...messages.map((m) => m.id).filter((id): id is string => !!id));
     }
 
@@ -578,31 +578,31 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
     const labels = messageData.labelIds || [];
     const headers = messageData.payload?.headers || [];
 
-    const from = EmailMessageService.parseParticipant(GoogleApi.gmailHeaderValue(headers, 'from'))!;
+    const from = EmailMessageService.parseParticipant(GmailApi.headerValue(headers, 'from'))!;
     const to = presence(
-      GoogleApi.gmailHeaderValue(headers, 'to')
+      GmailApi.headerValue(headers, 'to')
         ?.split(',')
         .map((e) => e.trim())
         .map(EmailMessageService.parseParticipant)
         .filter((p): p is Participant => !!p),
     );
-    const replyTo = EmailMessageService.parseParticipant(GoogleApi.gmailHeaderValue(headers, 'reply-to'));
+    const replyTo = EmailMessageService.parseParticipant(GmailApi.headerValue(headers, 'reply-to'));
     const cc = presence(
-      GoogleApi.gmailHeaderValue(headers, 'cc')
+      GmailApi.headerValue(headers, 'cc')
         ?.split(',')
         .map((e) => e.trim())
         .map(EmailMessageService.parseParticipant)
         .filter((p): p is Participant => !!p),
     );
     const bcc = presence(
-      GoogleApi.gmailHeaderValue(headers, 'bcc')
+      GmailApi.headerValue(headers, 'bcc')
         ?.split(',')
         .map((e) => e.trim())
         .map(EmailMessageService.parseParticipant)
         .filter((p): p is Participant => !!p),
     );
 
-    const { bodyText, bodyHtml } = GoogleApi.gmailBody(messageData.payload);
+    const { bodyText, bodyHtml } = GmailApi.emailBody(messageData.payload);
 
     // Gmail sometimes returns future dates
     const parsedInternalDate = new Date(parseInt(messageData.internalDate as string, 10));
@@ -615,7 +615,7 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
       externalThreadId: messageData.threadId as string,
       externalCreatedAt: parsedInternalDate > now ? now : parsedInternalDate,
       from,
-      subject: GoogleApi.gmailHeaderValue(headers, 'subject') || '(No Subject)',
+      subject: GmailApi.headerValue(headers, 'subject') || '(No Subject)',
       snippet: cheerio.load(messageData.snippet!).text(),
       sent: labels.includes(LABEL.SENT),
       labels,
@@ -629,7 +629,7 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
 
     const attachments: Attachment[] = [];
 
-    for (const attachmentData of GoogleApi.gmailAttachmentsData(messageData.payload)) {
+    for (const attachmentData of GmailApi.attachmentsData(messageData.payload)) {
       const attachment = new Attachment({
         gmailAccount,
         emailMessage,
