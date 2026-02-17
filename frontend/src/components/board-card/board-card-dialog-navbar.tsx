@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { BoardCardState } from 'bordly-backend/utils/shared';
 import { Archive, Mail, OctagonX, Trash2 } from 'lucide-react';
@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
-import { solo } from '@/query-helpers/board';
+import { type BoardColumn as BoardColumnType, type BoardMember, solo } from '@/query-helpers/board';
 import {
   type BoardCard,
   type BoardColumn,
@@ -36,20 +36,20 @@ export const BoardCardDialogNavbar = ({
   boardId,
   boardCard,
   boardColumn,
+  boardColumnsAsc,
+  boardMembers,
 }: {
   boardId: string;
   boardCard: BoardCard;
   boardColumn: BoardColumn;
+  boardColumnsAsc: BoardColumnType[];
+  boardMembers: BoardMember[];
 }) => {
   const { trpc, queryClient, currentUser } = useRouteContext();
   const navigate = useNavigate();
 
   const boardCardId = boardCard.id;
 
-  const { data: boardData } = useQuery({ ...trpc.board.get.queryOptions({ boardId }) });
-  const boardColumnsAsc = boardData?.boardColumnsAsc ?? [];
-
-  const boardMembers = boardData?.boardMembers ?? [];
   const soloBoard = solo(boardMembers);
   const participantMembers = boardMembers.filter((m) => boardCard.participantUserIds?.includes(m.user.id));
   const assignedMember = boardMembers.find((m) => m.id === boardCard.assignedBoardMemberId);
@@ -128,8 +128,6 @@ export const BoardCardDialogNavbar = ({
     errorToast: 'Failed to mark the card as unread. Please try again.',
     mutation: useMutation(trpc.boardCard.markAsUnread.mutationOptions()),
   });
-
-  if (!boardData) return <div className="h-8" />;
 
   return (
     <div className="flex gap-8 items-center mr-11">

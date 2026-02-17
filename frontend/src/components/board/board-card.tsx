@@ -37,6 +37,7 @@ export const BoardCardContent = ({
   const soloBoard = solo(boardMembers);
   const participantMembers = boardMembers.filter((m) => boardCard.participantUserIds?.includes(m.user.id)) || [];
   const assignedMember = boardMembers.find((m) => m.id === boardCard.assignedBoardMemberId);
+  const firstParticipantMember = boardMembers.find((m) => m.user.email === firstParticipant.email);
 
   return (
     <div className={cn('flex flex-col transition-filter duration-200', grayscale ? 'grayscale-100' : '')}>
@@ -44,9 +45,11 @@ export const BoardCardContent = ({
         <Avatar size="xs" className={cn('transition-filter duration-200', grayscale ? 'opacity-60' : '')}>
           <AvatarImage
             src={
-              iconUrl && !iconUrl.startsWith('/')
-                ? `${API_ENDPOINTS.PROXY_ICON}?url=${encodeURIComponent(iconUrl!)}`
-                : iconUrl
+              firstParticipantMember
+                ? firstParticipantMember.user.photoUrl
+                : iconUrl && !iconUrl.startsWith('/')
+                  ? `${API_ENDPOINTS.PROXY_ICON}?url=${encodeURIComponent(iconUrl!)}`
+                  : iconUrl
             }
             alt={firstParticipantName}
           />

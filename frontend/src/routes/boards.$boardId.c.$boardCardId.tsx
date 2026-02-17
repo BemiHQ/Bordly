@@ -46,10 +46,13 @@ function BoardCardComponent() {
     navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
   }
 
+  const { data: boardData } = useQuery(trpc.board.get.queryOptions({ boardId }));
+
   const boardCard = boardCardData?.boardCard;
   const boardColumn = boardCardData?.boardColumn;
   const emailMessagesAsc = boardCardData?.emailMessagesAsc;
   const commentsAsc = boardCardData?.commentsAsc || [];
+  const boardMembers = boardData?.boardMembers || [];
 
   const markAsReadMutation = useMutation(
     trpc.boardCard.markAsRead.mutationOptions({
@@ -122,10 +125,16 @@ function BoardCardComponent() {
               <Spinner />
             </div>
           )}
-          {!isLoading && boardCard && boardColumn && emailMessagesAsc && (
+          {!isLoading && boardCard && boardColumn && emailMessagesAsc && boardData && (
             <>
               <DialogHeader className={cn('px-5 pt-2 pb-1.5 transition-shadow', isScrolled && 'shadow-sm')}>
-                <BoardCardDialogNavbar boardId={boardId} boardCard={boardCard} boardColumn={boardColumn} />
+                <BoardCardDialogNavbar
+                  boardId={boardId}
+                  boardCard={boardCard}
+                  boardColumn={boardColumn}
+                  boardColumnsAsc={boardData.boardColumnsAsc}
+                  boardMembers={boardMembers}
+                />
               </DialogHeader>
               <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 mb-14">
                 <DialogTitle className="mb-3 mt-2">{boardCard?.subject}</DialogTitle>
@@ -135,6 +144,7 @@ function BoardCardComponent() {
                     comments={commentsAsc}
                     boardId={boardId}
                     boardCardId={boardCardId}
+                    boardMembers={boardMembers}
                     onReply={() => setShowReply(true)}
                   />
                   {showReply && (

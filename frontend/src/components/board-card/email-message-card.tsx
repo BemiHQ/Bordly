@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useEmailIframe } from '@/hooks/use-email-iframe';
+import type { BoardMember } from '@/query-helpers/board';
 import type { EmailMessage, GmailAttachment } from '@/query-helpers/board-card';
 import {
   parseTrailingBackquotes,
@@ -119,11 +120,13 @@ export const EmailMessageCard = ({
   emailMessage,
   boardId,
   boardCardId,
+  boardMembers,
   onReply,
 }: {
   emailMessage: EmailMessage;
   boardId: string;
   boardCardId: string;
+  boardMembers: BoardMember[];
   onReply?: () => void;
 }) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -137,6 +140,7 @@ export const EmailMessageCard = ({
 
   const firstParticipant = participants[0]!;
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
+  const firstParticipantMember = boardMembers.find((m) => m.user.email === firstParticipant.email);
 
   let shortAddresses = '';
   if (emailMessage.to && emailMessage.to.length > 0) {
@@ -171,9 +175,11 @@ export const EmailMessageCard = ({
         <Avatar>
           <AvatarImage
             src={
-              iconUrl && !iconUrl.startsWith('/')
-                ? `${API_ENDPOINTS.PROXY_ICON}?url=${encodeURIComponent(iconUrl!)}`
-                : iconUrl
+              firstParticipantMember
+                ? firstParticipantMember.user.photoUrl
+                : iconUrl && !iconUrl.startsWith('/')
+                  ? `${API_ENDPOINTS.PROXY_ICON}?url=${encodeURIComponent(iconUrl!)}`
+                  : iconUrl
             }
             alt={firstParticipantName}
           />

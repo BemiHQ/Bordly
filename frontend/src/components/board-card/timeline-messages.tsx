@@ -1,5 +1,6 @@
 import { EmailMessageCard } from '@/components/board-card/email-message-card';
 import { PostedComment } from '@/components/board-card/posted-comment';
+import type { BoardMember } from '@/query-helpers/board';
 import type { Comment, EmailMessage } from '@/query-helpers/board-card';
 
 type TimelineItem =
@@ -11,12 +12,14 @@ export const TimelineMessages = ({
   comments,
   boardId,
   boardCardId,
+  boardMembers,
   onReply,
 }: {
   emailMessages: EmailMessage[];
   comments: Comment[];
   boardId: string;
   boardCardId: string;
+  boardMembers: BoardMember[];
   onReply?: () => void;
 }) => {
   const timelineItems: TimelineItem[] = [
@@ -47,6 +50,7 @@ export const TimelineMessages = ({
               emailMessage={item.data}
               boardId={boardId}
               boardCardId={boardCardId}
+              boardMembers={boardMembers}
               onReply={index === lastEmailIndex ? onReply : undefined}
             />
           );
