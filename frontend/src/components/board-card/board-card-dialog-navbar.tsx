@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { BoardCardState, BoardMemberRole } from 'bordly-backend/utils/shared';
+import { BoardCardState } from 'bordly-backend/utils/shared';
 import { Archive, Mail, OctagonX, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -206,7 +206,7 @@ export const BoardCardDialogNavbar = ({
           </TooltipTrigger>
           <TooltipContent side="bottom">
             Mark as unread
-            {boardMembers.filter((m) => m.role !== BoardMemberRole.AGENT).length === 1 ? '' : ' (only for you)'}
+            {boardMembers.filter((m) => !m.isAgent).length === 1 ? '' : ' (only for you)'}
           </TooltipContent>
         </Tooltip>
       </div>

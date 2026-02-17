@@ -16,10 +16,11 @@ import { ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
   component: BoardCardComponent,
-  beforeLoad: ensureLoggedIn(ROUTES.BOARD_CARD),
+  loader: ensureLoggedIn(ROUTES.BOARD_CARD),
 });
 
 function BoardCardComponent() {
+  const { currentUser } = Route.useLoaderData();
   const params = Route.useParams();
   const navigate = useNavigate();
   const context = Route.useRouteContext();
@@ -103,7 +104,7 @@ function BoardCardComponent() {
   usePrefetchQuery(queryClient, { ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
 
   return (
-    <RouteProvider value={context}>
+    <RouteProvider value={{ trpc, queryClient, currentUser }}>
       <Dialog
         open={true}
         onOpenChange={(open: boolean) => {

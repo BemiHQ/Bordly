@@ -1,7 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { BoardMemberRole } from 'bordly-backend/utils/shared';
 import { Mail, MailCheck, Mails, Paperclip } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from '@/components/ui/avatar';
@@ -86,7 +85,7 @@ export const BoardCardContent = ({
             </TooltipTrigger>
             <TooltipContent>
               {unread ? 'Mark as read' : 'Mark as unread'}
-              {boardMembers.filter((m) => m.role !== BoardMemberRole.AGENT).length === 1 ? '' : ' (only for you)'}
+              {boardMembers.filter((m) => !m.isAgent).length === 1 ? '' : ' (only for you)'}
             </TooltipContent>
           </Tooltip>
         ) : (

@@ -2,10 +2,12 @@ import type { QueryClient } from '@tanstack/react-query';
 import type { TRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { createContext, useContext } from 'react';
+import type { CurrentUser } from '@/query-helpers/current-user';
 
 export interface RouteContext {
   queryClient: QueryClient;
   trpc: TRPCOptionsProxy<TRPCRouter>;
+  currentUser?: CurrentUser;
 }
 
 const RouteContextContext = createContext<RouteContext | null>(null);

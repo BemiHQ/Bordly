@@ -172,17 +172,15 @@ const BoardInviteRoleSelect = ({
 export const BoardMembersDialog = ({
   board,
   boardMembers,
-  currentUserId,
   open,
   onOpenChange,
 }: {
   board: Board;
   boardMembers: BoardMember[];
-  currentUserId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) => {
-  const { queryClient, trpc } = useRouteContext();
+  const { queryClient, trpc, currentUser } = useRouteContext();
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<BoardMemberRole>(BoardMemberRole.MEMBER);
 
@@ -190,9 +188,6 @@ export const BoardMembersDialog = ({
     ...trpc.boardInvite.getBoardInvites.queryOptions({ boardId: board.id }),
     enabled: open,
   });
-
-  const currentUserMember = boardMembers.find((m) => m.user.id === currentUserId);
-  const isCurrentUserAdmin = currentUserMember?.role === BoardMemberRole.ADMIN;
 
   const createInviteMutation = useMutation(
     trpc.boardInvite.create.mutationOptions({
@@ -226,6 +221,8 @@ export const BoardMembersDialog = ({
     mutation: useMutation(trpc.boardMember.setRole.mutationOptions()),
   });
 
+  if (!currentUser) return null;
+
   const handleRoleChange = ({ userId, role }: { userId: string; role: BoardMemberRole }) => {
     optimisticallySetMemberRole({ boardId: board.id, userId, role });
   };
@@ -241,6 +238,9 @@ export const BoardMembersDialog = ({
     }
     createInviteMutation.mutate({ boardId: board.id, email: inviteEmail, role: inviteRole });
   };
+
+  const currentUserMember = boardMembers.find((m) => m.user.id === currentUser.id);
+  const isCurrentUserAdmin = currentUserMember?.role === BoardMemberRole.ADMIN;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -304,15 +304,15 @@ export const BoardMembersDialog = ({
                     </Avatar>
                   </ItemMedia>
                   <ItemContent className="gap-0">
-                    <ItemTitle>{`${member.user.name}${member.user.id === currentUserId ? ' (you)' : ''}`}</ItemTitle>
+                    <ItemTitle>{`${member.user.name}${member.user.id === currentUser.id ? ' (you)' : ''}`}</ItemTitle>
                     <ItemDescription className="text-2xs">{member.user.email}</ItemDescription>
                   </ItemContent>
                   <ItemActions>
-                    {isCurrentUserAdmin && member.user.id !== currentUserId && member.role !== BoardMemberRole.AGENT ? (
+                    {isCurrentUserAdmin && member.user.id !== currentUser.id && !member.isAgent ? (
                       <BoardMemberRoleSelect board={board} member={member} onRoleChange={handleRoleChange} />
                     ) : (
                       <div className="text-xs text-muted-foreground capitalize px-3">
-                        {member.role === BoardMemberRole.AGENT ? 'AI Agent' : member.role.toLowerCase()}
+                        {member.isAgent ? 'AI Agent' : member.role.toLowerCase()}
                       </div>
                     )}
                   </ItemActions>

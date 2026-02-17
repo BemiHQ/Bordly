@@ -50,6 +50,7 @@ export class BoardMember extends BaseEntity {
       id: this.id,
       user: this.loadedUser.toJson(),
       role: this.role,
+      isAgent: this.isAgent,
     };
   }
 

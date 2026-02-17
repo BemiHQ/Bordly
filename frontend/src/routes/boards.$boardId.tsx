@@ -85,8 +85,7 @@ const ArchiveDropZone = ({ isDragging }: { isDragging: boolean }) => {
 
 const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boardCardsData: BoardCardsData }) => {
   const { filters } = useBoardFilters();
-  const { queryClient, trpc } = useRouteContext();
-  const { currentUser } = Route.useLoaderData();
+  const { queryClient, trpc, currentUser } = useRouteContext();
   const [activeBoardCard, setActiveBoardCard] = useState<BoardCard | null>(null);
   const [activeBoardColumn, setActiveBoardColumn] = useState<BoardColumnType | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -251,13 +250,13 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
 
 function BoardComponent() {
   const { currentUser } = Route.useLoaderData();
-  const context = Route.useRouteContext();
+  const { trpc, queryClient } = Route.useRouteContext();
   const params = Route.useParams();
   const matches = useMatches();
   const navigate = Route.useNavigate();
 
   const { data: boardData, error } = useQuery({
-    ...context.trpc.board.get.queryOptions({ boardId: extractUuid(params.boardId) }),
+    ...trpc.board.get.queryOptions({ boardId: extractUuid(params.boardId) }),
     refetchInterval: ({ state: { data } }) => (data?.boardColumnsAsc.length === 0 ? REFETCH_INTERVAL_MS : false),
     refetchIntervalInBackground: true,
     retry: false,
@@ -267,7 +266,7 @@ function BoardComponent() {
   }
 
   const { data: boardCardsData } = useQuery({
-    ...context.trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
+    ...trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
     refetchInterval: REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: true,
   });
@@ -304,19 +303,18 @@ function BoardComponent() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar currentUser={currentUser} />
-      {boardData && (
-        <RouteProvider value={context}>
+      <RouteProvider value={{ trpc, queryClient, currentUser }}>
+        <Navbar />
+        {boardData && (
           <BoardNavbar
             board={boardData.board}
             boardMembers={boardData.boardMembers}
             gmailAccounts={boardData.gmailAccounts}
-            currentUserId={currentUser.id}
           >
             {boardCardsData && <BoardContent boardData={boardData} boardCardsData={boardCardsData} />}
           </BoardNavbar>
-        </RouteProvider>
-      )}
+        )}
+      </RouteProvider>
       <Outlet />
     </div>
   );

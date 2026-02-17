@@ -115,12 +115,10 @@ const MenuButton = ({
   board,
   boardMembers,
   gmailAccounts,
-  currentUserId,
 }: {
   board: Board;
   boardMembers: BoardMember[];
   gmailAccounts: GmailAccount[];
-  currentUserId: string;
 }) => {
   const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
   const [membersDialogOpen, setMembersDialogOpen] = useState(false);
@@ -153,7 +151,6 @@ const MenuButton = ({
       <BoardMembersDialog
         board={board}
         boardMembers={boardMembers}
-        currentUserId={currentUserId}
         open={membersDialogOpen}
         onOpenChange={setMembersDialogOpen}
       />
@@ -165,13 +162,11 @@ export const BoardNavbar = ({
   board,
   boardMembers,
   gmailAccounts,
-  currentUserId,
   children,
 }: {
   board: Board;
   boardMembers: BoardMember[];
   gmailAccounts: GmailAccount[];
-  currentUserId: string;
   children?: React.ReactNode;
 }) => {
   const [filters, setFilters] = useState<BoardFilters>({
@@ -249,12 +244,7 @@ export const BoardNavbar = ({
         )}
         <div className="flex items-center gap-2">
           <FilterButton gmailAccounts={gmailAccounts} />
-          <MenuButton
-            board={board}
-            boardMembers={boardMembers}
-            gmailAccounts={gmailAccounts}
-            currentUserId={currentUserId}
-          />
+          <MenuButton board={board} boardMembers={boardMembers} gmailAccounts={gmailAccounts} />
         </div>
       </div>
       {children}
