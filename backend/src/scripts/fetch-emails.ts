@@ -1,6 +1,6 @@
-import '@/utils/error-tracking';
 import { RequestContext } from '@mikro-orm/postgresql';
 import { EmailMessageService } from '@/services/email-message.service';
+import { reportError } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
 import { sleep } from '@/utils/time';
 
@@ -16,7 +16,7 @@ const INTERVAL_MS = 30 * 1_000; // 30 seconds
       await sleep(INTERVAL_MS);
     }
   } catch (error) {
-    console.error('Fatal error:', error);
+    reportError(error);
     process.exit(1);
   }
 })();

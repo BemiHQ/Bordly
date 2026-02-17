@@ -12,3 +12,11 @@ Sentry.init({
 });
 
 export const setupFastifyErrorHandler = Sentry.setupFastifyErrorHandler;
+
+export const reportError = (error: unknown, tags: { [key: string]: string } = {}) => {
+  if (ENV.SENTRY_DSN) {
+    Sentry.captureException(error, { tags });
+  }
+  const e = error instanceof Error ? error : new Error(String(error));
+  console.error(`${e.name}: ${e.message}\n${e.stack}`);
+};

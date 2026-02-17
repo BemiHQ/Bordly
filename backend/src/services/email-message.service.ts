@@ -231,24 +231,32 @@ export class EmailMessageService {
     // Handle add: create EmailMessages & Attachments
     console.log('[GMAIL] Processing additions...');
     const domainNames: string[] = [];
+    const alreadDeletedExternalMessageIds = new Set();
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
       const emailMessageToCreate = affectedEmailMessageByExternalId[externalMessageId];
       if (emailMessageToCreate) continue; // Already exists
 
-      console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${externalMessageId}...`);
-      const messageData = await GoogleApi.gmailGetMessage(gmail, externalMessageId);
-      const { emailMessage, attachments } = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
-      orm.em.persist([emailMessage, ...attachments]);
-      affectedEmailMessageByExternalId[externalMessageId] = emailMessage;
+      try {
+        console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${externalMessageId}...`);
+        const messageData = await GoogleApi.gmailGetMessage(gmail, externalMessageId);
+        const { emailMessage, attachments } = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
+        orm.em.persist([emailMessage, ...attachments]);
+        affectedEmailMessageByExternalId[externalMessageId] = emailMessage;
 
-      const threadId = emailMessage.externalThreadId;
-      const emailMessagesDesc = [emailMessage, ...(emailMessagesDescByThreadId[threadId] || [])];
-      emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
+        const threadId = emailMessage.externalThreadId;
+        const emailMessagesDesc = [emailMessage, ...(emailMessagesDescByThreadId[threadId] || [])];
+        emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
 
-      domainNames.push(emailMessage.domain.name);
+        domainNames.push(emailMessage.domain.name);
 
-      if (!lastExternalHistoryId && messageData.historyId) {
-        lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message if not set from history
+        if (!lastExternalHistoryId && messageData.historyId) {
+          lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message if not set from history
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('Requested entity was not found')) {
+          console.log(`[GMAIL] Message ${externalMessageId} for ${gmailAccount.email} was not found.`);
+          alreadDeletedExternalMessageIds.add(externalMessageId);
+        }
       }
     }
     // Load domains
@@ -262,9 +270,10 @@ export class EmailMessageService {
       existingDomainByName[domain.name] = domain;
       return domain;
     };
-
     // Handle add: create or update Domains & BoardCards
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
+      if (alreadDeletedExternalMessageIds.has(externalMessageId)) continue; // Skip already deleted messages (404)
+
       const emailMessage = affectedEmailMessageByExternalId[externalMessageId]!;
       const threadId = emailMessage.externalThreadId;
       const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;

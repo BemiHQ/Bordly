@@ -8,7 +8,7 @@ import { authRoutes } from '@/routes/auth.routes';
 import { internalRoutes } from '@/routes/internal.routes';
 import { createContext, trpcRouter } from '@/trpc-router';
 import { ENV } from '@/utils/env';
-import { setupFastifyErrorHandler } from '@/utils/error-tracking';
+import { reportError, setupFastifyErrorHandler } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
 import { closePgBoss } from '@/utils/pg-boss';
 import { ROUTES } from '@/utils/urls';
@@ -57,8 +57,8 @@ const start = async () => {
     await listenToQueues();
     await fastify.listen({ port: ENV.PORT, host: '::' });
     console.log(`[HTTP] Server listening on port ${ENV.PORT}`);
-  } catch (err) {
-    console.error('[SERVER] Failed to start:', err);
+  } catch (error) {
+    reportError(error);
     process.exit(1);
   }
 };
