@@ -3,7 +3,6 @@ import { Toaster } from '@/components/ui/sonner';
 import type { RouteContext } from '@/hooks/use-route-context';
 import appCssInline from '@/styles.css?inline';
 import appCss from '@/styles.css?url';
-import { isSsr } from '@/utils/ssr';
 
 export const Route = createRootRouteWithContext<RouteContext>()({
   head: () => ({
@@ -30,7 +29,7 @@ export const Route = createRootRouteWithContext<RouteContext>()({
     <html lang="en">
       <head>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: it's safe */}
-        {isSsr() && <style dangerouslySetInnerHTML={{ __html: appCssInline }} />}
+        <style dangerouslySetInnerHTML={{ __html: appCssInline }} />
         <HeadContent />
       </head>
       <body>
