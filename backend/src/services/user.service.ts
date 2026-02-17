@@ -1,10 +1,13 @@
 import type { Populate } from '@mikro-orm/postgresql';
+import { State as BoardInviteState } from '@/entities/board-invite';
+import { BoardMember } from '@/entities/board-member';
 import { GmailAccount } from '@/entities/gmail-account';
 import { User } from '@/entities/user';
+import { BoardInviteService } from '@/services/board-invite.service';
 import { orm } from '@/utils/orm';
 
 export class UserService {
-  static findById(id: string, { populate }: { populate?: Populate<User, 'string'> } = { populate: [] }) {
+  static tryFindById(id: string, { populate }: { populate?: Populate<User, 'string'> } = { populate: [] }) {
     if (!id) return null;
     return orm.em.findOne(User, { id }, { populate });
   }
@@ -28,7 +31,19 @@ export class UserService {
   }) {
     const user = new User({ email, name, photoUrl });
     const gmailAccount = new GmailAccount({ user, googleId, accessToken, refreshToken, accessTokenExpiresAt });
-    await orm.em.persist([user, gmailAccount]).flush();
+    orm.em.persist([user, gmailAccount]);
+
+    // Automatically accept any pending board invites
+    const boardInvites = await BoardInviteService.findPendingInvites(email, { populate: ['board'] });
+    if (boardInvites && boardInvites.length > 0) {
+      for (const boardInvite of boardInvites) {
+        const boardMember = new BoardMember({ board: boardInvite.board, user });
+        boardInvite.state = BoardInviteState.ACCEPTED;
+        orm.em.persist([boardMember, boardInvite]);
+      }
+    }
+
+    await orm.em.flush();
     return user;
   }
 

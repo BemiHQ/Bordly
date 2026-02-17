@@ -47,12 +47,6 @@ export class GmailAccount extends BaseEntity {
     this.validate();
   }
 
-  toJson() {
-    return {
-      id: this.id,
-    };
-  }
-
   private validate() {
     if (!this.user) throw new Error('User is required');
     if (!this.googleId) throw new Error('Google ID is required');

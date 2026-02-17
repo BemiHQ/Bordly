@@ -1,13 +1,28 @@
 import { Board } from '@/entities/board';
 import { BoardMember } from '@/entities/board-member';
+import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { orm } from '@/utils/orm';
 
 export class BoardService {
-  static async create({ name, user }: { name: string; user: User }) {
+  static async findByIdForUser({ boardId, user }: { boardId: string; user: User }) {
+    return orm.em.findOneOrFail(Board, { id: boardId, boardMembers: { user } });
+  }
+
+  static async createForUser({ name, user }: { name: string; user: User }) {
     const board = new Board({ name });
     const boardMember = new BoardMember({ board, user });
-    await orm.em.persist([board, boardMember]).flush();
+
+    await orm.em.populate(user, ['gmailAccounts']);
+    if (user.gmailAccounts.length !== 1) {
+      throw new Error('User must have exactly one Gmail account to create a board');
+    }
+    const gmailAccount = user.gmailAccounts[0] as GmailAccount;
+    gmailAccount.board = board;
+
+    await orm.em.persist([board, boardMember, gmailAccount]).flush();
+    user.boards.add(board);
+
     return board;
   }
 }

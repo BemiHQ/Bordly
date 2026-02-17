@@ -37,7 +37,7 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       const oauth2 = google.oauth2({ version: 'v2', auth: OAUTH2_CLIENT });
       const userInfo = await oauth2.userinfo.get();
 
-      const gmailAccount = await GmailAccountService.findByGoogleId(userInfo.data.id, { populate: ['user'] });
+      const gmailAccount = await GmailAccountService.tryFindByGoogleId(userInfo.data.id, { populate: ['user'] });
       let user = gmailAccount?.user as User;
       if (!user) {
         user = await UserService.createWithGmailAccount({

@@ -28,14 +28,9 @@ export class BoardMember extends BaseEntity {
     this.validate();
   }
 
-  toJson() {
-    return {
-      id: this.id,
-    };
-  }
-
   private validate() {
-    if (!this.board) throw new Error('Board is required for BoardMember');
-    if (!this.user) throw new Error('User is required for BoardMember');
+    if (!this.board) throw new Error('Board is required');
+    if (!this.user) throw new Error('User is required');
+    if (!Object.values(Role).includes(this.role)) throw new Error('Invalid role');
   }
 }

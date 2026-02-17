@@ -4,7 +4,7 @@ import { GmailAccount } from '@/entities/gmail-account';
 import { orm } from '@/utils/orm';
 
 export class GmailAccountService {
-  static findByGoogleId(
+  static tryFindByGoogleId(
     googleId?: string | null,
     { populate }: { populate?: Populate<GmailAccount, 'string'> } = { populate: [] },
   ) {

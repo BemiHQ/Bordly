@@ -15,7 +15,7 @@ import { ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/welcome')({
   component: Welcome,
-  beforeLoad: async ({ context }) => {
+  loader: async ({ context }) => {
     const currentUser = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
     if (!currentUser) {
       throw redirect({ to: ROUTES.AUTH });
@@ -28,7 +28,8 @@ export const Route = createFileRoute('/welcome')({
 });
 
 const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => {
-  const [boardName, setBoardName] = useState('');
+  const { currentUser } = Route.useLoaderData();
+  const [boardName, setBoardName] = useState(`${currentUser.name.split(' ')[0]}'s Board`);
   const trpc = useTRPC();
   const createBoardMutation = useMutation(
     trpc.board.createBoard.mutationOptions({
@@ -46,7 +47,7 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
       <H1>Create your first board</H1>
 
       <span className="text-muted-foreground text-center">
-        Boards are sharable spaces where you and your team can collaborate on emails.
+        Boards are sharable spaces where you and others can collaborate on emails.
       </span>
 
       <form onSubmit={handleSubmit} className="w-full">
@@ -56,7 +57,7 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
               <FieldLabel htmlFor="board-name">Board Name</FieldLabel>
               <Input
                 id="board-name"
-                placeholder="Company Board"
+                placeholder="My Board"
                 value={boardName}
                 onChange={(e) => setBoardName(e.target.value)}
               />
@@ -66,7 +67,6 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
             <Button
               type="submit"
               size="lg"
-              variant="contrast"
               disabled={!boardName.trim() || createBoardMutation.isPending}
               className="flex items-center gap-2"
             >
