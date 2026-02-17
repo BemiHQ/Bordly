@@ -139,7 +139,7 @@ export class EmailMessage extends BaseEntity {
     if (!this.externalCreatedAt) throw new Error('External Created At is required');
     if (!this.from) throw new Error('From address is required');
     if (!this.subject) throw new Error('Subject is required');
-    if (!this.snippet) throw new Error('Snippet is required');
+    if (this.snippet === undefined || this.snippet === null) throw new Error('Snippet is required');
     if (!this.sent && this.sent !== false) throw new Error('Sent status is required');
     if (!this.labels) throw new Error('Labels are required');
     if (this.to && this.to.length === 0) throw new Error('To address list cannot be empty if provided');

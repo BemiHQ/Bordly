@@ -98,6 +98,15 @@ export class EmailMessageService {
 
     // Find existing Domains
     const existingDomainByName = await DomainService.findDomainByName(unique(domainNames));
+    const persistDomainOnce = async (domain: Domain) => {
+      const existingDomain = existingDomainByName[domain.name];
+      if (existingDomain) return existingDomain;
+
+      domain.setIconUrl(await DomainService.fetchIconUrl(domain));
+      orm.em.persist(domain);
+      existingDomainByName[domain.name] = domain;
+      return domain;
+    };
 
     // Create BoardColumns and BoardCards
     const boardColumnsByCategory: Record<string, BoardColumn> = {};
@@ -120,28 +129,17 @@ export class EmailMessageService {
       }
 
       for (const threadId of threadIds) {
-        const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;
-
-        // Update or create Domains
-        for (const emailMessage of emailMessagesDesc) {
-          const existingDomain = existingDomainByName[emailMessage.domain.name];
-          if (existingDomain) {
-            emailMessage.domain = existingDomain;
-          } else {
-            const { domain } = emailMessage;
-            domain.setIconUrl(await DomainService.fetchIconUrl(domain));
-            orm.em.persist(domain);
-            existingDomainByName[domain.name] = domain;
-          }
+        // Update or create Domains for EmailMessages
+        for (const emailMessage of emailMessagesDescByThreadId[threadId]!) {
+          emailMessage.domain = await persistDomainOnce(emailMessage.domain);
         }
 
-        const firstDomain = emailMessagesDesc[emailMessagesDesc.length - 1]!.domain;
         const boardCard = BoardCardService.buildFromEmailMessages({
           gmailAccount,
           boardColumn: boardColumnsByCategory[category]!,
           emailMessagesDesc: emailMessagesDescByThreadId[threadId]!,
-          domain: firstDomain,
         });
+        boardCard.domain = await persistDomainOnce(boardCard.domain);
         orm.em.persist(boardCard);
       }
     }
@@ -152,43 +150,6 @@ export class EmailMessageService {
     }
 
     await orm.em.flush();
-  }
-
-  // Make unique by email, preferring participants with names
-  static uniqueParticipantsAsc({
-    emailMessagesDesc,
-    gmailAccount,
-  }: {
-    emailMessagesDesc: EmailMessage[];
-    gmailAccount: GmailAccount;
-  }) {
-    const participantsAsc = emailMessagesDesc
-      .reverse()
-      .flatMap((msg) =>
-        msg.sent
-          ? [...(msg.to || []), ...(msg.cc || []), ...(msg.bcc || [])]
-          : [msg.from, ...(msg.to || []), ...(msg.cc || [])],
-      )
-      .filter((p) => p.email !== gmailAccount.email);
-
-    const participantsByEmail: { [email: string]: Participant } = {};
-    const uniqueParticipants: Participant[] = [];
-
-    for (const participant of participantsAsc) {
-      const existing = participantsByEmail[participant.email];
-      if (!existing) {
-        participantsByEmail[participant.email] = participant;
-        uniqueParticipants.push(participant);
-      } else if (participant.name && !existing.name) {
-        participantsByEmail[participant.email] = participant;
-        const index = uniqueParticipants.findIndex((p) => p.email === participant.email);
-        if (index !== -1) {
-          uniqueParticipants[index] = participant;
-        }
-      }
-    }
-
-    return uniqueParticipants;
   }
 
   static async findLastByExternalThreadId(externalThreadId: string) {
@@ -292,23 +253,25 @@ export class EmailMessageService {
     }
     // Load domains
     const existingDomainByName = await DomainService.findDomainByName(unique(domainNames));
+    const persistDomainOnce = async (domain: Domain) => {
+      const existingDomain = existingDomainByName[domain.name];
+      if (existingDomain) return existingDomain;
+
+      domain.setIconUrl(await DomainService.fetchIconUrl(domain));
+      orm.em.persist(domain);
+      existingDomainByName[domain.name] = domain;
+      return domain;
+    };
+
     // Handle add: create or update Domains & BoardCards
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
       const emailMessage = affectedEmailMessageByExternalId[externalMessageId]!;
       const threadId = emailMessage.externalThreadId;
       const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;
 
-      // Update or create Domains
+      // Update or create Domains for EmailMessages
       for (const emailMessage of emailMessagesDesc) {
-        const existingDomain = existingDomainByName[emailMessage.domain.name];
-        if (existingDomain) {
-          emailMessage.domain = existingDomain;
-        } else {
-          const { domain } = emailMessage;
-          domain.setIconUrl(await DomainService.fetchIconUrl(domain));
-          orm.em.persist(domain);
-          existingDomainByName[domain.name] = domain;
-        }
+        emailMessage.domain = await persistDomainOnce(emailMessage.domain);
       }
 
       const boardCard = boardCardByThreadId[threadId];
@@ -325,13 +288,12 @@ export class EmailMessageService {
           categories: boardColumnsAsc.map((col) => col.name),
           emailMessages: emailMessagesDesc,
         });
-        const firstDomain = emailMessagesDesc[emailMessagesDesc.length - 1]!.domain;
         const boardCard = BoardCardService.buildFromEmailMessages({
           gmailAccount,
           boardColumn: boardColumnsAsc.find((col) => col.name === category) || boardColumnsAsc[0]!,
           emailMessagesDesc,
-          domain: firstDomain,
         });
+        boardCard.domain = await persistDomainOnce(boardCard.domain);
         orm.em.persist(boardCard);
         boardCardByThreadId[threadId] = boardCard;
       }
@@ -418,14 +380,12 @@ export class EmailMessageService {
       console.log(`[GMAIL] Fetching ${gmailAccount.email} history since ${gmailAccount.externalHistoryId}...`);
       let pageToken: string | undefined;
       do {
-        const historyResponse = await gmail.users.history.list({
-          userId: 'me',
+        const { historyItems, nextPageToken, historyId } = await GoogleApi.gmailListHistory(gmail, {
           startHistoryId: lastExternalHistoryId,
-          historyTypes: ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved'],
           pageToken,
         });
 
-        for (const history of historyResponse.data.history || []) {
+        for (const history of historyItems) {
           for (const messageAdded of history.messagesAdded || []) {
             if (messageAdded.message?.id) externalEmailMessageIdsToAdd.push(messageAdded.message.id);
           }
@@ -446,20 +406,12 @@ export class EmailMessageService {
             }
           }
         }
-        pageToken = historyResponse.data.nextPageToken || undefined;
-        if (historyResponse.data.historyId) {
-          lastExternalHistoryId = historyResponse.data.historyId;
-        }
+        pageToken = nextPageToken;
+        if (historyId) lastExternalHistoryId = historyId;
       } while (pageToken);
     } else {
       console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails...`);
-      const listResponse = await gmail.users.messages.list({
-        userId: 'me',
-        maxResults: CREATE_EMAIL_MESSAGES_BATCH_LIMIT,
-        includeSpamTrash: true,
-      });
-
-      const messages = listResponse.data.messages || [];
+      const messages = await GoogleApi.gmailListMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
       externalEmailMessageIdsToAdd.push(...messages.map((m) => m.id).filter((id): id is string => !!id));
     }
 
@@ -550,35 +502,16 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
     const parsedInternalDate = new Date(parseInt(messageData.internalDate as string, 10));
     const now = new Date();
 
-    const sent = labels.includes(LABEL.SENT);
-
-    let domainName: string;
-    if (sent) {
-      domainName = [
-        ...(to?.map((p) => p.email.split('@')[1]) || []),
-        ...(cc?.map((p) => p.email.split('@')[1]) || []),
-        ...(bcc?.map((p) => p.email.split('@')[1]) || []),
-      ].find((domainName): domainName is string => !!domainName)!;
-    } else {
-      domainName = [
-        from.email.split('@')[1],
-        replyTo?.email.split('@')[1],
-        ...(cc?.map((p) => p.email.split('@')[1]) || []),
-        ...(bcc?.map((p) => p.email.split('@')[1]) || []),
-      ].find((domainName): domainName is string => !!domainName)!;
-    }
-    const domain = new Domain({ name: domainName });
-
     const emailMessage = new EmailMessage({
       gmailAccount,
-      domain,
+      domain: new Domain({ name: from.email.split('@')[1]! }),
       externalId: messageData.id as string,
       externalThreadId: messageData.threadId as string,
       externalCreatedAt: parsedInternalDate > now ? now : parsedInternalDate,
       from,
       subject: GoogleApi.gmailHeaderValue(headers, 'subject') as string,
       snippet: cheerio.load(messageData.snippet!).text(),
-      sent,
+      sent: labels.includes(LABEL.SENT),
       labels,
       to,
       replyTo,

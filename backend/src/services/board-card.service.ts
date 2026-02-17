@@ -2,8 +2,8 @@ import type { Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
 import { BoardCard, State } from '@/entities/board-card';
 import type { BoardColumn } from '@/entities/board-column';
-import type { Domain } from '@/entities/domain';
-import type { EmailMessage } from '@/entities/email-message';
+import { Domain } from '@/entities/domain';
+import type { EmailMessage, Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardColumnService } from '@/services/board-column.service';
 import { EmailMessageService } from '@/services/email-message.service';
@@ -123,12 +123,10 @@ export class BoardCardService {
     gmailAccount,
     boardColumn,
     emailMessagesDesc,
-    domain,
   }: {
     gmailAccount: GmailAccount;
     boardColumn: BoardColumn;
     emailMessagesDesc: EmailMessage[];
-    domain: Domain;
   }) {
     if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
 
@@ -136,16 +134,17 @@ export class BoardCardService {
     const unreadEmailMessageIds = emailMessagesDesc.filter((m) => m.labels.includes(LABEL.UNREAD)).map((m) => m.id);
     const lastEmailMessage = emailMessagesDesc[0]!;
     const firstEmailMessage = emailMessagesDesc[emailMessagesDesc.length - 1]!;
+    const participants = BoardCardService.uniqueParticipantsAsc({ emailMessagesDesc, gmailAccount });
 
     const boardCard = new BoardCard({
       gmailAccount,
       boardColumn,
-      domain,
+      domain: new Domain({ name: participants[0]!.email.split('@')[1]! }),
       externalThreadId: lastEmailMessage.externalThreadId,
       state,
       subject: firstEmailMessage.subject,
       snippet: lastEmailMessage.snippet,
-      participants: EmailMessageService.uniqueParticipantsAsc({ emailMessagesDesc, gmailAccount }),
+      participants,
       lastEventAt: lastEmailMessage.externalCreatedAt,
       hasSent: emailMessagesDesc.some((msg) => msg.sent),
       emailMessageCount: emailMessagesDesc.length,
@@ -174,7 +173,7 @@ export class BoardCardService {
     boardCard.update({
       state,
       snippet: lastEmailMessage.snippet,
-      participants: EmailMessageService.uniqueParticipantsAsc({ emailMessagesDesc, gmailAccount }),
+      participants: BoardCardService.uniqueParticipantsAsc({ emailMessagesDesc, gmailAccount }),
       lastEventAt: lastEmailMessage.externalCreatedAt,
       hasSent: emailMessagesDesc.some((msg) => msg.sent),
       emailMessageCount: emailMessagesDesc.length,
@@ -183,6 +182,43 @@ export class BoardCardService {
     });
 
     return boardCard;
+  }
+
+  // Make unique by email, preferring participants with names
+  private static uniqueParticipantsAsc({
+    emailMessagesDesc,
+    gmailAccount,
+  }: {
+    emailMessagesDesc: EmailMessage[];
+    gmailAccount: GmailAccount;
+  }) {
+    const participantsAsc = emailMessagesDesc
+      .reverse()
+      .flatMap((msg) =>
+        msg.sent
+          ? [...(msg.to || []), ...(msg.cc || []), ...(msg.bcc || [])]
+          : [msg.from, ...(msg.to || []), ...(msg.cc || [])],
+      )
+      .filter((p) => p.email !== gmailAccount.email);
+
+    const participantsByEmail: { [email: string]: Participant } = {};
+    const uniqueParticipants: Participant[] = [];
+
+    for (const participant of participantsAsc) {
+      const existing = participantsByEmail[participant.email];
+      if (!existing) {
+        participantsByEmail[participant.email] = participant;
+        uniqueParticipants.push(participant);
+      } else if (participant.name && !existing.name) {
+        participantsByEmail[participant.email] = participant;
+        const index = uniqueParticipants.findIndex((p) => p.email === participant.email);
+        if (index !== -1) {
+          uniqueParticipants[index] = participant;
+        }
+      }
+    }
+
+    return uniqueParticipants;
   }
 
   private static async initGmail(boardCard: BoardCard) {

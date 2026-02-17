@@ -129,7 +129,7 @@ export class GoogleApi {
     const listResponse = await gmail.users.messages.list({
       userId: 'me',
       maxResults: limit,
-      includeSpamTrash: true,
+      includeSpamTrash: false,
     });
     return listResponse.data.messages || [];
   }
@@ -141,5 +141,22 @@ export class GoogleApi {
       format: 'full',
     });
     return getResponse.data;
+  }
+
+  static async gmailListHistory(
+    gmail: gmail_v1.Gmail,
+    { startHistoryId, pageToken }: { startHistoryId?: string; pageToken?: string },
+  ) {
+    const historyResponse = await gmail.users.history.list({
+      userId: 'me',
+      startHistoryId,
+      historyTypes: ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved'],
+      pageToken,
+    });
+    return {
+      historyItems: historyResponse.data.history || [],
+      nextPageToken: historyResponse.data.nextPageToken || undefined,
+      historyId: historyResponse.data.historyId || undefined,
+    };
   }
 }

@@ -13,7 +13,7 @@ import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
-import { Archive, Mail, MailCheck, Mails } from 'lucide-react';
+import { Archive, Mail, MailCheck, Mails, Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BoardNavbar } from '@/components/board-navbar';
@@ -177,10 +177,15 @@ const BoardCardContent = ({
         {boardCard.subject}
       </div>
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
-      {boardCard.emailMessageCount > 1 && (
-        <div className="flex items-center gap-1 mt-1 text-2xs text-muted-foreground">
-          <Mails className="size-3.5" />
-          <span>{boardCard.emailMessageCount}</span>
+      {(boardCard.hasSent || boardCard.emailMessageCount > 1) && (
+        <div className="flex items-center gap-3 mt-1 text-2xs text-muted-foreground">
+          {boardCard.hasSent && <Send className="size-3" />}
+          {boardCard.emailMessageCount > 1 && (
+            <div className="flex items-center gap-1">
+              <Mails className="size-3.5" />
+              <span>{boardCard.emailMessageCount}</span>
+            </div>
+          )}
         </div>
       )}
     </div>

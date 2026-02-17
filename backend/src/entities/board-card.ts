@@ -172,7 +172,7 @@ export class BoardCard extends BaseEntity {
     if (!this.externalThreadId) throw new Error('ExternalThreadId is required');
     if (!this.state) throw new Error('State is required');
     if (!this.subject) throw new Error('Subject is required');
-    if (!this.snippet) throw new Error('Snippet is required');
+    if (this.snippet === undefined || this.snippet === null) throw new Error('Snippet is required');
     if (!this.participants || this.participants.length === 0)
       throw new Error('Participants is required and cannot be empty');
     if (!this.lastEventAt) throw new Error('LastEventAt is required');
