@@ -34,7 +34,12 @@ export const EMAIL_DRAFT_ROUTES = {
       .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() }))
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardMember({ ctx, input });
-        await EmailDraftService.delete(board, input);
+
+        const boardCard = await BoardCardService.findById(board, {
+          boardCardId: input.boardCardId,
+          populate: ['emailDraft.fileAttachments'],
+        });
+        await EmailDraftService.delete(boardCard);
         return { success: true };
       }),
     send: publicProcedure

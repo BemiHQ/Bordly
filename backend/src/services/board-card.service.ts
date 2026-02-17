@@ -7,6 +7,7 @@ import { Domain } from '@/entities/domain';
 import type { EmailMessage, Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardColumnService } from '@/services/board-column.service';
+import { EmailDraftService } from '@/services/email-draft.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { mapBy } from '@/utils/lists';
@@ -120,25 +121,26 @@ export class BoardCardService {
   ) {
     const boardCard = await BoardCardService.findById(board, {
       boardCardId,
-      populate: ['gmailAccount', 'emailDraft', ...(populate || [])] as Populate<BoardCard, Hint>,
+      populate: ['gmailAccount', 'emailDraft.fileAttachments', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
 
     const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
 
+    boardCard.setState(state);
+
     if (state === State.ARCHIVED) {
       await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
-      if (boardCard.emailDraft) orm.em.remove(boardCard.emailDraft);
+      await EmailDraftService.delete(boardCard);
     } else if (state === State.TRASH) {
       console.log('[GMAIL] Marking thread as trash:', boardCard.externalThreadId);
       await GmailApi.markThreadAsTrash(gmail, boardCard.externalThreadId);
-      if (boardCard.emailDraft) orm.em.remove(boardCard.emailDraft);
+      await EmailDraftService.delete(boardCard);
     } else if (state === State.SPAM) {
       console.log('[GMAIL] Marking thread as spam:', boardCard.externalThreadId);
       await GmailApi.markThreadAsSpam(gmail, boardCard.externalThreadId);
-      if (boardCard.emailDraft) orm.em.remove(boardCard.emailDraft);
+      await EmailDraftService.delete(boardCard);
     }
 
-    boardCard.setState(state);
     await orm.em.flush();
 
     return boardCard;

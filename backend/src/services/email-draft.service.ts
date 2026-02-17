@@ -72,15 +72,13 @@ export class EmailDraftService {
     return boardCard;
   }
 
-  static async delete(board: Board, { boardCardId }: { boardCardId: string }) {
-    const boardCard = await BoardCardService.findById(board, { boardCardId, populate: ['emailDraft.fileAttachments'] });
+  static async delete(boardCard: BoardCard) {
     const { emailDraft } = boardCard;
+    if (!emailDraft) return;
 
-    if (emailDraft) {
-      orm.em.remove(emailDraft);
-      await FileAttachmentService.deleteAllForDraft(emailDraft);
-      await orm.em.flush();
-    }
+    orm.em.remove(emailDraft);
+    await FileAttachmentService.deleteAllForDraft(emailDraft);
+    await orm.em.flush();
   }
 
   static async send(
