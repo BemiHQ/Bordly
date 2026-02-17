@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { AttachmentService } from '@/services/attachment.service';
 import { BoardService } from '@/services/board.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
+import { GmailAttachmentService } from '@/services/gmail-attachment.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
@@ -56,7 +56,7 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
         throw new Error(`Board not found or user is not a member: ${boardId} (user ID: ${userId})`);
       }
       const boardCard = await BoardCardService.findById(board, { boardCardId });
-      const attachment = await AttachmentService.findByIdAndExternalThreadId(attachmentId, {
+      const attachment = await GmailAttachmentService.findByIdAndExternalThreadId(attachmentId, {
         externalThreadId: boardCard.externalThreadId,
         populate: ['emailMessage'],
       });

@@ -16,7 +16,7 @@ export const EMAIL_MESSAGE_ROUTES = {
           populate: ['domain', 'boardColumn', 'emailDraft'],
         });
         const emailMessagesAsc = await EmailMessageService.findEmailMessageByBoardCard(boardCard, {
-          populate: ['domain', 'attachments'],
+          populate: ['domain', 'gmailAttachments'],
           orderBy: { externalCreatedAt: 'ASC' },
         });
         return {

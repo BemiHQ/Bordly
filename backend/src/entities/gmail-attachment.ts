@@ -4,15 +4,15 @@ import { BaseEntity } from '@/entities/base-entity';
 import type { EmailMessage } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 
-export interface Attachment {
+export interface GmailAttachment {
   loadedGmailAccount: GmailAccount;
   loadedEmailMessage: EmailMessage;
 }
 
-@Entity({ tableName: 'attachements' })
+@Entity({ tableName: 'gmail_attachments' })
 @Unique({ properties: ['gmailAccount', 'externalId'] })
 @Index({ properties: ['emailMessage'] })
-export class Attachment extends BaseEntity {
+export class GmailAttachment extends BaseEntity {
   @ManyToOne()
   gmailAccount: GmailAccount;
   @ManyToOne()

@@ -2,13 +2,12 @@ import type { Populate } from '@mikro-orm/postgresql';
 import { RequestContext } from '@mikro-orm/postgresql';
 import * as cheerio from 'cheerio';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
-import { Attachment } from '@/entities/attachment';
-import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
 import { BoardColumn } from '@/entities/board-column';
 import { Domain } from '@/entities/domain';
 import { EmailMessage, type Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
+import { GmailAttachment } from '@/entities/gmail-attachment';
 import { AgentService } from '@/services/agent.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { DomainService } from '@/services/domain.service';
@@ -305,10 +304,10 @@ export class EmailMessageService {
       bodyHtml,
     });
 
-    const attachments: Attachment[] = [];
+    const attachments: GmailAttachment[] = [];
 
     for (const attachmentData of GmailApi.attachmentsData(messageData.payload)) {
-      const attachment = new Attachment({
+      const attachment = new GmailAttachment({
         gmailAccount,
         emailMessage,
         externalId: attachmentData.externalId,
@@ -320,7 +319,7 @@ export class EmailMessageService {
       attachments.push(attachment);
     }
 
-    emailMessage.attachments.set(attachments);
+    emailMessage.gmailAttachments.set(attachments);
     return emailMessage;
   }
 
@@ -356,7 +355,7 @@ export class EmailMessageService {
     const affectedEmailMessages = await orm.em.find(
       EmailMessage,
       { gmailAccount, externalId: { $in: affectedEmailMessageIds } },
-      { populate: ['attachments', 'domain'] },
+      { populate: ['gmailAttachments', 'domain'] },
     );
     const affectedEmailMessageByExternalId = mapBy(affectedEmailMessages, (msg) => msg.externalId) as Record<
       string,
@@ -368,7 +367,7 @@ export class EmailMessageService {
       await orm.em.find(
         EmailMessage,
         { gmailAccount, externalThreadId: { $in: externalThreadIds } },
-        { orderBy: { externalCreatedAt: 'DESC' }, populate: ['attachments'] },
+        { orderBy: { externalCreatedAt: 'DESC' }, populate: ['gmailAttachments'] },
       ),
       (msg) => msg.externalThreadId,
     ) as Record<string, EmailMessage[]>;

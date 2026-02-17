@@ -1,6 +1,5 @@
 import type { Populate } from '@mikro-orm/postgresql';
 import type { Auth } from 'googleapis';
-import { Attachment } from '@/entities/attachment';
 import { Board } from '@/entities/board';
 import { BoardCard } from '@/entities/board-card';
 import { BoardColumn } from '@/entities/board-column';
@@ -8,6 +7,7 @@ import { BoardInvite } from '@/entities/board-invite';
 import { BoardMember, Role } from '@/entities/board-member';
 import { EmailMessage } from '@/entities/email-message';
 import { GmailAccount } from '@/entities/gmail-account';
+import { GmailAttachment } from '@/entities/gmail-attachment';
 import { GmailApi } from '@/utils/gmail-api';
 import { GoogleApi } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
@@ -54,7 +54,7 @@ export class GmailAccountService {
     const gmailAccountCount = await orm.em.count(GmailAccount, { board });
 
     await orm.em.transactional(async (em) => {
-      await em.nativeDelete(Attachment, { gmailAccount: gmailAccount.id });
+      await em.nativeDelete(GmailAttachment, { gmailAccount: gmailAccount.id });
       await em.nativeDelete(EmailMessage, { gmailAccount: gmailAccount.id });
       await em.nativeDelete(BoardCard, { gmailAccount: gmailAccount.id });
       await em.nativeDelete(BoardMember, { id: boardMember.id });

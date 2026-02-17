@@ -1,8 +1,8 @@
 import { Collection, Entity, Index, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/postgresql';
-import type { Attachment } from '@/entities/attachment';
 import { BaseEntity } from '@/entities/base-entity';
 import type { Domain } from '@/entities/domain';
 import type { GmailAccount } from '@/entities/gmail-account';
+import type { GmailAttachment } from '@/entities/gmail-attachment';
 
 export interface Participant {
   name: string | null;
@@ -24,8 +24,8 @@ export class EmailMessage extends BaseEntity {
   @ManyToOne()
   domain: Domain;
 
-  @OneToMany({ mappedBy: (attachment: Attachment) => attachment.emailMessage, orphanRemoval: true })
-  attachments = new Collection<Attachment>(this);
+  @OneToMany({ mappedBy: (attachment: GmailAttachment) => attachment.emailMessage, orphanRemoval: true })
+  gmailAttachments = new Collection<GmailAttachment>(this);
 
   @Property()
   externalId: string;
@@ -133,7 +133,7 @@ export class EmailMessage extends BaseEntity {
     return {
       id: this.id,
       domain: this.loadedDomain.toJson(),
-      attachments: this.attachments.getItems().map((attachment) => attachment.toJson()),
+      attachments: this.gmailAttachments.getItems().map((attachment) => attachment.toJson()),
       from: this.from,
       subject: this.subject,
       snippet: this.snippet,

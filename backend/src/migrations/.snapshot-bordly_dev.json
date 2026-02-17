@@ -830,6 +830,154 @@
           "nullable": false,
           "mappedType": "uuid"
         },
+        "email_message_id": {
+          "name": "email_message_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "uuid"
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        },
+        "filename": {
+          "name": "filename",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 255,
+          "mappedType": "string"
+        },
+        "mime_type": {
+          "name": "mime_type",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 255,
+          "mappedType": "string"
+        },
+        "size": {
+          "name": "size",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "integer"
+        },
+        "content_id": {
+          "name": "content_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 255,
+          "mappedType": "string"
+        }
+      },
+      "name": "gmail_attachments",
+      "schema": "public",
+      "indexes": [
+        {
+          "keyName": "gmail_attachments_email_message_id_index",
+          "columnNames": ["email_message_id"],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false
+        },
+        {
+          "keyName": "gmail_attachments_gmail_account_id_external_id_unique",
+          "columnNames": ["gmail_account_id", "external_id"],
+          "composite": true,
+          "constraint": true,
+          "primary": false,
+          "unique": true
+        },
+        {
+          "keyName": "gmail_attachments_pkey",
+          "columnNames": ["id"],
+          "composite": false,
+          "constraint": true,
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "gmail_attachments_gmail_account_id_foreign": {
+          "constraintName": "gmail_attachments_gmail_account_id_foreign",
+          "columnNames": ["gmail_account_id"],
+          "localTableName": "public.gmail_attachments",
+          "referencedColumnNames": ["id"],
+          "referencedTableName": "public.gmail_accounts",
+          "updateRule": "cascade"
+        },
+        "gmail_attachments_email_message_id_foreign": {
+          "constraintName": "gmail_attachments_email_message_id_foreign",
+          "columnNames": ["email_message_id"],
+          "localTableName": "public.gmail_attachments",
+          "referencedColumnNames": ["id"],
+          "referencedTableName": "public.email_messages",
+          "updateRule": "cascade"
+        }
+      },
+      "nativeEnums": {}
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "default": "uuid_generate_v4()",
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "mappedType": "datetime"
+        },
+        "gmail_account_id": {
+          "name": "gmail_account_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "uuid"
+        },
         "is_primary": {
           "name": "is_primary",
           "type": "boolean",
@@ -1293,154 +1441,6 @@
           "localTableName": "public.email_drafts",
           "referencedColumnNames": ["id"],
           "referencedTableName": "public.board_cards",
-          "updateRule": "cascade"
-        }
-      },
-      "nativeEnums": {}
-    },
-    {
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "default": "uuid_generate_v4()",
-          "mappedType": "uuid"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamptz",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 6,
-          "mappedType": "datetime"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamptz",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 6,
-          "mappedType": "datetime"
-        },
-        "gmail_account_id": {
-          "name": "gmail_account_id",
-          "type": "uuid",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "uuid"
-        },
-        "email_message_id": {
-          "name": "email_message_id",
-          "type": "uuid",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "uuid"
-        },
-        "external_id": {
-          "name": "external_id",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "text"
-        },
-        "filename": {
-          "name": "filename",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 255,
-          "mappedType": "string"
-        },
-        "mime_type": {
-          "name": "mime_type",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 255,
-          "mappedType": "string"
-        },
-        "size": {
-          "name": "size",
-          "type": "int",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "integer"
-        },
-        "content_id": {
-          "name": "content_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "length": 255,
-          "mappedType": "string"
-        }
-      },
-      "name": "attachements",
-      "schema": "public",
-      "indexes": [
-        {
-          "keyName": "attachements_email_message_id_index",
-          "columnNames": ["email_message_id"],
-          "composite": false,
-          "constraint": false,
-          "primary": false,
-          "unique": false
-        },
-        {
-          "keyName": "attachements_gmail_account_id_external_id_unique",
-          "columnNames": ["gmail_account_id", "external_id"],
-          "composite": true,
-          "constraint": true,
-          "primary": false,
-          "unique": true
-        },
-        {
-          "keyName": "attachements_pkey",
-          "columnNames": ["id"],
-          "composite": false,
-          "constraint": true,
-          "primary": true,
-          "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {
-        "attachements_gmail_account_id_foreign": {
-          "constraintName": "attachements_gmail_account_id_foreign",
-          "columnNames": ["gmail_account_id"],
-          "localTableName": "public.attachements",
-          "referencedColumnNames": ["id"],
-          "referencedTableName": "public.gmail_accounts",
-          "updateRule": "cascade"
-        },
-        "attachements_email_message_id_foreign": {
-          "constraintName": "attachements_email_message_id_foreign",
-          "columnNames": ["email_message_id"],
-          "localTableName": "public.attachements",
-          "referencedColumnNames": ["id"],
-          "referencedTableName": "public.email_messages",
           "updateRule": "cascade"
         }
       },

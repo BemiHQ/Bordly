@@ -1,11 +1,10 @@
 import { Collection, Entity, Index, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/postgresql';
-
-import type { Attachment } from '@/entities/attachment';
 import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
 import type { EmailAddress } from '@/entities/email-address';
 import type { EmailMessage } from '@/entities/email-message';
+import type { GmailAttachment } from '@/entities/gmail-attachment';
 import type { User } from '@/entities/user';
 import { Encryption } from '@/utils/encryption';
 
@@ -28,8 +27,8 @@ export class GmailAccount extends BaseEntity {
   boardCards = new Collection<BoardCard>(this);
   @OneToMany({ mappedBy: (emailMessage: EmailMessage) => emailMessage.gmailAccount })
   emailMessages = new Collection<EmailMessage>(this);
-  @OneToMany({ mappedBy: (attachment: Attachment) => attachment.gmailAccount })
-  attachments = new Collection<Attachment>(this);
+  @OneToMany({ mappedBy: (attachment: GmailAttachment) => attachment.gmailAccount })
+  gmailAttachments = new Collection<GmailAttachment>(this);
   @OneToMany({ mappedBy: (emailAddress: EmailAddress) => emailAddress.gmailAccount })
   emailAddresses = new Collection<EmailAddress>(this);
 

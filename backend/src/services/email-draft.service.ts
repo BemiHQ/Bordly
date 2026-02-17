@@ -102,7 +102,7 @@ export class EmailDraftService {
     });
 
     const emailMessagesDesc = await EmailMessageService.findEmailMessageByBoardCard(boardCard, {
-      populate: ['attachments'],
+      populate: ['gmailAttachments'],
       orderBy: { externalCreatedAt: 'DESC' },
     });
     const lastEmailMessage = emailMessagesDesc[0];
