@@ -1,8 +1,9 @@
+import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { Ellipsis, Link2, ListFilter } from 'lucide-react';
 import { useState } from 'react';
-
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -15,7 +16,10 @@ import {
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useRouteContext } from '@/hooks/use-route-context';
+import { ROUTES } from '@/utils/urls';
 
 type BoardData = inferRouterOutputs<TRPCRouter>['board']['getBoard'];
 type Board = BoardData['board'];
@@ -103,6 +107,71 @@ const FilterButton = ({
   );
 };
 
+const RemoveAccountPopover = ({
+  board,
+  gmailAccount,
+  isLastAccount,
+  children,
+}: {
+  board: Board;
+  gmailAccount: GmailAccount;
+  isLastAccount: boolean;
+  children: React.ReactNode;
+}) => {
+  const { queryClient, trpc } = useRouteContext();
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const deleteAccountMutation = useMutation(
+    trpc.board.deleteGmailAccount.mutationOptions({
+      onSuccess: () => {
+        if (isLastAccount) {
+          queryClient.removeQueries({ queryKey: trpc.board.getBoard.queryKey({ boardId: board.id }), exact: true });
+          queryClient.removeQueries({ queryKey: trpc.user.getCurrentUser.queryKey(), exact: true });
+          navigate({ to: ROUTES.WELCOME });
+        } else {
+          queryClient.invalidateQueries({ queryKey: trpc.board.getBoard.queryKey({ boardId: board.id }), exact: true });
+        }
+        setOpen(false);
+      },
+    }),
+  );
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent align="start" className="w-80">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <h4 className="font-semibold text-sm">Remove email account</h4>
+            <p className="text-xs text-muted-foreground">
+              Are you sure you want to remove <strong>{gmailAccount.email}</strong> and all its associated emails from
+              this board?
+              {isLastAccount && ' This is the last account and removing it will delete the board.'}
+            </p>
+          </div>
+
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => deleteAccountMutation.mutate({ boardId: board.id, gmailAccountId: gmailAccount.id })}
+            disabled={deleteAccountMutation.isPending}
+          >
+            {deleteAccountMutation.isPending ? (
+              <>
+                <Spinner data-icon="inline-start" />
+                Removing...
+              </>
+            ) : (
+              'Remove account'
+            )}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const MenuButton = ({ board, gmailAccounts }: { board: Board; gmailAccounts: GmailAccount[] }) => {
   const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
 
@@ -142,9 +211,15 @@ const MenuButton = ({ board, gmailAccounts }: { board: Board; gmailAccounts: Gma
                     <ItemDescription className="text-2xs">{account.email}</ItemDescription>
                   </ItemContent>
                   <ItemActions>
-                    <Button variant="outline" size="sm">
-                      Remove
-                    </Button>
+                    <RemoveAccountPopover
+                      board={board}
+                      gmailAccount={account}
+                      isLastAccount={gmailAccounts.length === 1}
+                    >
+                      <Button variant="outline" size="sm">
+                        Remove
+                      </Button>
+                    </RemoveAccountPopover>
                   </ItemActions>
                 </Item>
               ))}

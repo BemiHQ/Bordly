@@ -1,7 +1,12 @@
 import type { Populate } from '@mikro-orm/postgresql';
 import type { Auth } from 'googleapis';
-import type { Board } from '@/entities/board';
+import { Attachment } from '@/entities/attachment';
+import { Board } from '@/entities/board';
+import { BoardCard } from '@/entities/board-card';
+import { BoardColumn } from '@/entities/board-column';
+import { BoardInvite } from '@/entities/board-invite';
 import { BoardMember, Role } from '@/entities/board-member';
+import { EmailMessage } from '@/entities/email-message';
 import { GmailAccount } from '@/entities/gmail-account';
 import { newOauth2Client } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
@@ -22,10 +27,10 @@ export class GmailAccountService {
     return orm.em.findOneOrFail(GmailAccount, { id }, { populate });
   }
 
-  static findAllAccounts<Hint extends string = never>(
+  static findAllAccountsWithBoards<Hint extends string = never>(
     { populate }: { populate?: Populate<GmailAccount, Hint> } = { populate: [] },
   ) {
-    return orm.em.find(GmailAccount, {}, { populate });
+    return orm.em.find(GmailAccount, { board: { $ne: null } }, { populate });
   }
 
   static async addToBoard(gmailAccount: GmailAccount, { board }: { board: Board }) {
@@ -33,6 +38,36 @@ export class GmailAccountService {
     const boardMember = new BoardMember({ board, user: gmailAccount.user, role: Role.MEMBER });
 
     await orm.em.persist([gmailAccount, boardMember]).flush();
+  }
+
+  static async deleteFromBoard(gmailAccountId: string, { board }: { board: Board }) {
+    const gmailAccount = await GmailAccountService.findById(gmailAccountId, { populate: ['user.boardMembers'] });
+    if (gmailAccount.board!.id !== board.id) {
+      throw new Error('Gmail account does not belong to the specified board');
+    }
+    const boardMember = gmailAccount.user.boardMembers.find((bm) => bm.board.id === board.id);
+    if (!boardMember) {
+      throw new Error('Board member not found for the specified board');
+    }
+
+    const gmailAccountCount = await orm.em.count(GmailAccount, { board });
+
+    await orm.em.transactional(async (em) => {
+      await em.nativeDelete(Attachment, { gmailAccount: gmailAccount.id });
+      await em.nativeDelete(EmailMessage, { gmailAccount: gmailAccount.id });
+      await em.nativeDelete(BoardCard, { gmailAccount: gmailAccount.id });
+      await em.nativeDelete(BoardMember, { id: boardMember.id });
+
+      gmailAccount.deleteFromBoard();
+      await orm.em.persist(gmailAccount).flush();
+
+      if (gmailAccountCount === 1) {
+        await em.nativeDelete(BoardMember, { board: board.id });
+        await em.nativeDelete(BoardColumn, { board: board.id });
+        await em.nativeDelete(BoardInvite, { board: board.id });
+        await em.nativeDelete(Board, { id: board.id });
+      }
+    });
   }
 
   static async refreshAccessToken(

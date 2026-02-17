@@ -80,6 +80,9 @@ export class GmailAccount extends BaseEntity {
   addToBoard(board: Board) {
     this.board = board;
   }
+  deleteFromBoard() {
+    this.board = undefined;
+  }
 
   updateAccessToken(accessToken: string, expiresAt: Date) {
     this.accessTokenEncrypted = Encryption.encrypt(accessToken);

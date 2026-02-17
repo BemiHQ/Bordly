@@ -5,13 +5,13 @@ import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { QUERY_PARAMS } from 'bordly-backend/utils/shared';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-
 import { type BoardFilters, BoardNavbar, LOCAL_STORAGE_KEY_FILTERS_PREFIX } from '@/components/board-navbar';
 import { Navbar } from '@/components/navbar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
+import { RouteProvider } from '@/hooks/use-route-context';
 import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
 import { formattedTimeAgo } from '@/utils/time';
@@ -27,8 +27,8 @@ type BoardCard = BoardCardsData['boardCards'][number];
 
 export const Route = createFileRoute('/boards/$boardId')({
   component: Home,
-  loader: async ({ context, params }) => {
-    const { currentUser } = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
+  loader: async ({ context: { queryClient, trpc } }) => {
+    const { currentUser } = await queryClient.ensureQueryData(trpc.user.getCurrentUser.queryOptions());
     if (!currentUser) {
       throw redirect({ to: ROUTES.AUTH });
     }
@@ -177,15 +177,17 @@ function Home() {
     <div className="flex min-h-screen flex-col">
       <Navbar currentUser={currentUser} />
       {boardData && (
-        <BoardNavbar
-          board={boardData.board}
-          gmailAccounts={boardData.gmailAccounts}
-          filters={filters}
-          setFilters={setFilters}
-        />
+        <RouteProvider value={context}>
+          <BoardNavbar
+            board={boardData.board}
+            gmailAccounts={boardData.gmailAccounts}
+            filters={filters}
+            setFilters={setFilters}
+          />
+        </RouteProvider>
       )}
       {boardData?.boardColumns.length === 0 && <EmptyState />}
-      {boardData?.boardColumns.length && (
+      {boardData && boardData.boardColumns.length > 0 && (
         <div className="flex overflow-x-auto p-3 gap-3">
           {boardData.boardColumns.map((boardColumn) => {
             const boardCards = boardCardsData?.boardCards

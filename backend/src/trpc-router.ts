@@ -8,6 +8,7 @@ import { BoardService } from '@/services/board.service';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { UserService } from '@/services/user.service';
 import { BoardCardService } from './services/board-card.service';
+import { GmailAccountService } from './services/gmail-account.service';
 
 export const createContext = async ({ req }: CreateFastifyContextOptions) => {
   const userId = req.session.get('userId') as string | undefined;
@@ -62,6 +63,13 @@ const ROUTES = {
       const board = await BoardService.createFirstBoard({ name: input.name, user: ctx.user });
       return { board: board.toJson() };
     }),
+    deleteGmailAccount: publicProcedure
+      .input(z.object({ boardId: z.uuid(), gmailAccountId: z.uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+        await GmailAccountService.deleteFromBoard(input.gmailAccountId, { board });
+      }),
   } satisfies TRPCRouterRecord,
   boardCard: {
     getBoardCards: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {

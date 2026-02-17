@@ -1,17 +1,9 @@
-import type { QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, HeadContent, Scripts } from '@tanstack/react-router';
-import type { TRPCOptionsProxy } from '@trpc/tanstack-react-query';
-
-import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { Toaster } from '@/components/ui/sonner';
+import type { RouteContext } from '@/hooks/use-route-context';
 import appCss from '@/styles.css?url';
 
-interface MyRouterContext {
-  queryClient: QueryClient;
-  trpc: TRPCOptionsProxy<TRPCRouter>;
-}
-
-export const Route = createRootRouteWithContext<MyRouterContext>()({
+export const Route = createRootRouteWithContext<RouteContext>()({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },

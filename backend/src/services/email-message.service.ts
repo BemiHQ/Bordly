@@ -49,7 +49,7 @@ export class EmailMessageService {
     const lastEmailMessageByGmailAccountId: Record<string, EmailMessage | null> = {}; // Cache
 
     while (true) {
-      const gmailAccounts = await GmailAccountService.findAllAccounts({ populate: ['board.boardColumns'] });
+      const gmailAccounts = await GmailAccountService.findAllAccountsWithBoards({ populate: ['board.boardColumns'] });
 
       for (const gmailAccount of gmailAccounts) {
         const emailMessagesDescByThreadId = await EmailMessageService.createNewEmailMessagesForGmailAccount(
@@ -362,8 +362,6 @@ export class EmailMessageService {
     }
 
     await orm.em.flush();
-    console.log(`[GMAIL] Finished fetching emails for ${gmailAccount.email}`);
-
     return emailMessagesDescByThreadId;
   }
 
