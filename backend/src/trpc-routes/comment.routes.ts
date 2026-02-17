@@ -1,0 +1,58 @@
+import type { TRPCRouterRecord } from '@trpc/server';
+import { z } from 'zod';
+import { BoardCardService } from '@/services/board-card.service';
+import { CommentService } from '@/services/comment.service';
+import { authAsBoardMember, publicProcedure } from '@/trpc-config';
+import { POPULATE as BOARD_CARD_POPULATE, toJson as boardCardToJson } from '@/trpc-routes/board-card.routes';
+
+export const POPULATE = ['user'] as const;
+
+export const COMMENT_ROUTES = {
+  comment: {
+    create: publicProcedure
+      .input(
+        z.object({
+          boardId: z.uuid(),
+          boardCardId: z.uuid(),
+          text: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { board } = authAsBoardMember({ ctx, input });
+        const user = ctx.user!;
+        const boardCard = await BoardCardService.findById(board, {
+          boardCardId: input.boardCardId,
+          populate: BOARD_CARD_POPULATE,
+        });
+        const comment = await CommentService.create(boardCard, { user, text: input.text });
+        return {
+          comment: comment.toJson(),
+          boardCard: boardCardToJson(boardCard, ctx),
+        };
+      }),
+    edit: publicProcedure
+      .input(
+        z.object({
+          boardId: z.uuid(),
+          commentId: z.uuid(),
+          text: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { board } = authAsBoardMember({ ctx, input });
+        const comment = await CommentService.edit(board, {
+          commentId: input.commentId,
+          text: input.text,
+          populate: POPULATE,
+        });
+        return { comment: comment.toJson() };
+      }),
+    delete: publicProcedure
+      .input(z.object({ boardId: z.uuid(), commentId: z.uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        const { board } = authAsBoardMember({ ctx, input });
+        await CommentService.delete(board, { commentId: input.commentId });
+        return { success: true };
+      }),
+  } satisfies TRPCRouterRecord,
+};

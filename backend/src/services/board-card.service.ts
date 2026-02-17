@@ -120,19 +120,22 @@ export class BoardCardService {
   ) {
     const boardCard = await BoardCardService.findById(board, {
       boardCardId,
-      populate: ['gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
+      populate: ['gmailAccount', 'emailDraft', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
 
     const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
 
     if (state === State.ARCHIVED) {
       await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
+      if (boardCard.emailDraft) orm.em.remove(boardCard.emailDraft);
     } else if (state === State.TRASH) {
       console.log('[GMAIL] Marking thread as trash:', boardCard.externalThreadId);
       await GmailApi.markThreadAsTrash(gmail, boardCard.externalThreadId);
+      if (boardCard.emailDraft) orm.em.remove(boardCard.emailDraft);
     } else if (state === State.SPAM) {
       console.log('[GMAIL] Marking thread as spam:', boardCard.externalThreadId);
       await GmailApi.markThreadAsSpam(gmail, boardCard.externalThreadId);
+      if (boardCard.emailDraft) orm.em.remove(boardCard.emailDraft);
     }
 
     boardCard.setState(state);
@@ -156,18 +159,18 @@ export class BoardCardService {
     const state = gmailAccount.board.solo ? BoardCardService.stateFromEmailMessages(emailMessagesDesc) : State.INBOX;
     const lastEmailMessage = emailMessagesDesc[0]!;
     const firstEmailMessage = emailMessagesDesc[emailMessagesDesc.length - 1]!;
-    const participants = BoardCardService.externalParticipantsAsc({ emailMessagesDesc, gmailAccount });
+    const externalParticipantsAsc = BoardCardService.externalParticipantsAsc({ emailMessagesDesc, gmailAccount });
     const lastEventAt = lastEmailMessage.externalCreatedAt;
 
     const boardCard = new BoardCard({
       gmailAccount,
       boardColumn,
-      domain: new Domain({ name: participants[0]!.email.split('@')[1]! }),
+      domain: new Domain({ name: externalParticipantsAsc[0]!.email.split('@')[1]! }),
       externalThreadId: lastEmailMessage.externalThreadId,
       state,
       subject: firstEmailMessage.subject,
       snippet: lastEmailMessage.snippet,
-      participants,
+      externalParticipantsAsc,
       lastEventAt,
       hasAttachments: emailMessagesDesc.some((msg) => msg.gmailAttachments.length > 0),
       emailMessageCount: emailMessagesDesc.length,
@@ -234,7 +237,7 @@ export class BoardCardService {
     boardCard.update({
       state,
       snippet: lastEmailMessage.snippet,
-      participants: BoardCardService.externalParticipantsAsc({ emailMessagesDesc, gmailAccount }),
+      externalParticipantsAsc: BoardCardService.externalParticipantsAsc({ emailMessagesDesc, gmailAccount }),
       lastEventAt,
       hasAttachments: emailMessagesDesc.some((msg) => msg.gmailAttachments.length > 0),
       emailMessageCount: emailMessagesDesc.length,

@@ -56,7 +56,7 @@ export class BoardCard extends BaseEntity {
   @Property()
   snippet: string;
   @Property({ type: 'jsonb' })
-  participants: Participant[]; // TODO: rename to externalParticipantsAsc
+  externalParticipantsAsc: Participant[];
   @Property()
   lastEventAt: Date;
 
@@ -78,7 +78,7 @@ export class BoardCard extends BaseEntity {
     state,
     subject,
     snippet,
-    participants,
+    externalParticipantsAsc,
     lastEventAt,
     hasAttachments,
     emailMessageCount,
@@ -92,7 +92,7 @@ export class BoardCard extends BaseEntity {
     state: State;
     subject: string;
     snippet: string;
-    participants: Participant[];
+    externalParticipantsAsc: Participant[];
     lastEventAt: Date;
     hasAttachments: boolean;
     emailMessageCount: number;
@@ -107,7 +107,7 @@ export class BoardCard extends BaseEntity {
     this.state = state;
     this.subject = subject;
     this.snippet = snippet;
-    this.participants = participants;
+    this.externalParticipantsAsc = externalParticipantsAsc;
     this.lastEventAt = lastEventAt;
     this.hasAttachments = hasAttachments;
     this.emailMessageCount = emailMessageCount;
@@ -119,7 +119,7 @@ export class BoardCard extends BaseEntity {
   update({
     state,
     snippet,
-    participants,
+    externalParticipantsAsc,
     lastEventAt,
     hasAttachments,
     emailMessageCount,
@@ -127,7 +127,7 @@ export class BoardCard extends BaseEntity {
   }: {
     state: State;
     snippet: string;
-    participants: Participant[];
+    externalParticipantsAsc: Participant[];
     lastEventAt: Date;
     hasAttachments: boolean;
     emailMessageCount: number;
@@ -135,7 +135,7 @@ export class BoardCard extends BaseEntity {
   }) {
     this.state = state;
     this.snippet = snippet;
-    this.participants = participants;
+    this.externalParticipantsAsc = externalParticipantsAsc;
     this.lastEventAt = lastEventAt;
     this.hasAttachments = hasAttachments;
     this.emailMessageCount = emailMessageCount;
@@ -174,7 +174,7 @@ export class BoardCard extends BaseEntity {
       state: this.state,
       subject: this.subject,
       snippet: this.snippet,
-      participants: this.participants,
+      externalParticipantsAsc: this.externalParticipantsAsc,
       lastEventAt: this.lastEventAt,
       hasAttachments: this.hasAttachments,
       emailMessageCount: this.emailMessageCount,
@@ -190,8 +190,8 @@ export class BoardCard extends BaseEntity {
     if (!this.state) throw new Error('State is required');
     if (!this.subject) throw new Error('Subject is required');
     if (this.snippet === undefined || this.snippet === null) throw new Error('Snippet is required');
-    if (!this.participants || this.participants.length === 0)
-      throw new Error('Participants is required and cannot be empty');
+    if (!this.externalParticipantsAsc || this.externalParticipantsAsc.length === 0)
+      throw new Error('External participants is required and cannot be empty');
     if (!this.lastEventAt) throw new Error('LastEventAt is required');
     if (this.hasAttachments === undefined || this.hasAttachments === null)
       throw new Error('HasAttachments is required');

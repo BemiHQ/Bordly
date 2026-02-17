@@ -152,6 +152,7 @@ const InviteMembers = ({
               <Textarea
                 id="invite-emails"
                 placeholder="email@example.com, email2@example.com, ..."
+                className="min-h-16"
                 value={emails}
                 onChange={(e) => setEmails(e.target.value)}
               />

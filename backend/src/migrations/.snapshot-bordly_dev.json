@@ -1167,8 +1167,8 @@
           "length": 255,
           "mappedType": "string"
         },
-        "participants": {
-          "name": "participants",
+        "external_participants_asc": {
+          "name": "external_participants_asc",
           "type": "jsonb",
           "unsigned": false,
           "autoincrement": false,
@@ -1615,6 +1615,16 @@
           "primary": false,
           "nullable": false,
           "mappedType": "text"
+        },
+        "edited_at": {
+          "name": "edited_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 6,
+          "mappedType": "datetime"
         }
       },
       "name": "comments",

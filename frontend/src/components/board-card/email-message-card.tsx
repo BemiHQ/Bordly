@@ -19,8 +19,8 @@ import { pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
 import { API_ENDPOINTS } from '@/utils/urls';
 
-type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
-type EmailMessage = EmailMessagesData['emailMessagesAsc'][number];
+type BoardCardData = inferRouterOutputs<TRPCRouter>['boardCard']['get'];
+type EmailMessage = BoardCardData['emailMessagesAsc'][number];
 type GmailAttachment = EmailMessage['gmailAttachments'][number];
 
 const EmailMessageBody = ({
@@ -199,7 +199,7 @@ export const EmailMessageCard = ({
                 <div className="text-xs text-muted-foreground">{`<${firstParticipant.email}>`}</div>
               </div>
             )}
-            <div className="text-2xs text-muted-foreground flex-shrink-0">
+            <div className="text-xs text-muted-foreground flex-shrink-0">
               {formattedShortTime(new Date(emailMessage.externalCreatedAt))}
             </div>
           </div>

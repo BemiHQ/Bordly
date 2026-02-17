@@ -12,8 +12,8 @@ import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-w
 import type { RouteContext } from '@/hooks/use-route-context';
 import { ROUTES } from '@/utils/urls';
 
-type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
-type BoardColumn = EmailMessagesData['boardColumn'];
+type BoardCardData = inferRouterOutputs<TRPCRouter>['boardCard']['get'];
+type BoardColumn = BoardCardData['boardColumn'];
 
 export const BoardCardDialogNavbar = ({
   context,
@@ -28,17 +28,17 @@ export const BoardCardDialogNavbar = ({
 }) => {
   const navigate = useNavigate();
 
-  const emailMessagesQueryKey = context.trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId });
+  const boardCardQueryKey = context.trpc.boardCard.get.queryKey({ boardId, boardCardId });
   const boardCardsQueryKey = context.trpc.boardCard.getBoardCards.queryKey({ boardId });
 
   const optimisticallySetBoardColumn = useOptimisticMutation({
     queryClient: context.queryClient,
-    queryKey: emailMessagesQueryKey,
+    queryKey: boardCardQueryKey,
     onExecute: ({ boardColumnId }: { boardColumnId: string }) => {
       const newBoardColumn = boardColumnsAsc.find((col) => col.id === boardColumnId);
       if (!newBoardColumn) return;
 
-      context.queryClient.setQueryData(emailMessagesQueryKey, (oldData) => {
+      context.queryClient.setQueryData(boardCardQueryKey, (oldData) => {
         if (!oldData) return oldData;
         return { ...oldData, boardColumn: newBoardColumn } satisfies typeof oldData;
       });

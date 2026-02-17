@@ -27,10 +27,10 @@ const AUTO_SAVE_INTERVAL_MS = 1_000;
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
-type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
-type EmailDraft = EmailMessagesData['boardCard']['emailDraft'];
+type BoardCardData = inferRouterOutputs<TRPCRouter>['boardCard']['get'];
+type EmailDraft = BoardCardData['boardCard']['emailDraft'];
+type EmailMessage = BoardCardData['emailMessagesAsc'][number];
 type Participant = NonNullable<EmailDraft>['from'];
-type EmailMessage = EmailMessagesData['emailMessagesAsc'][number];
 type FileAttachment = NonNullable<EmailDraft>['fileAttachments'][number];
 
 const participantsToInput = (participants?: Participant[]) =>
@@ -103,7 +103,7 @@ export const ReplyCard = ({
   const emailDraftUpsertMutation = useMutation(
     trpc.emailDraft.upsert.mutationOptions({
       onSuccess: ({ boardCard }) => {
-        queryClient.setQueryData(trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId }), (oldData) => {
+        queryClient.setQueryData(trpc.boardCard.get.queryKey({ boardId, boardCardId }), (oldData) => {
           if (!oldData) return oldData;
           return { ...oldData, boardCard } satisfies typeof oldData;
         });
@@ -118,12 +118,12 @@ export const ReplyCard = ({
     }),
   );
 
-  const emailMessagesQueryKey = trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId });
+  const boardCardQueryKey = trpc.boardCard.get.queryKey({ boardId, boardCardId });
   const optimisticallyDiscardDraft = useOptimisticMutationWithUndo({
     queryClient,
-    queryKey: emailMessagesQueryKey,
+    queryKey: boardCardQueryKey,
     onExecute: () => {
-      queryClient.setQueryData(emailMessagesQueryKey, (oldData) => {
+      queryClient.setQueryData(boardCardQueryKey, (oldData) => {
         if (!oldData) return oldData;
         return { ...oldData, boardCard: { ...oldData.boardCard, emailDraft: undefined } } satisfies typeof oldData;
       });
@@ -145,7 +145,7 @@ export const ReplyCard = ({
   const emailDraftSendMutation = useMutation(
     trpc.emailDraft.send.mutationOptions({
       onSuccess: ({ emailMessage, boardCard }) => {
-        queryClient.setQueryData(emailMessagesQueryKey, (oldData) => {
+        queryClient.setQueryData(boardCardQueryKey, (oldData) => {
           if (!oldData) return oldData;
           return {
             ...oldData,
@@ -283,7 +283,7 @@ export const ReplyCard = ({
 
       const { fileAttachment } = (await response.json()) as { fileAttachment: FileAttachment };
       setAttachments((prev) => [...prev, fileAttachment]);
-      queryClient.setQueryData(trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId }), (oldData) => {
+      queryClient.setQueryData(trpc.boardCard.get.queryKey({ boardId, boardCardId }), (oldData) => {
         if (!oldData?.boardCard.emailDraft) return oldData;
         return {
           ...oldData,
@@ -313,7 +313,7 @@ export const ReplyCard = ({
       if (!response.ok) throw new Error('Delete failed');
 
       setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
-      queryClient.setQueryData(trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId }), (oldData) => {
+      queryClient.setQueryData(trpc.boardCard.get.queryKey({ boardId, boardCardId }), (oldData) => {
         if (!oldData?.boardCard.emailDraft) return oldData;
         return {
           ...oldData,
@@ -352,18 +352,20 @@ export const ReplyCard = ({
           </div>
         </div>
       )}
-      <Participants
-        from={from}
-        setFrom={setFrom}
-        to={to}
-        setTo={setTo}
-        cc={cc}
-        setCc={setCc}
-        bcc={bcc}
-        setBcc={setBcc}
-        fromEmailAddresses={fromEmailAddresses}
-        onChange={() => setHasChanges(true)}
-      />
+      {from && (
+        <Participants
+          from={from}
+          setFrom={setFrom}
+          to={to}
+          setTo={setTo}
+          cc={cc}
+          setCc={setCc}
+          bcc={bcc}
+          setBcc={setBcc}
+          fromEmailAddresses={fromEmailAddresses}
+          onChange={() => setHasChanges(true)}
+        />
+      )}
       <Editor editor={editor} onChange={() => setHasChanges(true)} />
       {sanitizedDisplayQuotedHtml && (
         <div className="flex flex-col px-4">

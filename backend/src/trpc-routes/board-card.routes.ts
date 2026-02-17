@@ -3,7 +3,10 @@ import { z } from 'zod';
 import type { BoardCard } from '@/entities/board-card';
 import { State } from '@/entities/board-card';
 import { BoardCardService } from '@/services/board-card.service';
+import { CommentService } from '@/services/comment.service';
+import { EmailMessageService } from '@/services/email-message.service';
 import { authAsBoardMember, type Context, publicProcedure } from '@/trpc-config';
+import { POPULATE as COMMENT_POPULATE } from '@/trpc-routes/comment.routes';
 
 export const POPULATE = ['domain', 'boardCardReadPositions', 'emailDraft.fileAttachments'] as const;
 
@@ -23,6 +26,27 @@ export const BOARD_CARD_ROUTES = {
       const { board } = authAsBoardMember({ ctx, input });
       const { boardCardsDesc } = await BoardCardService.findInboxCardsByBoardId(board.id, { populate: POPULATE });
       return { boardCardsDesc: boardCardsDesc.map((card) => toJson(card, ctx)) };
+    }),
+    get: publicProcedure.input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() })).query(async ({ input, ctx }) => {
+      const { board } = authAsBoardMember({ ctx, input });
+      const boardCard = await BoardCardService.findById(board, {
+        boardCardId: input.boardCardId,
+        populate: [...POPULATE, 'boardColumn'],
+      });
+      const emailMessagesAsc = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
+        populate: ['domain', 'gmailAttachments'],
+        orderBy: { externalCreatedAt: 'ASC' },
+      });
+      const comments = await CommentService.findCommentsByBoardCard(boardCard, {
+        populate: COMMENT_POPULATE,
+        orderBy: { createdAt: 'ASC' },
+      });
+      return {
+        boardCard: toJson(boardCard, ctx),
+        boardColumn: boardCard.loadedBoardColumn.toJson(),
+        emailMessagesAsc: emailMessagesAsc.map((msg) => msg.toJson()),
+        commentsAsc: comments.map((comment) => comment.toJson()),
+      };
     }),
     markAsRead: publicProcedure
       .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() }))

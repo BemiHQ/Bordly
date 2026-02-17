@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BoardCardDialogNavbar } from '@/components/board-card/board-card-dialog-navbar';
-import { EmailMessageCard } from '@/components/board-card/email-message-card';
+import { CommentInput } from '@/components/board-card/comment-input';
 import { ReplyCard } from '@/components/board-card/reply-card';
+import { TimelineMessages } from '@/components/board-card/timeline-messages';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { usePrefetchQuery } from '@/hooks/use-prefetch-query';
@@ -32,19 +33,21 @@ function BoardCardComponent() {
   const scrollContainerRef = useCallback((node: HTMLDivElement | null) => {
     if (node) setScrollContainer(node);
   }, []);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   const {
-    data: emailMessagesData,
+    data: boardCardData,
     isLoading,
     error,
-  } = useQuery({ ...trpc.emailMessage.getEmailMessages.queryOptions({ boardId, boardCardId }), retry: false });
+  } = useQuery({ ...trpc.boardCard.get.queryOptions({ boardId, boardCardId }), retry: false });
   if (error && error.data?.code === 'NOT_FOUND') {
     navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
   }
 
-  const boardCard = emailMessagesData?.boardCard;
-  const boardColumn = emailMessagesData?.boardColumn;
-  const emailMessagesAsc = emailMessagesData?.emailMessagesAsc;
+  const boardCard = boardCardData?.boardCard;
+  const boardColumn = boardCardData?.boardColumn;
+  const emailMessagesAsc = boardCardData?.emailMessagesAsc;
+  const commentsAsc = boardCardData?.commentsAsc || [];
 
   const markAsReadMutation = useMutation(
     trpc.boardCard.markAsRead.mutationOptions({
@@ -97,6 +100,12 @@ function BoardCardComponent() {
     }
   }, [showReply, scrollContainer]);
 
+  const scrollToBottom = () => {
+    if (bottomRef.current && scrollContainer) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  };
+
   // Prefetch email addresses for ReplyCard
   usePrefetchQuery(queryClient, { ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
 
@@ -121,7 +130,7 @@ function BoardCardComponent() {
           )}
           {!isLoading && boardCard && boardColumn && emailMessagesAsc && (
             <>
-              <DialogHeader className={cn('px-6 pt-2 pb-1.5 transition-shadow', isScrolled && 'shadow-sm')}>
+              <DialogHeader className={cn('px-5 pt-2 pb-1.5 transition-shadow', isScrolled && 'shadow-sm')}>
                 <BoardCardDialogNavbar
                   context={context}
                   boardId={boardId}
@@ -129,18 +138,16 @@ function BoardCardComponent() {
                   boardColumn={boardColumn}
                 />
               </DialogHeader>
-              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-6 pb-6">
+              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5">
                 <DialogTitle className="mb-3 mt-2">{boardCard?.subject}</DialogTitle>
                 <div className="flex flex-col gap-4">
-                  {emailMessagesAsc.map((emailMessage, index) => (
-                    <EmailMessageCard
-                      key={emailMessage.id}
-                      emailMessage={emailMessage}
-                      boardId={boardId}
-                      boardCardId={boardCardId}
-                      onReply={index === emailMessagesAsc.length - 1 ? () => setShowReply(true) : undefined}
-                    />
-                  ))}
+                  <TimelineMessages
+                    emailMessages={emailMessagesAsc}
+                    comments={commentsAsc}
+                    boardId={boardId}
+                    boardCardId={boardCardId}
+                    onReply={() => setShowReply(true)}
+                  />
                   {showReply && (
                     <ReplyCard
                       boardId={boardId}
@@ -150,8 +157,17 @@ function BoardCardComponent() {
                       onDiscard={() => setShowReply(false)}
                     />
                   )}
+                  <div ref={bottomRef} />
                 </div>
               </div>
+              <CommentInput
+                boardId={boardId}
+                boardCardId={boardCardId}
+                context={context}
+                onCommentAdded={() => {
+                  setTimeout(() => scrollToBottom(), 100);
+                }}
+              />
             </>
           )}
         </DialogContent>

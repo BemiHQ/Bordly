@@ -103,7 +103,7 @@ export class EmailDraftService {
       bodyHtml?: string;
     },
   ) {
-    const emailMessagesDesc = await EmailMessageService.findEmailMessageByBoardCard(boardCard, {
+    const emailMessagesDesc = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
       populate: ['gmailAttachments'],
       orderBy: { externalCreatedAt: 'DESC' },
     });

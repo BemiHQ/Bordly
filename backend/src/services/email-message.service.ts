@@ -1,4 +1,4 @@
-import type { Populate } from '@mikro-orm/postgresql';
+import type { OrderDefinition, Populate } from '@mikro-orm/postgresql';
 import { RequestContext } from '@mikro-orm/postgresql';
 import * as cheerio from 'cheerio';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
@@ -211,12 +211,9 @@ export class EmailMessageService {
     return orm.em.findOneOrFail(EmailMessage, { externalThreadId }, { orderBy: { externalCreatedAt: 'DESC' } });
   }
 
-  static async findEmailMessageByBoardCard<Hint extends string = never>(
+  static async findEmailMessagesByBoardCard<Hint extends string = never>(
     boardCard: BoardCard,
-    {
-      populate,
-      orderBy,
-    }: { populate?: Populate<EmailMessage, Hint>; orderBy?: { externalCreatedAt: 'ASC' | 'DESC' } } = {},
+    { populate, orderBy }: { populate?: Populate<EmailMessage, Hint>; orderBy?: OrderDefinition<EmailMessage> } = {},
   ) {
     return orm.em.find(
       EmailMessage,

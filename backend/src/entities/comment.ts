@@ -20,20 +20,25 @@ export class Comment extends BaseEntity {
 
   @Property({ columnType: 'text' })
   text: string;
+  @Property()
+  editedAt?: Date;
 
   constructor({
     boardCard,
     user,
     text,
+    createdAt,
   }: {
     boardCard: BoardCard;
     user: User;
     text: string;
+    createdAt?: Date;
   }) {
     super();
     this.boardCard = boardCard;
     this.user = user;
     this.text = text;
+    this.createdAt = createdAt ?? new Date();
     this.validate();
   }
 
@@ -41,9 +46,10 @@ export class Comment extends BaseEntity {
     return {
       id: this.id,
       boardCardId: this.boardCard.id,
-      userId: this.user.id,
+      user: this.loadedUser.toJson(),
       text: this.text,
       createdAt: this.createdAt,
+      editedAt: this.editedAt,
     };
   }
 
