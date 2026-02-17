@@ -1,7 +1,7 @@
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import DOMPurify from 'dompurify';
-import { ChevronDownIcon, Download, Ellipsis, Paperclip } from 'lucide-react';
+import { ChevronDownIcon, Download, Ellipsis, Paperclip, Reply } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -320,10 +320,12 @@ export const EmailMessageCard = ({
   emailMessage,
   boardId,
   boardCardId,
+  onReply,
 }: {
   emailMessage: EmailMessage;
   boardId: string;
   boardCardId: string;
+  onReply?: () => void;
 }) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -449,6 +451,12 @@ export const EmailMessageCard = ({
         </div>
       </div>
       <EmailMessageBody emailMessage={emailMessage} boardId={boardId} boardCardId={boardCardId} />
+      {onReply && (
+        <Button variant="outline" size="sm" onClick={onReply} className="gap-2 self-start mt-2">
+          <Reply className="size-4" />
+          Reply
+        </Button>
+      )}
       {emailMessage.attachments.length > 0 && (
         <div className="flex flex-col gap-2.5 mt-5 pt-5 border-t">
           <div className="flex items-center gap-1.5">

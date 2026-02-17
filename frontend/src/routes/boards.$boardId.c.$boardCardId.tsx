@@ -3,6 +3,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
 import { BoardCardDialogNavbar } from '@/components/board-card/board-card-dialog-navbar';
 import { EmailMessageCard } from '@/components/board-card/email-message-card';
+import { ReplyCard } from '@/components/board-card/reply-card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { RouteProvider } from '@/hooks/use-route-context';
@@ -32,6 +33,7 @@ function BoardCardComponent() {
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
+  const [showReply, setShowReply] = useState(false);
   const scrollContainerRef = useCallback((node: HTMLDivElement | null) => {
     if (node) setScrollContainer(node);
   }, []);
@@ -81,6 +83,15 @@ function BoardCardComponent() {
     return () => scrollContainer.removeEventListener('scroll', handleScroll);
   }, [scrollContainer]);
 
+  // Scroll to bottom when reply card is shown
+  useEffect(() => {
+    if (showReply && scrollContainer) {
+      setTimeout(() => {
+        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    }
+  }, [showReply, scrollContainer]);
+
   return (
     <RouteProvider value={context}>
       <Dialog
@@ -94,6 +105,7 @@ function BoardCardComponent() {
           aria-describedby={undefined}
           closeClassName="hover:bg-border top-2 right-4 z-10"
         >
+          <DialogTitle visuallyHidden>{boardCard?.subject}</DialogTitle>
           {isLoading && (
             <div className="flex items-center justify-center h-full">
               <Spinner />
@@ -112,14 +124,18 @@ function BoardCardComponent() {
               <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-6 pb-6">
                 <DialogTitle className="mb-3 mt-2">{boardCard?.subject}</DialogTitle>
                 <div className="flex flex-col gap-4">
-                  {emailMessagesAsc.map((emailMessage) => (
+                  {emailMessagesAsc.map((emailMessage, index) => (
                     <EmailMessageCard
                       key={emailMessage.id}
                       emailMessage={emailMessage}
                       boardId={boardId}
                       boardCardId={boardCardId}
+                      onReply={index === emailMessagesAsc.length - 1 ? () => setShowReply(true) : undefined}
                     />
                   ))}
+                  {showReply && (
+                    <ReplyCard boardId={boardId} boardCardId={boardCardId} onCancel={() => setShowReply(false)} />
+                  )}
                 </div>
               </div>
             </>

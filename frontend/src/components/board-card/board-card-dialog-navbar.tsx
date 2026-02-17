@@ -145,10 +145,7 @@ export const BoardCardDialogNavbar = ({
         value={boardColumn?.id}
         onValueChange={(value) => optimisticallySetBoardColumn({ boardId, boardCardId, boardColumnId: value })}
       >
-        <SelectTrigger
-          className="text-sm font-medium text-muted-foreground hover:text-accent-foreground border-0 p-0 shadow-none focus-visible:!ring-0 !h-auto"
-          hideChevron
-        >
+        <SelectTrigger variant="ghost" className="text-sm font-medium text-muted-foreground p-0" hideChevron>
           <SelectValue placeholder={boardColumn?.name} />
         </SelectTrigger>
         <SelectContent>

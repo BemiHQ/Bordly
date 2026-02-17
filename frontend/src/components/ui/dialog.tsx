@@ -1,5 +1,6 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { XIcon } from 'lucide-react';
+import { VisuallyHidden } from 'radix-ui';
 import type * as React from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -111,14 +112,24 @@ export const DialogFooter = ({
   );
 };
 
-export const DialogTitle = ({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) => {
-  return (
+export const DialogTitle = ({
+  className,
+  visuallyHidden = false,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Title> & { visuallyHidden?: boolean }) => {
+  const title = (
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn('text-base leading-none font-semibold', className)}
       {...props}
     />
   );
+
+  if (visuallyHidden) {
+    return <VisuallyHidden.Root>{title}</VisuallyHidden.Root>;
+  }
+
+  return title;
 };
 
 export const DialogDescription = ({
