@@ -78,15 +78,17 @@ const EmailMessageBody = ({
   useEmailIframe(bodyIframeRef, { html: mainHtml, styles });
   useEmailIframe(backquotesIframeRef, { html: blockquotesHtml, styles, enabled: blockquotesExpanded });
 
-  if (emailMessage.bodyHtml) {
+  if (mainHtml || blockquotesHtml) {
     return (
       <div className="flex flex-col">
-        <iframe
-          ref={bodyIframeRef}
-          title="Email content"
-          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-          className="w-full border-0 block overflow-hidden"
-        />
+        {mainHtml && (
+          <iframe
+            ref={bodyIframeRef}
+            title="Email content"
+            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            className="w-full border-0 block overflow-hidden"
+          />
+        )}
         {blockquotesHtml && (
           <>
             <ToggleQuotesButton
@@ -107,18 +109,13 @@ const EmailMessageBody = ({
     );
   }
 
+  if (!backquotesText) return null;
+
   return (
     <div className="flex flex-col">
       <div className="text-sm whitespace-pre-wrap">{mainText}</div>
-      {backquotesText && (
-        <>
-          <ToggleQuotesButton
-            expanded={blockquotesExpanded}
-            toggle={() => setBlockquotesExpanded(!blockquotesExpanded)}
-          />
-          {blockquotesExpanded && <div className="text-sm whitespace-pre-wrap">{backquotesText}</div>}
-        </>
-      )}
+      <ToggleQuotesButton expanded={blockquotesExpanded} toggle={() => setBlockquotesExpanded(!blockquotesExpanded)} />
+      {blockquotesExpanded && <div className="text-sm whitespace-pre-wrap">{backquotesText}</div>}
     </div>
   );
 };

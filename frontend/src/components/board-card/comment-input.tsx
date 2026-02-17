@@ -82,8 +82,8 @@ export const CommentInput = ({
   }, [text]);
 
   return (
-    <div className="static bottom-0 px-5 pb-5">
-      <div className="flex">
+    <div className="fixed bottom-0 w-full rounded-b-lg">
+      <div className="relative z-10 mx-[19px] mb-5 rounded-lg bg-primary-foreground">
         <Textarea
           ref={textareaRef}
           value={text}
@@ -95,17 +95,18 @@ export const CommentInput = ({
             }
           }}
           placeholder="Chat with @Bordly and your team..."
-          className="resize-none bg-primary-foreground pr-10"
+          className="resize-none bg-transparent pr-10"
           rows={1}
         />
         {text.trim() && (
-          <div className="fixed right-6 bottom-5.5 z-10">
+          <div className="fixed right-7 bottom-6.5 z-10">
             <Button onClick={handleSubmit} size="icon" className="size-5.5 rounded-full">
               <ArrowDown className="size-3" />
             </Button>
           </div>
         )}
       </div>
+      <div className="fixed bottom-0 h-10 w-[calc(100%-24px)] mx-3 bg-secondary" />
     </div>
   );
 };

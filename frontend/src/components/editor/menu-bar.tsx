@@ -30,7 +30,7 @@ export const FONT_FAMILIES = [
 ];
 export const DEFAULT_FONT_FAMILY = FONT_FAMILIES[0];
 
-export const FONT_SIZES = ['12px', '14px', '16px', '18px', '20px', '24px', '32px'];
+export const FONT_SIZES = ['10px', '12px', '14px', '18px', '24px', '36px'];
 export const DEFAULT_FONT_SIZE = '14px';
 
 export const COLORS = [

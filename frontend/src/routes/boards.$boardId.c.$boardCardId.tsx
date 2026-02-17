@@ -138,7 +138,7 @@ function BoardCardComponent() {
                   boardColumn={boardColumn}
                 />
               </DialogHeader>
-              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5">
+              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 mb-14">
                 <DialogTitle className="mb-3 mt-2">{boardCard?.subject}</DialogTitle>
                 <div className="flex flex-col gap-4">
                   <TimelineMessages

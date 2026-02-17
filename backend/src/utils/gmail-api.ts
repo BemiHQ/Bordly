@@ -29,14 +29,14 @@ export class GmailApi {
   static emailBody(payload?: gmail_v1.Schema$MessagePart) {
     if (!payload) return { bodyText: undefined, bodyHtml: undefined };
 
-    let bodyText: string | undefined;
-    let bodyHtml: string | undefined;
+    const textParts: string[] = [];
+    const htmlParts: string[] = [];
 
     if (payload.body?.data) {
       if (payload.mimeType === 'text/plain') {
-        bodyText = Buffer.from(payload.body.data, 'base64').toString('utf-8');
+        textParts.push(Buffer.from(payload.body.data, 'base64').toString('utf-8'));
       } else if (payload.mimeType === 'text/html') {
-        bodyHtml = Buffer.from(payload.body.data, 'base64').toString('utf-8');
+        htmlParts.push(Buffer.from(payload.body.data, 'base64').toString('utf-8'));
       }
     }
 
@@ -44,10 +44,10 @@ export class GmailApi {
       const extractBody = (parts: gmail_v1.Schema$MessagePart[]): void => {
         for (const part of parts) {
           if (part.mimeType === 'text/plain' && part.body?.data) {
-            bodyText = Buffer.from(part.body.data, 'base64').toString('utf-8');
+            textParts.push(Buffer.from(part.body.data, 'base64').toString('utf-8'));
           } else if (part.mimeType === 'text/html' && part.body?.data) {
-            bodyHtml = Buffer.from(part.body.data, 'base64').toString('utf-8');
-          } else if (part.parts) {
+            htmlParts.push(Buffer.from(part.body.data, 'base64').toString('utf-8'));
+          } else if (part.mimeType?.startsWith('multipart/') && part.parts) {
             extractBody(part.parts);
           }
         }
@@ -55,9 +55,12 @@ export class GmailApi {
       extractBody(payload.parts);
     }
 
+    const bodyText = textParts.length > 0 ? textParts.join('\n\n') : undefined;
+    const bodyHtml = htmlParts.length > 0 ? htmlParts.join('\n') : undefined;
+
     if (bodyHtml && !bodyText) {
       const $ = cheerio.load(bodyHtml);
-      bodyText = $.text();
+      return { bodyText: $.text(), bodyHtml };
     }
 
     return { bodyText, bodyHtml };
