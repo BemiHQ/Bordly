@@ -15,6 +15,7 @@
     "mikro-orm": "NODE_OPTIONS='--import tsx' mikro-orm"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.975.0",
     "@fastify/cors": "^11.2.0",
     "@fastify/secure-session": "^8.3.0",
     "@mikro-orm/core": "^6.6.5",
