@@ -293,7 +293,7 @@ const EmailMessageBody = ({
         <iframe
           ref={bodyIframeRef}
           title="Email content"
-          sandbox="allow-same-origin allow-popups"
+          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           className="w-full border-0 block overflow-hidden"
         />
         {blockquotesHtml && (
@@ -306,7 +306,7 @@ const EmailMessageBody = ({
               <iframe
                 ref={backquotesIframeRef}
                 title="Email quotes"
-                sandbox="allow-same-origin allow-popups"
+                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                 className="w-full border-0 block overflow-hidden"
               />
             )}
