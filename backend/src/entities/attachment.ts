@@ -47,6 +47,14 @@ export class Attachment extends BaseEntity {
     this.validate();
   }
 
+  toJson() {
+    return {
+      id: this.id,
+      mimeType: this.mimeType,
+      filename: this.filename,
+    };
+  }
+
   private validate() {
     if (!this.gmailAccount) throw new Error('Gmail Account is required');
     if (!this.emailMessage) throw new Error('Email Message is required');

@@ -10,6 +10,7 @@ import { BoardInviteService } from '@/services/board-invite.service';
 import { BoardMemberService } from '@/services/board-member.service';
 import { UserService } from '@/services/user.service';
 import { BoardCardService } from './services/board-card.service';
+import { EmailMessageService } from './services/email-message.service';
 import { GmailAccountService } from './services/gmail-account.service';
 
 export const createContext = async ({ req }: CreateFastifyContextOptions) => {
@@ -200,6 +201,22 @@ const ROUTES = {
         if (!ctx.user) throw new Error('Not authenticated');
         const board = BoardService.findAsAdmin(input.boardId, { user: ctx.user });
         await BoardMemberService.delete(board, { userId: input.userId, currentUser: ctx.user });
+      }),
+  } satisfies TRPCRouterRecord,
+  emailMessage: {
+    getEmailMessages: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() }))
+      .query(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+        const { boardCard, emailMessages } = await EmailMessageService.findEmailMessages(board, {
+          boardCardId: input.boardCardId,
+          populate: ['attachments'],
+        });
+        return {
+          boardCard: boardCard.toJson(),
+          emailMessages: emailMessages.map((msg) => msg.toJson()),
+        };
       }),
   } satisfies TRPCRouterRecord,
 };

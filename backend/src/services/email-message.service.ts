@@ -1,7 +1,9 @@
+import type { Populate } from '@mikro-orm/postgresql';
 import * as cheerio from 'cheerio';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
-
 import { Attachment } from '@/entities/attachment';
+import type { Board } from '@/entities/board';
+import { BoardCard } from '@/entities/board-card';
 import { BoardColumn } from '@/entities/board-column';
 import { Domain } from '@/entities/domain';
 import { EmailMessage, type Participant } from '@/entities/email-message';
@@ -183,6 +185,19 @@ export class EmailMessageService {
 
   static async findLastByExternalThreadId(externalThreadId: string) {
     return orm.em.findOneOrFail(EmailMessage, { externalThreadId }, { orderBy: { externalCreatedAt: 'DESC' } });
+  }
+
+  static async findEmailMessages<Hint extends string = never>(
+    board: Board,
+    { boardCardId, populate }: { boardCardId: string; populate?: Populate<EmailMessage, Hint> },
+  ) {
+    const boardCard = await BoardCardService.findById(board, { boardCardId });
+    const emailMessages = await orm.em.find(
+      EmailMessage,
+      { gmailAccount: boardCard.gmailAccount, externalThreadId: boardCard.externalThreadId },
+      { populate, orderBy: { externalCreatedAt: 'ASC' } },
+    );
+    return { boardCard, emailMessages };
   }
 
   // -------------------------------------------------------------------------------------------------------------------

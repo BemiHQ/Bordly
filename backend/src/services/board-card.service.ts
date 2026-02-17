@@ -37,8 +37,8 @@ export class BoardCardService {
   }
 
   static async findById<Hint extends string = never>(
-    boardCardId: string,
-    { board, populate = [] }: { board: Board; populate?: Populate<BoardCard, Hint> },
+    board: Board,
+    { boardCardId, populate = [] }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
   ) {
     return orm.em.findOneOrFail(BoardCard, { id: boardCardId, boardColumn: { board: { id: board.id } } }, { populate });
   }
@@ -47,8 +47,8 @@ export class BoardCardService {
     board: Board,
     { boardCardId, populate }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
   ) {
-    const boardCard = await BoardCardService.findById(boardCardId, {
-      board,
+    const boardCard = await BoardCardService.findById(board, {
+      boardCardId,
       populate: ['gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
 
@@ -66,8 +66,8 @@ export class BoardCardService {
     board: Board,
     { boardCardId, populate }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
   ) {
-    const boardCard = await BoardCardService.findById(boardCardId, {
-      board,
+    const boardCard = await BoardCardService.findById(board, {
+      boardCardId,
       populate: ['gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
     const lastEmailMessage = await EmailMessageService.findLastByExternalThreadId(boardCard.externalThreadId);
@@ -90,7 +90,7 @@ export class BoardCardService {
       populate,
     }: { boardCardId: string; boardColumnId: string; populate?: Populate<BoardCard, Hint> },
   ) {
-    const boardCard = await BoardCardService.findById(boardCardId, { board, populate });
+    const boardCard = await BoardCardService.findById(board, { boardCardId, populate });
     const boardColumn = await BoardColumnService.findById(boardColumnId, { board });
 
     boardCard.setBoardColumn(boardColumn);
@@ -103,8 +103,8 @@ export class BoardCardService {
     board: Board,
     { boardCardId, state, populate }: { boardCardId: string; state: State; populate?: Populate<BoardCard, Hint> },
   ) {
-    const boardCard = await BoardCardService.findById(boardCardId, {
-      board,
+    const boardCard = await BoardCardService.findById(board, {
+      boardCardId,
       populate: ['gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
 

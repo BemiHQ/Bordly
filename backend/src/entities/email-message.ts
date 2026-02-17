@@ -118,6 +118,8 @@ export class EmailMessage extends BaseEntity {
       bcc: this.bcc,
       sent: this.sent,
       externalCreatedAt: this.externalCreatedAt,
+      body: this.bodyHtml || this.bodyText,
+      attachments: this.attachments.getItems().map((attachment) => attachment.toJson()),
     };
   }
 
