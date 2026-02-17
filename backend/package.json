@@ -5,16 +5,13 @@
   "scripts": {
     "dev": "node --watch src/server.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "fastify": "^5.7.1"
   },
   "devDependencies": {
     "@types/node": "^25.0.10",
-    "prettier": "^3.8.1",
     "typescript": "^5.9.3"
   }
 }

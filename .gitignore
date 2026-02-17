@@ -1,7 +1,6 @@
 node_modules/
 dist/
-dist-ssr/
+.tanstack/
 
 .DS_Store
 .env
-.tanstack

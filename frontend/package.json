@@ -6,10 +6,7 @@
     "dev": "vite dev --port 3001",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "format": "biome format",
-    "lint": "biome lint",
-    "check": "biome check"
+    "test": "vitest run"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.6",
@@ -37,7 +34,6 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.4",
     "@tanstack/devtools-vite": "^0.3.11",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",
