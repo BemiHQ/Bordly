@@ -10,6 +10,7 @@ export const ROUTES = {
 
 export const API_ENDPOINTS = {
   TRPC: `${ENV.VITE_API_ENDPOINT}/trpc`,
+  TRPC_SSR: `${ENV.VITE_API_ENDPOINT_SSR}/trpc`,
   AUTH_GOOGLE: `${ENV.VITE_API_ENDPOINT}/auth/google`,
   AUTH_LOG_OUT: `${ENV.VITE_API_ENDPOINT}/auth/log-out`,
 };

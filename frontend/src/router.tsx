@@ -44,7 +44,7 @@ const createTrpcClient = () =>
     links: [
       httpBatchStreamLink({
         transformer: superjson,
-        url: API_ENDPOINTS.TRPC,
+        url: ENV.VITE_API_ENDPOINT_SSR && isSsr() ? API_ENDPOINTS.TRPC_SSR : API_ENDPOINTS.TRPC,
         async fetch(url, options) {
           let cookie: string | null = null;
           if (isSsr()) {
@@ -53,10 +53,7 @@ const createTrpcClient = () =>
           return fetch(url, {
             ...options,
             credentials: 'include',
-            headers: {
-              ...options?.headers,
-              ...(cookie ? { cookie } : {}),
-            },
+            headers: { ...options?.headers, ...(cookie ? { cookie } : {}) },
           });
         },
       }),

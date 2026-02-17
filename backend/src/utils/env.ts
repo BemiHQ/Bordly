@@ -1,6 +1,4 @@
 export const ENV = {
-  PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
-
   DB_DATABASE: process.env.DB_DATABASE as string,
   DB_USERNAME: process.env.DB_USERNAME as string,
   DB_PASSWORD: process.env.DB_PASSWORD as string,
@@ -20,6 +18,10 @@ export const ENV = {
 
   LLM_FAST_MODEL: process.env.LLM_FAST_MODEL as string,
   LLM_THINKING_MODEL: process.env.LLM_THINKING_MODEL as string,
+
+  // Optional
+
+  PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
 
   AWS_REGION: process.env.AWS_REGION,
   AWS_SES_ACCESS_KEY_ID: process.env.AWS_SES_ACCESS_KEY_ID,

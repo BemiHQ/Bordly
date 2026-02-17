@@ -10,3 +10,4 @@ tsconfig.tsbuildinfo
 /frontend/src/routeTree.gen.ts
 /frontend/.tanstack/
 /frontend/.vite/
+/frontend/.output/
