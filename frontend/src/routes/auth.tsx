@@ -22,7 +22,7 @@ function Auth() {
 
       <H1>Welcome to Bordly</H1>
 
-      <Button size="lg" variant="outline" asChild>
+      <Button size="lg" variant="contrast" asChild>
         <a href={`${ENV.VITE_API_ENDPOINT}/auth/google`}>Continue with Google</a>
       </Button>
     </div>

@@ -7,5 +7,6 @@ temp/
 tsconfig.tsbuildinfo
 
 /devbox.d/nginx/nginx.conf
-/frontend/.tanstack/
 /frontend/src/routeTree.gen.ts
+/frontend/.tanstack/
+/frontend/.vite/

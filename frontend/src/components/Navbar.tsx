@@ -11,7 +11,7 @@ interface NavbarProps {
 
 export function Navbar({ currentUser }: NavbarProps) {
   return (
-    <nav className="border-b px-6 py-3 bg-secondary">
+    <nav className="border-b px-6 py-3 bg-secondary border-border">
       <div className="flex items-center justify-between">
         <Link to={ROUTES.HOME} className="flex items-center gap-2">
           <img src="/images/logo.png" alt="Bordly Logo" className="w-6 h-6" />
