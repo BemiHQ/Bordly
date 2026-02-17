@@ -1,7 +1,7 @@
 import { RequestContext } from '@mikro-orm/postgresql';
 import type { Job, Queue } from 'pg-boss';
-
 import { EmailMessageService } from '@/services/email-message.service';
+import { reportError } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
 import { pgBossInstance } from '@/utils/pg-boss';
 
@@ -83,6 +83,7 @@ async function startWorker<Q extends keyof QueueDataMap>(
           console.log(`[PG-BOSS] Completed job ${job.id} [queue=${queueName}]`);
         } catch (error) {
           console.error(`[PG-BOSS] Error processing job ${job.id} [queue=${queueName}]:`, error);
+          reportError(error);
           throw error;
         }
       }

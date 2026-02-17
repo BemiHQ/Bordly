@@ -5,6 +5,7 @@ import { BoardService } from '@/services/board.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
+import { reportError } from '@/utils/error-tracking';
 import { GoogleApi } from '@/utils/google-api';
 import { QUERY_PARAMS } from '@/utils/shared';
 import { APP_ENDPOINTS, ROUTES } from '@/utils/urls';
@@ -73,7 +74,7 @@ export const authRoutes = async (fastify: FastifyInstance) => {
 
       return reply.redirect(ENV.APP_ENDPOINT);
     } catch (error) {
-      fastify.log.error(error);
+      reportError(error);
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
