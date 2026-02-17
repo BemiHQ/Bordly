@@ -219,6 +219,12 @@ export const EmailMessageCard = ({
                       </div>
                     </div>
                   )}
+                  {emailMessage.replyTo && (
+                    <div className="flex flex-col">
+                      <div className="font-medium text-muted-foreground text-xs">Reply to</div>
+                      <div className="text-xs">{formatParticipant(emailMessage.replyTo)}</div>
+                    </div>
+                  )}
                   {emailMessage.cc && emailMessage.cc.length > 0 && (
                     <div className="flex flex-col">
                       <div className="font-medium text-muted-foreground text-xs">Cc</div>

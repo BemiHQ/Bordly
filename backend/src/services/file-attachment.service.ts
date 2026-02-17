@@ -49,10 +49,7 @@ export class FileAttachmentService {
 
   static async deleteAllForDraft(emailDraft: EmailDraft) {
     const s3Keys = emailDraft.fileAttachments.map((a) => a.s3Key);
-
-    if (s3Keys.length > 0) {
-      await S3Client.deleteFiles({ keys: s3Keys });
-    }
+    await S3Client.deleteFiles({ keys: s3Keys });
 
     for (const attachment of emailDraft.fileAttachments) {
       orm.em.remove(attachment);

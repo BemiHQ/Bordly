@@ -269,6 +269,7 @@ function BoardComponent() {
     ...trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
     refetchInterval: REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: true,
+    retry: false,
   });
 
   // Toast for added Gmail account

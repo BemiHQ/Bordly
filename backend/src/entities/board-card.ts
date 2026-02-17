@@ -20,7 +20,7 @@ import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardCardState as State } from '@/utils/shared';
 import type { BoardCardReadPosition } from './board-card-read-position';
 
-const MAX_SNIPPET_LENGTH = 200;
+const MAX_SNIPPET_LENGTH = 201;
 
 export { State };
 
@@ -46,11 +46,11 @@ export class BoardCard extends BaseEntity {
   @ManyToOne()
   assignedBoardMember?: BoardMember;
 
-  @OneToOne({ mappedBy: (emailDraft: EmailDraft) => emailDraft.boardCard, nullable: true })
+  @OneToOne({ mappedBy: (emailDraft: EmailDraft) => emailDraft.boardCard, nullable: true, orphanRemoval: true })
   emailDraft?: EmailDraft;
-  @OneToMany({ mappedBy: (comment: Comment) => comment.boardCard })
+  @OneToMany({ mappedBy: (comment: Comment) => comment.boardCard, orphanRemoval: true })
   comments = new Collection<Comment>(this);
-  @OneToMany({ mappedBy: (readPosition: BoardCardReadPosition) => readPosition.boardCard })
+  @OneToMany({ mappedBy: (readPosition: BoardCardReadPosition) => readPosition.boardCard, orphanRemoval: true })
   boardCardReadPositions = new Collection<BoardCardReadPosition>(this);
 
   @Property()

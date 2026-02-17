@@ -5,12 +5,15 @@ import { BoardCard } from '@/entities/board-card';
 import { BoardColumn } from '@/entities/board-column';
 import { BoardInvite } from '@/entities/board-invite';
 import { BoardMember } from '@/entities/board-member';
+import { EmailDraft } from '@/entities/email-draft';
 import { EmailMessage } from '@/entities/email-message';
+import { FileAttachment } from '@/entities/file-attachment';
 import { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
 import { GmailApi } from '@/utils/gmail-api';
 import { GoogleApi } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
+import { S3Client } from '@/utils/s3-client';
 
 export class GmailAccountService {
   static tryFindByExternalId<Hint extends string = never>(
@@ -44,18 +47,22 @@ export class GmailAccountService {
     if (gmailAccount.board!.id !== board.id) {
       throw new Error('Gmail account does not belong to the specified board');
     }
-    const boardMember = gmailAccount.loadedUser.boardMembers.find((bm) => bm.board.id === board.id);
-    if (!boardMember) {
-      throw new Error('Board member not found for the specified board');
-    }
 
     const gmailAccountCount = await orm.em.count(GmailAccount, { board });
+
+    const emailDrafts = await orm.em.find(
+      EmailDraft,
+      { boardCard: { gmailAccount } },
+      { populate: ['fileAttachments'] },
+    );
+    const fileAttachmentIds = emailDrafts.flatMap((d) => d.fileAttachments.map((a) => a.id));
+    const s3KeysToDelete = emailDrafts.flatMap((d) => d.fileAttachments.map((a) => a.s3Key));
 
     await orm.em.transactional(async (em) => {
       await em.nativeDelete(GmailAttachment, { gmailAccount: gmailAccount.id });
       await em.nativeDelete(EmailMessage, { gmailAccount: gmailAccount.id });
+      await em.nativeDelete(FileAttachment, { id: { $in: fileAttachmentIds } });
       await em.nativeDelete(BoardCard, { gmailAccount: gmailAccount.id });
-      await em.nativeDelete(BoardMember, { id: boardMember.id });
 
       gmailAccount.deleteFromBoard();
       await orm.em.persist(gmailAccount).flush();
@@ -66,6 +73,8 @@ export class GmailAccountService {
         await em.nativeDelete(BoardInvite, { board: board.id });
         await em.nativeDelete(Board, { id: board.id });
       }
+
+      await S3Client.deleteFiles({ keys: s3KeysToDelete });
     });
   }
 

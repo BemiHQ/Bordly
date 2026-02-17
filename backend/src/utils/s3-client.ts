@@ -28,6 +28,7 @@ export class S3Client {
   }
 
   static async deleteFiles({ keys }: { keys: string[] }) {
+    if (keys.length === 0) return;
     await Promise.all(keys.map((key) => S3Client.deleteFile({ key })));
   }
 

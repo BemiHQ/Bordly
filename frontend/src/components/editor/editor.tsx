@@ -20,7 +20,7 @@ export const editorConfig = ({ initialHtml }: { initialHtml?: string }): Paramet
     StarterKit.configure({
       paragraph: {
         HTMLAttributes: {
-          style: `margin: 0; line-height: 1.5; font-size: ${DEFAULT_FONT_SIZE};`,
+          style: `margin: 0; line-height: 1.5; font-size: ${DEFAULT_FONT_SIZE}; min-height: 1.5em;`,
         },
       },
       bulletList: {

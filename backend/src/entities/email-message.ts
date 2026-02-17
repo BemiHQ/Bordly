@@ -138,6 +138,7 @@ export class EmailMessage extends BaseEntity {
       subject: this.subject,
       snippet: this.snippet,
       to: this.to,
+      replyTo: this.replyTo,
       cc: this.cc,
       bcc: this.bcc,
       externalCreatedAt: this.externalCreatedAt,

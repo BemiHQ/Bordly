@@ -95,7 +95,9 @@ export const ReplyCard = ({
       setTo(
         lastEmailMessage!.from.email === fromEmailAddress.email
           ? participantsToInput(lastEmailMessage.to)
-          : participantToInput(lastEmailMessage.from),
+          : lastEmailMessage.replyTo
+            ? participantToInput(lastEmailMessage.replyTo)
+            : participantToInput(lastEmailMessage.from),
       );
       setCc(participantsToInput(lastEmailMessage.cc));
     }
