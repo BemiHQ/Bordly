@@ -17,7 +17,7 @@ import { ROUTES } from '@/utils/urls';
 export const Route = createFileRoute('/welcome')({
   component: Welcome,
   loader: async ({ context }) => {
-    const currentUser = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
+    const { currentUser } = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
     if (!currentUser) {
       throw redirect({ to: ROUTES.AUTH });
     }
@@ -34,9 +34,9 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
   const [boardName, setBoardName] = useState(`${currentUser.name.split(' ')[0]}'s Board`);
   const createBoardMutation = useMutation(
     trpc.board.createFirstBoard.mutationOptions({
-      onSuccess: async (data) => {
+      onSuccess: async ({ board }) => {
         queryClient.removeQueries({ queryKey: trpc.user.getCurrentUser.queryKey(), exact: true });
-        setBoardId(data.id);
+        setBoardId(board.id);
       },
     }),
   );

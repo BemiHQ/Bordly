@@ -41,6 +41,10 @@ export class User extends BaseEntity {
     this.validate();
   }
 
+  touchLastSessionAt() {
+    this.lastSessionAt = new Date();
+  }
+
   toJson() {
     return {
       id: this.id,

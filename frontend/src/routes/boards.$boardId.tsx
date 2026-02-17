@@ -25,14 +25,11 @@ type BoardColumn = BoardData['boardColumns'][number];
 
 type BoardCardsData = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards'];
 type BoardCard = BoardCardsData['boardCards'][number];
-type EmailMessagesByThreadId = BoardCardsData['emailMessagesByThreadId'];
-type EmailMessage = EmailMessagesByThreadId[number][number];
-type GmailAccount = BoardCardsData['gmailAccounts'][number];
 
 export const Route = createFileRoute('/boards/$boardId')({
   component: Home,
   loader: async ({ context, params }) => {
-    const currentUser = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
+    const { currentUser } = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
     if (!currentUser) {
       throw redirect({ to: ROUTES.AUTH });
     }
@@ -55,7 +52,7 @@ const EmptyState = () => (
         <Spinner />
       </EmptyMedia>
       <EmptyTitle>Importing your emails...</EmptyTitle>
-      <EmptyDescription>Please wait while we set up your board. This may take a few minutes.</EmptyDescription>
+      <EmptyDescription>Please wait while we set up your board. This may take a couple of minutes.</EmptyDescription>
     </EmptyHeader>
   </Empty>
 );
@@ -91,97 +88,54 @@ const BoardNavbar = ({
 
 const BoardColumn = ({
   boardColumn,
-  boardCards,
-  emailMessagesByThreadId,
+  unreadBoardCardCount,
   children,
 }: {
   boardColumn: BoardColumn;
-  boardCards: BoardCard[] | undefined;
-  emailMessagesByThreadId: EmailMessagesByThreadId | undefined;
+  unreadBoardCardCount: number;
   children: React.ReactNode;
 }) => {
-  const unreadThreadCount =
-    boardCards && emailMessagesByThreadId
-      ? boardCards.filter((card) => emailMessagesByThreadId[card.externalThreadId].some((msg) => !msg.read)).length
-      : 0;
-
   return (
     <div className="flex min-w-68 w-68 h-fit max-h-[calc(100vh-116px)] flex-col gap-2 rounded-lg bg-primary-foreground p-2 border border-border scrollbar-thin overflow-y-auto shadow-sm">
       <div className="flex items-center gap-2 px-1">
         <h2 className="text-sm font-semibold">{`${boardColumn.name}`}</h2>
-        {unreadThreadCount > 0 && <div className="pt-[1px] text-xs font-bold text-semi-muted">{unreadThreadCount}</div>}
+        {unreadBoardCardCount > 0 && (
+          <div className="pt-[1px] text-xs font-bold text-semi-muted">{unreadBoardCardCount}</div>
+        )}
       </div>
       <div className="flex flex-col gap-2">{children}</div>
     </div>
   );
 };
 
-const BoardCard = ({
-  boardCard: _boardCard,
-  showUnreadOnly,
-  gmailAccounts,
-  domainIconUrlByName,
-  emailMessages,
-}: {
-  boardCard: BoardCard;
-  showUnreadOnly: boolean;
-  gmailAccounts: GmailAccount[];
-  domainIconUrlByName: Record<string, string>;
-  emailMessages: EmailMessage[];
-}) => {
-  const anyUnread = emailMessages.some((msg) => !msg.read);
-  if (showUnreadOnly && !anyUnread) {
-    return null;
-  }
-
-  const title = emailMessages.find((msg) => msg.subject)?.subject || 'No subject';
-  const snippet = emailMessages[emailMessages.length - 1]?.snippet || 'Empty';
-  const participants = emailMessages
-    .flatMap((msg) =>
-      msg.sent
-        ? [...(msg.to || []), ...(msg.cc || []), ...(msg.bcc || [])]
-        : [msg.from, ...(msg.to || []), ...(msg.cc || [])],
-    )
-    .filter((p) => !gmailAccounts.some((account) => p.email === account.email));
-
-  const lastSentAt = emailMessages.reduce((latest, message) => {
-    const messageDate = new Date(message.externalCreatedAt);
-    return messageDate > latest ? messageDate : latest;
-  }, new Date(0));
+const BoardCard = ({ boardCard }: { boardCard: BoardCard }) => {
+  const unread = !!boardCard.unreadEmailMessageIds;
+  const firstParticipantName = boardCard.participantNames[0];
 
   return (
     <Card className="cursor-pointer p-3 transition-shadow hover:bg-background rounded-lg shadow-xs flex flex-col gap-1.5">
       <div className="flex items-center">
         <Avatar size="xs">
-          <AvatarImage
-            src={domainIconUrlByName[participants[0].email.split('@')[1]]}
-            alt={participants[0].name || participants[0].email}
-          />
-          <AvatarFallback hashForBgColor={participants[0].email}>
-            {(participants[0].name || participants[0].email).charAt(0).toUpperCase()}
+          <AvatarImage src={boardCard.domain.iconUrl} alt={firstParticipantName} />
+          <AvatarFallback hashForBgColor={firstParticipantName}>
+            {firstParticipantName.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div className="ml-2 text-sm flex items-center min-w-0 flex-1">
-          {anyUnread && <div className="bg-blue-500 rounded-full min-w-2 min-h-2 mr-1.5 flex-shrink-0" />}
+          {unread && <div className="bg-blue-500 rounded-full min-w-2 min-h-2 mr-1.5 flex-shrink-0" />}
           <div className="truncate">
-            <span className={anyUnread ? 'font-bold' : 'font-medium'}>
-              {participants[0].name || participants[0].email}
-            </span>
-            {participants.length > 1 && (
-              <span className="text-muted-foreground">
-                ,{' '}
-                {participants
-                  .slice(1)
-                  .map((p) => p.name || p.email)
-                  .join(', ')}
-              </span>
+            <span className={unread ? 'font-bold' : 'font-medium'}>{firstParticipantName}</span>
+            {boardCard.participantNames.length > 1 && (
+              <span className="text-muted-foreground">, {boardCard.participantNames.slice(1).join(', ')}</span>
             )}
           </div>
         </div>
-        <div className="ml-1 text-2xs pt-0.5 text-muted-foreground flex-shrink-0">{formattedTimeAgo(lastSentAt)}</div>
+        <div className="ml-1 text-2xs pt-0.5 text-muted-foreground flex-shrink-0">
+          {formattedTimeAgo(boardCard.lastEventAt)}
+        </div>
       </div>
-      <div className={cn('text-xs truncate', anyUnread && 'font-medium')}>{title}</div>
-      <div className="text-xs text-muted-foreground truncate">{snippet}</div>
+      <div className={cn('text-xs truncate', unread && 'font-medium')}>{boardCard.subject}</div>
+      <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
     </Card>
   );
 };
@@ -195,6 +149,8 @@ function Home() {
   const { data: boardCardsData } = useQuery(
     context.trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
   );
+
+  // Filter
   const [showUnreadOnly, setShowUnreadOnly] = useState(() => {
     const saved = !isSsr() && localStorage.getItem(LOCAL_STORAGE_KEY_SHOW_UNREAD_ONLY);
     return saved ? JSON.parse(saved) : false;
@@ -206,14 +162,14 @@ function Home() {
   }, [showUnreadOnly]);
 
   useEffect(() => {
-    const unreadThreadCount = Object.values(boardCardsData?.emailMessagesByThreadId || {}).filter((messages) =>
-      messages.some((msg) => !msg.read),
+    const unreadBoardCardCount = Object.values(boardCardsData?.boardCards || []).filter(
+      (card) => !!card.unreadEmailMessageIds,
     ).length;
 
-    if (unreadThreadCount === 0) {
+    if (unreadBoardCardCount === 0) {
       document.title = `${board.name} – Bordly`;
     } else {
-      document.title = `(${unreadThreadCount}) ${board.name} – Bordly`;
+      document.title = `(${unreadBoardCardCount}) ${board.name} – Bordly`;
     }
   }, [board.name, boardCardsData]);
 
@@ -227,31 +183,18 @@ function Home() {
           {boardColumns.map((boardColumn) => {
             const boardCards = boardCardsData?.boardCards
               .filter((card) => card.boardColumnId === boardColumn.id)
-              .sort((a, b) => {
-                const aMessages = boardCardsData.emailMessagesByThreadId[a.externalThreadId];
-                const bMessages = boardCardsData.emailMessagesByThreadId[b.externalThreadId];
-                const aLastEmail = aMessages[aMessages.length - 1];
-                const bLastEmail = bMessages[bMessages.length - 1];
-                return (
-                  new Date(bLastEmail.externalCreatedAt).getTime() - new Date(aLastEmail.externalCreatedAt).getTime()
-                );
-              });
+              .sort((a, b) => b.lastEventAt.getTime() - a.lastEventAt.getTime());
+
+            const unreadBoardCards = boardCards?.filter((card) => card.unreadEmailMessageIds);
+
             return (
               <BoardColumn
                 key={boardColumn.id}
                 boardColumn={boardColumn}
-                boardCards={boardCards}
-                emailMessagesByThreadId={boardCardsData?.emailMessagesByThreadId}
+                unreadBoardCardCount={unreadBoardCards?.length || 0}
               >
-                {boardCards?.map((boardCard) => (
-                  <BoardCard
-                    key={boardCard.id}
-                    boardCard={boardCard}
-                    showUnreadOnly={showUnreadOnly}
-                    gmailAccounts={boardCardsData!.gmailAccounts}
-                    domainIconUrlByName={boardCardsData!.domainIconUrlByName}
-                    emailMessages={boardCardsData!.emailMessagesByThreadId[boardCard.externalThreadId]}
-                  />
+                {(showUnreadOnly ? unreadBoardCards : boardCards)?.map((boardCard) => (
+                  <BoardCard key={boardCard.id} boardCard={boardCard} />
                 ))}
               </BoardColumn>
             );

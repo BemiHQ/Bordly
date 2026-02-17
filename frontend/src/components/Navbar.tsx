@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
-type CurrentUser = NonNullable<inferRouterOutputs<TRPCRouter>['user']['getCurrentUser']>;
+type CurrentUser = NonNullable<inferRouterOutputs<TRPCRouter>['user']['getCurrentUser']['currentUser']>;
 
 export const Navbar = ({ currentUser }: { currentUser: CurrentUser }) => {
   return (

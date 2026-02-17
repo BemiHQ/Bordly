@@ -4,7 +4,7 @@ import { ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/')({
   beforeLoad: async ({ context }) => {
-    const currentUser = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
+    const { currentUser } = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
     if (!currentUser) {
       throw redirect({ to: ROUTES.AUTH });
     }

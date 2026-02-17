@@ -1,5 +1,4 @@
 import type { Populate } from '@mikro-orm/postgresql';
-import { State as BoardInviteState } from '@/entities/board-invite';
 import { BoardMember } from '@/entities/board-member';
 import { GmailAccount } from '@/entities/gmail-account';
 import { User } from '@/entities/user';
@@ -41,7 +40,7 @@ export class UserService {
     if (boardInvites && boardInvites.length > 0) {
       for (const boardInvite of boardInvites) {
         const boardMember = new BoardMember({ board: boardInvite.board, user });
-        boardInvite.state = BoardInviteState.ACCEPTED;
+        boardInvite.markAsAccepted();
         orm.em.persist([boardMember, boardInvite]);
       }
     }
@@ -51,7 +50,7 @@ export class UserService {
   }
 
   static async updateLastSessionAt(user: User) {
-    user.lastSessionAt = new Date();
+    user.touchLastSessionAt();
     await orm.em.persist(user).flush();
   }
 }

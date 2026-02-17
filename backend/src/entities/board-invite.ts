@@ -32,6 +32,10 @@ export class BoardInvite extends BaseEntity {
     this.validate();
   }
 
+  markAsAccepted() {
+    this.state = State.ACCEPTED;
+  }
+
   private validate() {
     if (!this.board) throw new Error('Board is required');
     if (!this.invitedBy) throw new Error('InvitedBy is required');

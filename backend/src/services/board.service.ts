@@ -7,9 +7,9 @@ import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { orm } from '@/utils/orm';
 
 export class BoardService {
-  static async findByIdForUser(
+  static async findByIdForUser<Hint extends string = never>(
     boardId: string,
-    { user, populate = [] }: { user: User; populate?: Populate<Board, 'string'> },
+    { user, populate = [] }: { user: User; populate?: Populate<Board, Hint> },
   ) {
     return orm.em.findOneOrFail(Board, { id: boardId, boardMembers: { user } }, { populate });
   }

@@ -45,8 +45,6 @@ export class EmailMessage extends BaseEntity {
   bcc?: Participant[];
 
   @Property()
-  read: boolean;
-  @Property()
   sent: boolean;
   @Property()
   labels: string[];
@@ -67,7 +65,6 @@ export class EmailMessage extends BaseEntity {
     externalCreatedAt,
     from,
     subject,
-    read,
     sent,
     labels,
     snippet,
@@ -85,7 +82,6 @@ export class EmailMessage extends BaseEntity {
     from: Participant;
     subject: string;
     snippet: string;
-    read: boolean;
     sent: boolean;
     labels: string[];
     to?: Participant[];
@@ -102,7 +98,6 @@ export class EmailMessage extends BaseEntity {
     this.externalCreatedAt = externalCreatedAt;
     this.from = from;
     this.subject = subject;
-    this.read = read;
     this.sent = sent;
     this.labels = labels;
     this.snippet = snippet;
@@ -124,7 +119,6 @@ export class EmailMessage extends BaseEntity {
       to: this.to,
       cc: this.cc,
       bcc: this.bcc,
-      read: this.read,
       sent: this.sent,
       externalCreatedAt: this.externalCreatedAt,
     };
@@ -136,8 +130,12 @@ export class EmailMessage extends BaseEntity {
     if (!this.externalThreadId) throw new Error('External Thread ID is required');
     if (!this.externalCreatedAt) throw new Error('External Created At is required');
     if (!this.from) throw new Error('From address is required');
-    if (!this.labels) throw new Error('Labels are required');
     if (!this.subject) throw new Error('Subject is required');
     if (!this.snippet) throw new Error('Snippet is required');
+    if (!this.sent && this.sent !== false) throw new Error('Sent status is required');
+    if (!this.labels) throw new Error('Labels are required');
+    if (this.to && this.to.length === 0) throw new Error('To address list cannot be empty if provided');
+    if (this.cc && this.cc.length === 0) throw new Error('CC address list cannot be empty if provided');
+    if (this.bcc && this.bcc.length === 0) throw new Error('BCC address list cannot be empty if provided');
   }
 }

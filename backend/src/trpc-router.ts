@@ -8,9 +8,7 @@ import type { User } from '@/entities/user';
 import { BoardService } from '@/services/board.service';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { UserService } from '@/services/user.service';
-import { unique } from '@/utils/lists';
-import { DomainService } from './services/domain.service';
-import { EmailMessageService } from './services/email-message.service';
+import { BoardCardService } from './services/board-card.service';
 
 export const createContext = async ({ req }: CreateFastifyContextOptions) => {
   const userId = req.session.get('userId') as string | undefined;
@@ -48,8 +46,8 @@ const publicProcedure = t.procedure.use(loggingMiddleware);
 const ROUTES = {
   user: {
     getCurrentUser: publicProcedure.query(({ ctx }) => {
-      if (!ctx.user) return null;
-      return ctx.user.toJson();
+      if (!ctx.user) return { currentUser: null };
+      return { currentUser: ctx.user.toJson() };
     }),
   } satisfies TRPCRouterRecord,
   board: {
@@ -64,37 +62,17 @@ const ROUTES = {
     createFirstBoard: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input, ctx }) => {
       if (!ctx.user) throw new Error('Not authenticated');
       const board = await BoardService.createFirstBoard({ name: input.name, user: ctx.user });
-      return board.toJson();
+      return { board: board.toJson() };
     }),
   } satisfies TRPCRouterRecord,
   boardCard: {
     getBoardCards: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       if (!ctx.user) throw new Error('Not authenticated');
-      const board = await BoardService.findByIdForUser(input.boardId, {
+      const boardCards = await BoardCardService.findCardsByBoardId(input.boardId, {
         user: ctx.user,
-        populate: ['boardColumns', 'boardCards', 'gmailAccounts'],
+        populate: ['domain'],
       });
-      const { userColumns } = board;
-      const boardCards = board.boardCards
-        .getItems()
-        .filter((card) => userColumns.some((col) => col.id === card.boardColumn.id));
-
-      const { emailMessagesByThreadId, domainNames } = await EmailMessageService.findMessagesByThreadId({
-        gmailAccounts: board.gmailAccounts.getItems(),
-        threadIds: unique(boardCards.map((card) => card.externalThreadId)),
-      });
-      const domainIconUrlByName = await DomainService.findDomainIconUrlByName(domainNames);
-      return {
-        boardCards: boardCards.map((card) => card.toJson()),
-        gmailAccounts: board.gmailAccounts.getItems().map((acc) => acc.toJson()),
-        domainIconUrlByName,
-        emailMessagesByThreadId: Object.fromEntries(
-          Object.entries(emailMessagesByThreadId).map(([threadId, emailMessages]) => [
-            threadId,
-            emailMessages.map((msg) => msg.toJson()),
-          ]),
-        ),
-      };
+      return { boardCards: boardCards.map((card) => card.toJson()) };
     }),
   } satisfies TRPCRouterRecord,
   boardInvite: {
@@ -107,7 +85,7 @@ const ROUTES = {
           emails: input.emails,
           invitedBy: ctx.user,
         });
-        return invites.map((invite) => invite.toJson());
+        return { invites: invites.map((invite) => invite.toJson()) };
       }),
   } satisfies TRPCRouterRecord,
 };

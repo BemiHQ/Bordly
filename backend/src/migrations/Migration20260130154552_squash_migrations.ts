@@ -1,6 +1,6 @@
 import { Migration } from '@mikro-orm/migrations';
 
-export class Migration20260129145211_squash_migrations extends Migration {
+export class Migration20260130154552_squash_migrations extends Migration {
   override async up(): Promise<void> {
     this.addSql(`create extension if not exists "uuid-ossp";`);
     this.addSql(
@@ -18,8 +18,14 @@ export class Migration20260129145211_squash_migrations extends Migration {
     );
 
     this.addSql(
-      `create table "board_cards" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid not null, "board_column_id" uuid not null, "external_thread_id" varchar(255) not null, "pinned_position" int null, constraint "board_cards_pkey" primary key ("id"));`,
+      `create table "domains" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "name" varchar(255) not null, "icon_url" varchar(255) null, constraint "domains_pkey" primary key ("id"));`,
     );
+    this.addSql(`alter table "domains" add constraint "domains_name_unique" unique ("name");`);
+
+    this.addSql(
+      `create table "board_cards" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid not null, "board_column_id" uuid not null, "domain_id" uuid not null, "external_thread_id" varchar(255) not null, "state" text check ("state" in ('INBOX', 'ARCHIVED', 'SPAM', 'TRASHED')) not null, "subject" varchar(255) not null, "snippet" varchar(255) not null, "participant_names" text[] not null, "last_event_at" timestamptz not null, "unread_email_message_ids" jsonb null, "pinned_position" int null, "moved_to_trash_at" timestamptz null, constraint "board_cards_pkey" primary key ("id"));`,
+    );
+    this.addSql(`create index "board_cards_last_event_at_index" on "board_cards" ("last_event_at");`);
     this.addSql(`create index "board_cards_board_id_index" on "board_cards" ("board_id");`);
     this.addSql(
       `alter table "board_cards" add constraint "board_cards_board_column_id_pinned_position_unique" unique ("board_column_id", "pinned_position");`,
@@ -37,7 +43,7 @@ export class Migration20260129145211_squash_migrations extends Migration {
     this.addSql(`alter table "gmail_accounts" add constraint "gmail_accounts_google_id_unique" unique ("google_id");`);
 
     this.addSql(
-      `create table "email_messages" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "gmail_account_id" uuid not null, "external_id" varchar(255) not null, "external_thread_id" varchar(255) not null, "external_created_at" timestamptz not null, "from" jsonb not null, "to" jsonb null, "reply_to" jsonb null, "cc" jsonb null, "bcc" jsonb null, "read" boolean not null, "sent" boolean not null, "labels" text[] not null, "subject" varchar(255) not null, "snippet" varchar(255) not null, "body_text" text null, "body_html" text null, constraint "email_messages_pkey" primary key ("id"));`,
+      `create table "email_messages" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "gmail_account_id" uuid not null, "external_id" varchar(255) not null, "external_thread_id" varchar(255) not null, "external_created_at" timestamptz not null, "from" jsonb not null, "to" jsonb null, "reply_to" jsonb null, "cc" jsonb null, "bcc" jsonb null, "sent" boolean not null, "labels" text[] not null, "subject" varchar(255) not null, "snippet" varchar(255) not null, "body_text" text null, "body_html" text null, constraint "email_messages_pkey" primary key ("id"));`,
     );
     this.addSql(`create index "email_messages_external_created_at_index" on "email_messages" ("external_created_at");`);
     this.addSql(`create index "email_messages_external_thread_id_index" on "email_messages" ("external_thread_id");`);
@@ -78,6 +84,9 @@ export class Migration20260129145211_squash_migrations extends Migration {
     );
     this.addSql(
       `alter table "board_cards" add constraint "board_cards_board_column_id_foreign" foreign key ("board_column_id") references "board_columns" ("id") on update cascade;`,
+    );
+    this.addSql(
+      `alter table "board_cards" add constraint "board_cards_domain_id_foreign" foreign key ("domain_id") references "domains" ("id") on update cascade;`,
     );
 
     this.addSql(
@@ -126,6 +135,8 @@ export class Migration20260129145211_squash_migrations extends Migration {
 
     this.addSql(`alter table "board_cards" drop constraint "board_cards_board_column_id_foreign";`);
 
+    this.addSql(`alter table "board_cards" drop constraint "board_cards_domain_id_foreign";`);
+
     this.addSql(`alter table "gmail_accounts" drop constraint "gmail_accounts_user_id_foreign";`);
 
     this.addSql(`alter table "board_members" drop constraint "board_members_user_id_foreign";`);
@@ -141,6 +152,8 @@ export class Migration20260129145211_squash_migrations extends Migration {
     this.addSql(`drop table if exists "boards" cascade;`);
 
     this.addSql(`drop table if exists "board_columns" cascade;`);
+
+    this.addSql(`drop table if exists "domains" cascade;`);
 
     this.addSql(`drop table if exists "board_cards" cascade;`);
 
