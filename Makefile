@@ -36,6 +36,9 @@ up-services:
 down-services:
 	devbox services stop
 
+test:
+	devbox run --env-file frontend/.env "cd frontend && pnpm run test"
+
 ps:
 	devbox services ls
 

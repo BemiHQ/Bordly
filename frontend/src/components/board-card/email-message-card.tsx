@@ -9,7 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useEmailIframe } from '@/hooks/use-email-iframe';
-import { sanitizeBodyHtml } from '@/utils/email';
+import {
+  parseTrailingBackquotes,
+  parseTrailingBlockquotes,
+  removeTrailingEmpty,
+  sanitizeBodyHtml,
+} from '@/utils/email';
 import { pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
 import { API_ENDPOINTS } from '@/utils/urls';
@@ -17,116 +22,6 @@ import { API_ENDPOINTS } from '@/utils/urls';
 type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
 type EmailMessage = EmailMessagesData['emailMessagesAsc'][number];
 type GmailAttachment = EmailMessage['gmailAttachments'][number];
-
-// Remove trailing empty elements like <div><br></div>. This includes nested empty elements within containers
-const removeTrailingEmpty = (container: Element | Document) => {
-  const children = Array.from(container.childNodes);
-  for (let i = children.length - 1; i >= 0; i--) {
-    const node = children[i];
-    if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
-      node.remove();
-      continue;
-    }
-
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const elem = node as Element;
-      if (!elem.textContent?.trim()) {
-        node.remove();
-        continue;
-      }
-      removeTrailingEmpty(elem); // recursively clean nested containers
-    }
-
-    if (node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim())) {
-      break; // stop when we hit actual content
-    }
-  }
-};
-
-// Recursively collect all trailing blockquote elements and "On ... wrote:" elements
-const parseTrailingBlockquotes = (container: Element): Element[] => {
-  const children = Array.from(container.childNodes);
-  const trailingElements: Element[] = [];
-  let foundQuoteContent = false;
-
-  for (let i = children.length - 1; i >= 0; i--) {
-    const node = children[i];
-    if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) continue; // Skip empty text nodes
-
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const elem = node as Element;
-
-      // Direct blockquote
-      if (elem.tagName === 'BLOCKQUOTE') {
-        trailingElements.unshift(elem);
-        foundQuoteContent = true;
-        continue;
-      }
-
-      // Check if this is an "On ... wrote:" element
-      const text = elem.textContent?.trim() || '';
-      if (foundQuoteContent && /^On\s+.+\s+wrote:\s*$/i.test(text)) {
-        trailingElements.unshift(elem);
-        continue;
-      }
-
-      // If element contains nested blockquotes, recurse into it
-      if (elem.querySelector('blockquote')) {
-        const nestedQuotes = parseTrailingBlockquotes(elem);
-        if (nestedQuotes.length > 0) {
-          trailingElements.unshift(...nestedQuotes);
-          foundQuoteContent = true;
-          continue;
-        }
-      }
-    }
-
-    // Stop when we hit actual content
-    if (node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim())) {
-      break;
-    }
-  }
-
-  return trailingElements;
-};
-
-// Parse trailing backquoted text (lines starting with >) from plain text emails
-const parseTrailingBackquotes = (text: string): { mainText: string; backquotesText: string } => {
-  const lines = text.split('\n');
-  let splitIndex = lines.length;
-  let foundQuotedLine = false;
-
-  // Scan backwards to find where quoted content starts
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i];
-    const trimmedLine = line.trim();
-    if (!trimmedLine) continue; // Skip empty lines
-
-    // Check if line is quoted (starts with >)
-    if (/^>/.test(trimmedLine)) {
-      foundQuotedLine = true;
-      splitIndex = i;
-      continue;
-    }
-
-    // Check if this is an "On ... wrote:" line
-    if (foundQuotedLine && /^On\s+.+\s+wrote:\s*$/i.test(trimmedLine)) {
-      splitIndex = i;
-      continue;
-    }
-
-    if (foundQuotedLine) break; // Stop when we hit actual content
-  }
-
-  // If we found quoted content, split the text
-  if (splitIndex < lines.length) {
-    const mainText = lines.slice(0, splitIndex).join('\n').trimEnd();
-    const backquotesText = lines.slice(splitIndex).join('\n');
-    return { mainText, backquotesText };
-  }
-
-  return { mainText: text.trimEnd(), backquotesText: '' };
-};
 
 const EmailMessageBody = ({
   emailMessage,
@@ -320,12 +215,12 @@ export const EmailMessageCard = ({
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col">
                     <div className="font-medium text-muted-foreground text-xs">From</div>
-                    <div className="text-sm">{formatParticipant(emailMessage.from)}</div>
+                    <div className="text-xs">{formatParticipant(emailMessage.from)}</div>
                   </div>
                   {emailMessage.to && emailMessage.to.length > 0 && (
                     <div className="flex flex-col">
                       <div className="font-medium text-muted-foreground text-xs">To</div>
-                      <div className="text-sm flex flex-col">
+                      <div className="text-xs flex flex-col">
                         {emailMessage.to.map((p) => (
                           <div key={p.email}>{formatParticipant(p)}</div>
                         ))}
@@ -335,7 +230,7 @@ export const EmailMessageCard = ({
                   {emailMessage.cc && emailMessage.cc.length > 0 && (
                     <div className="flex flex-col">
                       <div className="font-medium text-muted-foreground text-xs">Cc</div>
-                      <div className="text-sm flex flex-col">
+                      <div className="text-xs flex flex-col">
                         {emailMessage.cc.map((p) => (
                           <div key={p.email}>{formatParticipant(p)}</div>
                         ))}
@@ -345,7 +240,7 @@ export const EmailMessageCard = ({
                   {emailMessage.bcc && emailMessage.bcc.length > 0 && (
                     <div className="flex flex-col">
                       <div className="font-medium text-muted-foreground text-xs">Bcc</div>
-                      <div className="text-sm flex flex-col">
+                      <div className="text-xs flex flex-col">
                         {emailMessage.bcc.map((p) => (
                           <div key={p.email}>{formatParticipant(p)}</div>
                         ))}
@@ -354,7 +249,7 @@ export const EmailMessageCard = ({
                   )}
                   <div className="flex flex-col">
                     <div className="font-medium text-muted-foreground text-xs">Date</div>
-                    <div className="text-sm">{shortDateTime(new Date(emailMessage.externalCreatedAt))}</div>
+                    <div className="text-xs">{shortDateTime(new Date(emailMessage.externalCreatedAt))}</div>
                   </div>
                 </div>
               </PopoverContent>
