@@ -1,16 +1,16 @@
 import { Collection, Entity, OneToMany, Property } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
+import type { BoardAccount } from '@/entities/board-account';
 import type { BoardColumn } from '@/entities/board-column';
 import type { BoardInvite } from '@/entities/board-invite';
 import type { BoardMember } from '@/entities/board-member';
-import type { GmailAccount } from '@/entities/gmail-account';
 import { slugify } from '@/utils/strings';
 
 @Entity({ tableName: 'boards' })
 export class Board extends BaseEntity {
-  @OneToMany({ mappedBy: (gmailAccount: GmailAccount) => gmailAccount.board })
-  gmailAccounts = new Collection<GmailAccount>(this);
+  @OneToMany({ mappedBy: (boardAccount: BoardAccount) => boardAccount.board })
+  boardAccounts = new Collection<BoardAccount>(this);
   @OneToMany({ mappedBy: (boardMember: BoardMember) => boardMember.board })
   boardMembers = new Collection<BoardMember>(this);
   @OneToMany({ mappedBy: (boardColumn: BoardColumn) => boardColumn.board })

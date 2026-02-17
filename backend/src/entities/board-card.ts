@@ -46,11 +46,11 @@ export class BoardCard extends BaseEntity {
   @ManyToOne()
   assignedBoardMember?: BoardMember;
 
-  @OneToOne({ mappedBy: (emailDraft: EmailDraft) => emailDraft.boardCard, nullable: true, orphanRemoval: true })
+  @OneToOne({ mappedBy: (emailDraft: EmailDraft) => emailDraft.boardCard, nullable: true })
   emailDraft?: EmailDraft;
-  @OneToMany({ mappedBy: (comment: Comment) => comment.boardCard, orphanRemoval: true })
+  @OneToMany({ mappedBy: (comment: Comment) => comment.boardCard })
   comments = new Collection<Comment>(this);
-  @OneToMany({ mappedBy: (readPosition: BoardCardReadPosition) => readPosition.boardCard, orphanRemoval: true })
+  @OneToMany({ mappedBy: (readPosition: BoardCardReadPosition) => readPosition.boardCard })
   boardCardReadPositions = new Collection<BoardCardReadPosition>(this);
 
   @Property()
@@ -63,7 +63,7 @@ export class BoardCard extends BaseEntity {
   @Property()
   snippet: string;
   @Property({ type: 'jsonb' })
-  externalParticipantsAsc: Participant[];
+  participantsAsc: Participant[];
   @Property()
   participantUserIds?: string[];
   @Property()
@@ -87,7 +87,7 @@ export class BoardCard extends BaseEntity {
     state,
     subject,
     snippet,
-    externalParticipantsAsc,
+    participantsAsc,
     lastEventAt,
     hasAttachments,
     emailMessageCount,
@@ -101,7 +101,7 @@ export class BoardCard extends BaseEntity {
     state: State;
     subject: string;
     snippet: string;
-    externalParticipantsAsc: Participant[];
+    participantsAsc: Participant[];
     lastEventAt: Date;
     hasAttachments: boolean;
     emailMessageCount: number;
@@ -116,7 +116,7 @@ export class BoardCard extends BaseEntity {
     this.state = state;
     this.subject = subject;
     this.snippet = snippet.slice(0, MAX_SNIPPET_LENGTH);
-    this.externalParticipantsAsc = externalParticipantsAsc;
+    this.participantsAsc = participantsAsc.map((p) => ({ ...p, email: p.email.toLowerCase() }));
     this.lastEventAt = lastEventAt;
     this.hasAttachments = hasAttachments;
     this.emailMessageCount = emailMessageCount;
@@ -128,7 +128,7 @@ export class BoardCard extends BaseEntity {
   update({
     state,
     snippet,
-    externalParticipantsAsc,
+    participantsAsc,
     lastEventAt,
     hasAttachments,
     emailMessageCount,
@@ -136,7 +136,7 @@ export class BoardCard extends BaseEntity {
   }: {
     state: State;
     snippet: string;
-    externalParticipantsAsc: Participant[];
+    participantsAsc: Participant[];
     lastEventAt: Date;
     hasAttachments: boolean;
     emailMessageCount: number;
@@ -144,7 +144,7 @@ export class BoardCard extends BaseEntity {
   }) {
     this.state = state;
     this.snippet = snippet.slice(0, MAX_SNIPPET_LENGTH);
-    this.externalParticipantsAsc = externalParticipantsAsc;
+    this.participantsAsc = participantsAsc.map((p) => ({ ...p, email: p.email.toLowerCase() }));
     this.lastEventAt = lastEventAt;
     this.hasAttachments = hasAttachments;
     this.emailMessageCount = emailMessageCount;
@@ -206,7 +206,7 @@ export class BoardCard extends BaseEntity {
       state: this.state,
       subject: this.subject,
       snippet: this.snippet,
-      externalParticipantsAsc: this.externalParticipantsAsc,
+      participantsAsc: this.participantsAsc,
       participantUserIds: this.participantUserIds,
       lastEventAt: this.lastEventAt,
       hasAttachments: this.hasAttachments,
@@ -225,8 +225,8 @@ export class BoardCard extends BaseEntity {
     if (this.snippet === undefined || this.snippet === null) throw new Error('Snippet is required');
     if (this.snippet.length > MAX_SNIPPET_LENGTH)
       throw new Error(`Snippet cannot be longer than ${MAX_SNIPPET_LENGTH} characters`);
-    if (!this.externalParticipantsAsc || this.externalParticipantsAsc.length === 0)
-      throw new Error('External participants is required and cannot be empty');
+    if (!this.participantsAsc || this.participantsAsc.length === 0)
+      throw new Error('Participants is required and cannot be empty');
     if (!this.lastEventAt) throw new Error('LastEventAt is required');
     if (this.hasAttachments === undefined || this.hasAttachments === null)
       throw new Error('HasAttachments is required');

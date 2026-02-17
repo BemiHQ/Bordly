@@ -1,19 +1,24 @@
 import type { Populate } from '@mikro-orm/postgresql';
 import type { Auth } from 'googleapis';
 import { Board } from '@/entities/board';
+import { BoardAccount } from '@/entities/board-account';
 import { BoardCard } from '@/entities/board-card';
+import { BoardCardReadPosition } from '@/entities/board-card-read-position';
 import { BoardColumn } from '@/entities/board-column';
 import { BoardInvite } from '@/entities/board-invite';
 import { BoardMember } from '@/entities/board-member';
+import { Comment } from '@/entities/comment';
 import { EmailDraft } from '@/entities/email-draft';
 import { EmailMessage } from '@/entities/email-message';
 import { FileAttachment } from '@/entities/file-attachment';
 import { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
+import { EmailDraftService } from '@/services/email-draft.service';
 import { GmailApi } from '@/utils/gmail-api';
 import { GoogleApi } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
 import { S3Client } from '@/utils/s3-client';
+import { BoardCardService } from './board-card.service';
 
 export class GmailAccountService {
   static tryFindByExternalId<Hint extends string = never>(
@@ -34,37 +39,48 @@ export class GmailAccountService {
   static findAllAccountsWithBoards<Hint extends string = never>(
     { populate }: { populate?: Populate<GmailAccount, Hint> } = { populate: [] },
   ) {
-    return orm.em.find(GmailAccount, { board: { $ne: null } }, { populate });
+    return orm.em.find(GmailAccount, { boardAccounts: { $ne: null } }, { populate });
   }
 
   static async addToBoard(gmailAccount: GmailAccount, { board }: { board: Board }) {
-    gmailAccount.addToBoard(board);
-    await orm.em.persist(gmailAccount).flush();
+    const boardAccount = new BoardAccount({ board, gmailAccount });
+    await orm.em.persist(boardAccount).flush();
   }
 
   static async deleteFromBoard(board: Board, { gmailAccountId }: { gmailAccountId: string }) {
-    const gmailAccount = await GmailAccountService.findById(gmailAccountId, { populate: ['user.boardMembers'] });
-    if (gmailAccount.board!.id !== board.id) {
+    const gmailAccount = await GmailAccountService.findById(gmailAccountId, {
+      populate: ['boardAccounts', 'user.boardMembers'],
+    });
+    if ([...gmailAccount.boardAccounts].every((ba) => ba.board.id !== board.id)) {
       throw new Error('Gmail account does not belong to the specified board');
     }
 
-    const gmailAccountCount = await orm.em.count(GmailAccount, { board });
+    const gmailAccountCount = await orm.em.count(GmailAccount, { boardAccounts: { board } });
 
-    const emailDrafts = await orm.em.find(
-      EmailDraft,
-      { boardCard: { gmailAccount } },
-      { populate: ['fileAttachments'] },
-    );
-    const fileAttachmentIds = emailDrafts.flatMap((d) => d.fileAttachments.map((a) => a.id));
+    const emailDrafts = await EmailDraftService.findDraftsByBoardAndGmailAccount({
+      board,
+      gmailAccount,
+      populate: ['fileAttachments'],
+    });
     const s3KeysToDelete = emailDrafts.flatMap((d) => d.fileAttachments.map((a) => a.s3Key));
+    const boardCards = await BoardCardService.findByBoardAndGmailAccount({ board, gmailAccount });
 
     await orm.em.transactional(async (em) => {
-      await em.nativeDelete(GmailAttachment, { gmailAccount: gmailAccount.id });
-      await em.nativeDelete(EmailMessage, { gmailAccount: gmailAccount.id });
-      await em.nativeDelete(FileAttachment, { id: { $in: fileAttachmentIds } });
-      await em.nativeDelete(BoardCard, { gmailAccount: gmailAccount.id });
+      const emailMessagesCondition = { externalThreadId: { $in: boardCards.map((card) => card.externalThreadId) } };
+      await em.nativeDelete(GmailAttachment, { emailMessage: emailMessagesCondition });
+      await em.nativeDelete(EmailMessage, emailMessagesCondition);
 
-      gmailAccount.deleteFromBoard();
+      const emailDraftsCondition = { id: { $in: emailDrafts.map((d) => d.id) } };
+      await em.nativeDelete(FileAttachment, { emailDraft: emailDraftsCondition });
+      await em.nativeDelete(EmailDraft, emailDraftsCondition);
+
+      const boardCardsCondition = { id: { $in: boardCards.map((c) => c.id) } };
+      await em.nativeDelete(Comment, { boardCard: boardCardsCondition });
+      await em.nativeDelete(BoardCardReadPosition, { boardCard: boardCardsCondition });
+      await em.nativeDelete(BoardCard, boardCardsCondition);
+
+      await em.nativeDelete(BoardAccount, { gmailAccount: gmailAccount.id, board });
+
       await orm.em.persist(gmailAccount).flush();
 
       if (gmailAccountCount === 1) {

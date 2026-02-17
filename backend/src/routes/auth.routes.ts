@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-
 import { BoardService } from '@/services/board.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
+import { SenderEmailAddressService } from '@/services/sender-email-address.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
@@ -39,16 +39,26 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       oauth2Client.setCredentials(tokens);
       const userInfo = await GoogleApi.newOauth2(oauth2Client).userinfo.get();
 
-      let gmailAccount = await GmailAccountService.tryFindByExternalId(userInfo.data.id, { populate: ['user'] });
+      let gmailAccount = await GmailAccountService.tryFindByExternalId(userInfo.data.id, {
+        populate: ['user', 'senderEmailAddresses'],
+      });
       let user = gmailAccount?.loadedUser;
       if (user) {
-        await GmailAccountService.setTokens(gmailAccount!, {
+        gmailAccount = gmailAccount!;
+        await GmailAccountService.setTokens(gmailAccount, {
           accessToken: tokens.access_token as string,
           refreshToken: tokens.refresh_token as string,
           accessTokenExpiresAt: new Date(tokens.expiry_date as number),
         });
+        if (gmailAccount.senderEmailAddresses.length === 0) {
+          try {
+            await SenderEmailAddressService.syncEmailAddressesForGmailAccount(gmailAccount);
+          } catch (error) {
+            reportError(error, { email: userInfo.data.email! });
+          }
+        }
       } else {
-        const userWithGmailAccount = await UserService.createWithGmailAccount({
+        user = await UserService.createWithGmailAccount({
           email: userInfo.data.email as string,
           fullName: userInfo.data.name as string,
           firstName: userInfo.data.given_name as string,
@@ -58,8 +68,9 @@ export const authRoutes = async (fastify: FastifyInstance) => {
           refreshToken: tokens.refresh_token as string,
           accessTokenExpiresAt: new Date(tokens.expiry_date as number),
         });
-        gmailAccount = userWithGmailAccount.gmailAccount;
-        user = userWithGmailAccount.user;
+        gmailAccount = await GmailAccountService.tryFindByExternalId(userInfo.data.id, {
+          populate: ['user', 'senderEmailAddresses'],
+        });
       }
 
       const sessionUserId = request.session.get('userId');

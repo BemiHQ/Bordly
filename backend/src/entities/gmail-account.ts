@@ -1,15 +1,15 @@
 import { Collection, Entity, Index, ManyToOne, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
+import type { BoardAccount } from '@/entities/board-account';
 import type { BoardCard } from '@/entities/board-card';
-import type { EmailAddress } from '@/entities/email-address';
 import type { EmailMessage } from '@/entities/email-message';
 import type { GmailAttachment } from '@/entities/gmail-attachment';
+import type { SenderEmailAddress } from '@/entities/sender-email-address';
 import type { User } from '@/entities/user';
 import { Encryption } from '@/utils/encryption';
 
 export interface GmailAccount {
-  loadedBoard?: Board;
   loadedUser: User;
 }
 
@@ -19,18 +19,20 @@ export interface GmailAccount {
 @Index({ properties: ['user'] })
 export class GmailAccount extends BaseEntity {
   @ManyToOne()
-  board?: Board;
+  board?: Board; // TODO: delete with migration
   @OneToOne()
   user: User;
 
+  @OneToMany({ mappedBy: (boardAccount: BoardAccount) => boardAccount.gmailAccount })
+  boardAccounts = new Collection<BoardAccount>(this);
   @OneToMany({ mappedBy: (boardCard: BoardCard) => boardCard.gmailAccount })
   boardCards = new Collection<BoardCard>(this);
   @OneToMany({ mappedBy: (emailMessage: EmailMessage) => emailMessage.gmailAccount })
   emailMessages = new Collection<EmailMessage>(this);
   @OneToMany({ mappedBy: (attachment: GmailAttachment) => attachment.gmailAccount })
   gmailAttachments = new Collection<GmailAttachment>(this);
-  @OneToMany({ mappedBy: (emailAddress: EmailAddress) => emailAddress.gmailAccount })
-  emailAddresses = new Collection<EmailAddress>(this);
+  @OneToMany({ mappedBy: (emailAddress: SenderEmailAddress) => emailAddress.gmailAccount })
+  senderEmailAddresses = new Collection<SenderEmailAddress>(this);
 
   @Property()
   name: string;
@@ -65,7 +67,7 @@ export class GmailAccount extends BaseEntity {
     accessTokenExpiresAt: Date;
   }) {
     super();
-    this.email = email;
+    this.email = email.toLowerCase();
     this.name = name;
     this.user = user;
     this.externalId = externalId;
@@ -84,13 +86,6 @@ export class GmailAccount extends BaseEntity {
 
   isAccessTokenExpired(): boolean {
     return this.accessTokenExpiresAt <= new Date();
-  }
-
-  addToBoard(board: Board) {
-    this.board = board;
-  }
-  deleteFromBoard() {
-    this.board = undefined;
   }
 
   setTokens({

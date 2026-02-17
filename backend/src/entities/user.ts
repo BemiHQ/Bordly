@@ -25,7 +25,7 @@ export class User extends BaseEntity {
   @Property()
   fullName: string;
   @Property()
-  firstName?: string; // TODO: make it required after backfilling
+  firstName: string;
   @Property({ columnType: 'text' })
   photoUrl: string;
   @Property()
@@ -43,7 +43,7 @@ export class User extends BaseEntity {
     photoUrl: string;
   }) {
     super();
-    this.email = email;
+    this.email = email.toLowerCase();
     this.fullName = fullName;
     this.firstName = firstName;
     this.photoUrl = photoUrl;

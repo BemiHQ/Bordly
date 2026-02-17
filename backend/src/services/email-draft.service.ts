@@ -1,5 +1,8 @@
+import type { Populate } from '@mikro-orm/postgresql';
+import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
 import { EmailDraft, type Participant } from '@/entities/email-draft';
+import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { BoardCardService } from '@/services/board-card.service';
 import { DomainService } from '@/services/domain.service';
@@ -11,6 +14,18 @@ import { orm } from '@/utils/orm';
 import { S3Client } from '@/utils/s3-client';
 
 export class EmailDraftService {
+  static async findDraftsByBoardAndGmailAccount<Hint extends string = never>({
+    board,
+    gmailAccount,
+    populate,
+  }: {
+    board: Board;
+    gmailAccount: GmailAccount;
+    populate?: Populate<EmailDraft, Hint>;
+  }) {
+    return orm.em.find(EmailDraft, { boardCard: { gmailAccount, boardColumn: { board } } }, { populate });
+  }
+
   static async upsert(
     boardCard: BoardCard,
     {
@@ -160,7 +175,6 @@ export class EmailDraftService {
 
     const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({
       boardCard,
-      gmailAccount,
       emailMessagesDesc: [emailMessage, ...emailMessagesDesc],
     });
     orm.em.persist(rebuiltBoardCard);

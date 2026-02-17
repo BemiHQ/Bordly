@@ -6,8 +6,8 @@ import { BOARD_COLUMN_ROUTES } from '@/trpc-routes/board-column.routes';
 import { BOARD_INVITE_ROUTES } from '@/trpc-routes/board-invite.routes';
 import { BOARD_MEMBER_ROUTES } from '@/trpc-routes/board-member.routes';
 import { COMMENT_ROUTES } from '@/trpc-routes/comment.routes';
-import { EMAIL_ADDRESS_ROUTES } from '@/trpc-routes/email-address.routes';
 import { EMAIL_DRAFT_ROUTES } from '@/trpc-routes/email-draft.routes';
+import { SENDER_EMAIL_ADDRESS_ROUTES } from '@/trpc-routes/sender-email-address.routes';
 import { USER_ROUTES } from '@/trpc-routes/user.routes';
 
 const TRPC_ROUTES = {
@@ -18,7 +18,7 @@ const TRPC_ROUTES = {
   ...BOARD_INVITE_ROUTES,
   ...BOARD_MEMBER_ROUTES,
   ...COMMENT_ROUTES,
-  ...EMAIL_ADDRESS_ROUTES,
+  ...SENDER_EMAIL_ADDRESS_ROUTES,
   ...EMAIL_DRAFT_ROUTES,
 };
 

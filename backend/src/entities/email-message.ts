@@ -24,7 +24,7 @@ export class EmailMessage extends BaseEntity {
   @ManyToOne()
   domain: Domain;
 
-  @OneToMany({ mappedBy: (attachment: GmailAttachment) => attachment.emailMessage, orphanRemoval: true })
+  @OneToMany({ mappedBy: (attachment: GmailAttachment) => attachment.emailMessage })
   gmailAttachments = new Collection<GmailAttachment>(this);
 
   @Property()
@@ -111,15 +111,15 @@ export class EmailMessage extends BaseEntity {
     this.externalCreatedAt = externalCreatedAt;
     this.messageId = messageId;
     this.references = references;
-    this.from = from;
+    this.from = { ...from, email: from.email.toLowerCase() };
     this.subject = subject;
     this.sent = sent;
     this.labels = labels;
     this.snippet = snippet;
-    this.to = to;
-    this.replyTo = replyTo;
-    this.cc = cc;
-    this.bcc = bcc;
+    this.to = to?.map((participant) => ({ ...participant, email: participant.email.toLowerCase() }));
+    this.replyTo = replyTo ? { ...replyTo, email: replyTo.email.toLowerCase() } : undefined;
+    this.cc = cc?.map((participant) => ({ ...participant, email: participant.email.toLowerCase() }));
+    this.bcc = bcc?.map((participant) => ({ ...participant, email: participant.email.toLowerCase() }));
     this.bodyText = bodyText;
     this.bodyHtml = bodyHtml;
     this.validate();

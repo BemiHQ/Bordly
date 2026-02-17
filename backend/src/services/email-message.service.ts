@@ -19,6 +19,7 @@ import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
+import { BoardAccountService } from './board-account.service';
 
 const CREATE_NEW_EMAIL_MESSAGES_READ_DB_INTERVAL_MS = 60 * 1_000; // 60 seconds
 const CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS = 5 * 1_000; // 5 seconds
@@ -55,9 +56,9 @@ export class EmailMessageService {
     while (true) {
       const gmailAccounts = (
         await GmailAccountService.findAllAccountsWithBoards({
-          populate: ['board.boardColumns', 'board.boardMembers', 'emailAddresses'],
+          populate: ['boardAccounts.board.boardColumns', 'boardAccounts.board.boardMembers'],
         })
-      ).filter((acc) => acc.loadedBoard?.initialized);
+      ).filter((acc) => [...acc.boardAccounts].some((ba) => ba.loadedBoard.initialized));
 
       const gmailAccountIds = new Set(gmailAccounts.map((acc) => acc.id));
 
@@ -96,18 +97,16 @@ export class EmailMessageService {
   }
 
   // Creates: EmailMessage, Attachment, *BoardColumn*, Domain, BoardCard
-  static async createInitialBoardEmailMessages(gmailAccountId: string) {
-    const gmailAccount = await GmailAccountService.findById(gmailAccountId, {
-      populate: ['board.boardMembers', 'emailAddresses'],
+  static async createInitialBoardEmailMessages(boardAccountId: string) {
+    const boardAccount = await BoardAccountService.findById(boardAccountId, {
+      populate: ['board.boardMembers', 'gmailAccount'],
     });
-    if (!gmailAccount.board) throw new Error('Gmail account does not have an associated board');
+    const { board, gmailAccount } = boardAccount;
 
     const gmail = await GmailAccountService.initGmail(gmailAccount);
     console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
     const messages = await GmailApi.listMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
     if (messages.length === 0) return;
-
-    const gmailAccountEmails = new Set(gmailAccount.emailAddresses.map((e) => e.email));
 
     // Collect EmailMessages and Attachments
     let lastExternalHistoryId: string | undefined;
@@ -122,10 +121,6 @@ export class EmailMessageService {
       const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
       (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
       domainNames.add(emailMessage.loadedDomain.name);
-      // We also want to read domain names for board cards (they use external participants)
-      domainNames.add(
-        BoardCardService.externalParticipants({ emailMessage, gmailAccountEmails })[0]!.email.split('@')[1]!,
-      );
 
       if (!lastExternalHistoryId && messageData.historyId) {
         lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message
@@ -173,7 +168,7 @@ export class EmailMessageService {
       if (!boardColumnsByCategory[category]) {
         const position = topCategories.indexOf(category);
         const boardColumn = new BoardColumn({
-          board: gmailAccount.board,
+          board,
           name: category,
           description: `Emails categorized as '${category}'`,
           position,
@@ -194,7 +189,6 @@ export class EmailMessageService {
           boardColumn: boardColumnsByCategory[category]!,
           emailMessagesDesc: emailMessagesDescByThreadId[threadId]!,
         });
-        boardCard.domain = await persistDomainOnce(boardCard.domain);
         orm.em.persist(boardCard);
       }
     }
@@ -336,7 +330,6 @@ export class EmailMessageService {
 
   // Creates: EmailMessage, Attachment, Domain, BoardCard
   private static async syncEmailMessagesForGmailAccount(gmailAccount: GmailAccount) {
-    const gmailAccountEmails = new Set(gmailAccount.emailAddresses.map((e) => e.email));
     const gmail = await GmailAccountService.initGmail(gmailAccount);
 
     // Fetch changes via Gmail API
@@ -357,48 +350,61 @@ export class EmailMessageService {
 
     // Pull all necessary data at once:
     // - Affected Email Messages
-    const affectedEmailMessageIds = unique([
-      ...externalEmailMessageIdsToAdd,
-      ...externalEmailMessageIdsToDelete,
-      ...labelChanges.map((lc) => lc.externalMessageId),
-    ]);
-    const affectedEmailMessages = await orm.em.find(
-      EmailMessage,
-      { gmailAccount, externalId: { $in: affectedEmailMessageIds } },
-      { populate: ['gmailAttachments', 'domain'] },
-    );
-    const affectedEmailMessageByExternalId = mapBy(affectedEmailMessages, (msg) => msg.externalId) as Record<
-      string,
-      EmailMessage
-    >;
-    // - All email messages in affected threads
-    const externalThreadIds = unique(affectedEmailMessages.map((msg) => msg.externalThreadId));
-    const emailMessagesDescByThreadId = groupBy(
-      await orm.em.find(
+    const affectedEmailMessages = [
+      ...(await orm.em.find(
         EmailMessage,
-        { gmailAccount, externalThreadId: { $in: externalThreadIds } },
-        { orderBy: { externalCreatedAt: 'DESC' }, populate: ['gmailAttachments'] },
-      ),
+        {
+          gmailAccount,
+          externalId: {
+            $in: unique([
+              ...externalEmailMessageIdsToAdd,
+              ...externalEmailMessageIdsToDelete,
+              ...labelChanges.map((lc) => lc.externalMessageId),
+            ]),
+          },
+        },
+        { populate: ['gmailAttachments', 'domain'] },
+      )),
+    ] as EmailMessage[];
+    const affectedEmailMessageByExternalId = mapBy(affectedEmailMessages, (msg) => msg.externalId);
+    // - All email messages in affected threads
+    const affectedExternalThreadIds = unique(affectedEmailMessages.map((msg) => msg.externalThreadId));
+    const emailMessagesDescByThreadId = groupBy(
+      [
+        ...(await orm.em.find(
+          EmailMessage,
+          { gmailAccount, externalThreadId: { $in: affectedExternalThreadIds } },
+          { orderBy: { externalCreatedAt: 'DESC' }, populate: ['gmailAttachments'] },
+        )),
+      ] as EmailMessage[],
       (msg) => msg.externalThreadId,
-    ) as Record<string, EmailMessage[]>;
+    );
     // - Board cards
-    const boardCardByThreadId: { [threadId: string]: BoardCard } =
-      await BoardCardService.findAndBuildBoardCardByThreadId({
-        gmailAccount,
-        externalThreadIds,
-        populate: ['domain', 'boardCardReadPositions'],
-      });
+    const boardCardByThreadId: { [threadId: string]: BoardCard } = mapBy(
+      [
+        ...(await BoardCardService.findCardsByExternalThreadIds({
+          gmailAccount,
+          externalThreadIds: affectedExternalThreadIds,
+          populate: ['domain', 'boardCardReadPositions', 'boardColumn.board.boardMembers'],
+        })),
+      ],
+      (boardCard) => boardCard.externalThreadId,
+    );
     // - Board columns
-    const boardColumnsAsc = [...gmailAccount.loadedBoard!.boardColumns].sort((a, b) => a.position - b.position);
+    const boardColumnsAscByBoardId: Record<string, BoardColumn[]> = {};
+    for (const boardAccount of gmailAccount.boardAccounts) {
+      const boardColumnsAsc = [...boardAccount.loadedBoard.boardColumns].sort((a, b) => a.position - b.position);
+      boardColumnsAscByBoardId[boardAccount.board.id] = boardColumnsAsc;
+    }
 
-    // Handle add: collect EmailMessages & Attachments
+    // Collect EmailMessages & Attachments
     console.log(`[GMAIL] Processing additions for ${gmailAccount.email}...`);
     const domainNames = new Set<string>();
     const alreadDeletedExternalMessageIds = new Set();
     const draftExternalMessageIds = new Set<string>();
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
-      const emailMessageToCreate = affectedEmailMessageByExternalId[externalMessageId];
-      if (emailMessageToCreate) continue; // Already exists
+      const emailMessageAlreadyExists = !!affectedEmailMessageByExternalId[externalMessageId];
+      if (emailMessageAlreadyExists) continue;
 
       try {
         console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${externalMessageId}...`);
@@ -409,17 +415,17 @@ export class EmailMessageService {
         }
 
         const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
-        affectedEmailMessageByExternalId[externalMessageId] = emailMessage;
-
         const threadId = emailMessage.externalThreadId;
-        const emailMessagesDesc = [emailMessage, ...(emailMessagesDescByThreadId[threadId] || [])];
-        emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
+        const boardCard = boardCardByThreadId[threadId];
 
+        if (!boardCard && !EmailMessageService.boardAccountSyncTo({ emailMessage, gmailAccount })) {
+          console.log(`[GMAIL] Skipping message ${externalMessageId} - does not match sync criteria`);
+          continue;
+        }
+
+        affectedEmailMessageByExternalId[externalMessageId] = emailMessage;
+        emailMessagesDescByThreadId[threadId] = [emailMessage, ...(emailMessagesDescByThreadId[threadId] || [])];
         domainNames.add(emailMessage.loadedDomain.name);
-        // We also want to read domain names for board cards (they don't use the "From" field for sent emails)
-        domainNames.add(
-          BoardCardService.externalParticipants({ emailMessage, gmailAccountEmails })[0]!.email.split('@')[1]!,
-        );
 
         if (!lastExternalHistoryId && messageData.historyId) {
           lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message if not set from history
@@ -452,6 +458,7 @@ export class EmailMessageService {
 
       const emailMessage = affectedEmailMessageByExternalId[externalMessageId]!;
       const threadId = emailMessage.externalThreadId;
+      const boardCard = boardCardByThreadId[threadId];
       const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;
 
       // Update or create Domains, create EmailMessages
@@ -460,16 +467,13 @@ export class EmailMessageService {
         orm.em.persist(emailMessage);
       }
 
-      const boardCard = boardCardByThreadId[threadId];
       if (boardCard) {
-        const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({
-          boardCard,
-          gmailAccount,
-          emailMessagesDesc,
-        });
+        const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc });
         orm.em.persist(rebuiltBoardCard);
         boardCardByThreadId[threadId] = rebuiltBoardCard;
       } else {
+        const boardAccount = EmailMessageService.boardAccountSyncTo({ emailMessage, gmailAccount })!;
+        const boardColumnsAsc = boardColumnsAscByBoardId[boardAccount.board.id]!;
         const category = await EmailMessageService.categorizeEmailThread({
           categories: boardColumnsAsc.map((col) => col.name),
           emailMessages: emailMessagesDesc,
@@ -479,7 +483,6 @@ export class EmailMessageService {
           boardColumn: boardColumnsAsc.find((col) => col.name === category) || boardColumnsAsc[0]!,
           emailMessagesDesc,
         });
-        boardCard.domain = await persistDomainOnce(boardCard.domain);
         orm.em.persist(boardCard);
         boardCardByThreadId[threadId] = boardCard;
       }
@@ -506,7 +509,7 @@ export class EmailMessageService {
         orm.em.remove(boardCard);
         delete boardCardByThreadId[threadId];
       } else {
-        boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, gmailAccount, emailMessagesDesc });
+        boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc });
         orm.em.persist(boardCard);
         boardCardByThreadId[threadId] = boardCard;
       }
@@ -534,11 +537,7 @@ export class EmailMessageService {
       emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
 
       let boardCard = boardCardByThreadId[threadId]!;
-      boardCard = BoardCardService.rebuildFromEmailMessages({
-        boardCard,
-        gmailAccount,
-        emailMessagesDesc,
-      });
+      boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc });
       orm.em.persist(boardCard);
       boardCardByThreadId[threadId] = boardCard;
     }
@@ -549,6 +548,25 @@ export class EmailMessageService {
     }
 
     await orm.em.flush();
+  }
+
+  private static boardAccountSyncTo({
+    emailMessage,
+    gmailAccount,
+  }: {
+    emailMessage: EmailMessage;
+    gmailAccount: GmailAccount;
+  }) {
+    const recipientEmails = [...(emailMessage.to || []), ...(emailMessage.cc || []), ...(emailMessage.bcc || [])].map(
+      (p) => p.email,
+    );
+
+    return gmailAccount.boardAccounts.find((boardAccount) => {
+      if (boardAccount.syncAll) return true;
+
+      const receivingEmails = boardAccount.receivingEmails!;
+      return recipientEmails.some((email) => receivingEmails.includes(email));
+    });
   }
 
   private static async fetchGmailHistoryChanges({

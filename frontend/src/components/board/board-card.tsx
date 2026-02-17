@@ -27,7 +27,7 @@ export const BoardCardContent = ({
   isHovered?: boolean;
   onToggleReadStatus?: (e: React.MouseEvent) => void;
 }) => {
-  const firstParticipant = boardCard.externalParticipantsAsc[0];
+  const firstParticipant = boardCard.participantsAsc[0];
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
   const { iconUrl } = boardCard.domain;
   const draft = boardCard.emailDraft && !boardCard.emailDraft.generated;
@@ -59,10 +59,10 @@ export const BoardCardContent = ({
           {!unread && draft && <div className="bg-semi-muted rounded-full min-w-2 min-h-2 mr-1.5 flex-shrink-0" />}
           <div className="truncate">
             <span className={unread || draft ? 'font-bold' : 'font-medium'}>{firstParticipantName}</span>
-            {boardCard.externalParticipantsAsc.length > 1 && (
+            {boardCard.participantsAsc.length > 1 && (
               <span className="text-muted-foreground">
                 ,{' '}
-                {boardCard.externalParticipantsAsc
+                {boardCard.participantsAsc
                   .slice(1)
                   .map((p) => p.name || p.email)
                   .join(', ')}

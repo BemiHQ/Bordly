@@ -1,12 +1,13 @@
 import { SiGithub, SiX } from '@icons-pack/react-simple-icons';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ERRORS } from 'bordly-backend/utils/shared';
 import { ArrowRight } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { H1 } from '@/components/ui/h1';
 import { Input } from '@/components/ui/input';
@@ -23,8 +24,17 @@ export const Route = createFileRoute('/welcome')({
 const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => {
   const { trpc, queryClient } = Route.useRouteContext();
   const { currentUser } = Route.useLoaderData();
+
+  const { data: emailAddressesData } = useQuery({
+    ...trpc.senderEmailAddress.getUserAddresses.queryOptions(),
+  });
+  const senderEmailAddresses = emailAddressesData?.senderEmailAddresses;
+
   const [boardName, setBoardName] = useState(`${currentUser.firstName}'s Board`);
+  const [syncAll, setSyncAll] = useState(true);
+  const [receivingEmails, setReceivingEmails] = useState('');
   const [error, setError] = useState<string | undefined>();
+
   const createBoardMutation = useMutation(
     trpc.board.createFirstBoard.mutationOptions({
       onSuccess: async ({ board, error }) => {
@@ -41,10 +51,26 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createBoardMutation.mutate({ name: boardName });
+    const emails = receivingEmails
+      .split(',')
+      .map((email) => email.trim())
+      .filter((email) => email);
+
+    createBoardMutation.mutate({
+      name: boardName,
+      receivingEmails: syncAll ? undefined : emails,
+    });
   };
 
-  if (error === ERRORS.NO_GMAIL_ACCESS) {
+  useEffect(() => {
+    if (senderEmailAddresses && senderEmailAddresses.length > 0) {
+      setReceivingEmails(senderEmailAddresses.map((ea) => ea.email).join(', '));
+    }
+  }, [senderEmailAddresses]);
+
+  if (!senderEmailAddresses) return null;
+
+  if (error === ERRORS.NO_GMAIL_ACCESS || senderEmailAddresses.length === 0) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center max-w-4xl mx-auto px-4">
         <H1 className="mb-1">Gmail Access Required</H1>
@@ -66,7 +92,7 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 max-w-md mx-auto px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 max-w-lg mx-auto px-4">
       <H1>Create your first board</H1>
 
       <span className="text-muted-foreground text-center">
@@ -75,8 +101,8 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
 
       <form onSubmit={handleSubmit} className="w-full">
         <Card>
-          <CardContent>
-            <Field>
+          <CardContent className="gap-4 flex flex-col">
+            <Field className="gap-1.5">
               <FieldLabel htmlFor="board-name">Board Name</FieldLabel>
               <Input
                 id="board-name"
@@ -85,12 +111,34 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
                 onChange={(e) => setBoardName(e.target.value)}
               />
             </Field>
+
+            <Field className="mt-0.5">
+              <div className="flex items-center gap-2">
+                <Checkbox id="sync-all" checked={syncAll} onCheckedChange={(checked) => setSyncAll(checked === true)} />
+                <FieldLabel htmlFor="sync-all" className="cursor-pointer">
+                  Sync all emails received in {senderEmailAddresses.find((ea) => ea.isPrimary)!.email}
+                </FieldLabel>
+              </div>
+            </Field>
+
+            {!syncAll && (
+              <Field className="gap-1.5">
+                <FieldLabel htmlFor="receiving-emails">Sync emails sent to specific addresses</FieldLabel>
+                <Textarea
+                  id="receiving-emails"
+                  placeholder="team@example.com, support@example.com"
+                  className="min-h-20"
+                  value={receivingEmails}
+                  onChange={(e) => setReceivingEmails(e.target.value)}
+                />
+              </Field>
+            )}
           </CardContent>
           <CardFooter className="justify-center">
             <Button
               type="submit"
               size="lg"
-              disabled={!boardName.trim() || createBoardMutation.isPending}
+              disabled={!boardName.trim() || createBoardMutation.isPending || (!syncAll && !receivingEmails.trim())}
               className="flex items-center gap-2"
             >
               {createBoardMutation.isPending ? (
@@ -147,7 +195,7 @@ const InviteMembers = ({
       <form onSubmit={handleSubmit} className="w-full">
         <Card>
           <CardContent>
-            <Field>
+            <Field className="gap-1.5">
               <FieldLabel htmlFor="invite-emails">Email Addresses</FieldLabel>
               <Textarea
                 id="invite-emails"
@@ -178,7 +226,7 @@ const InviteMembers = ({
         </Card>
       </form>
 
-      <Button variant="link" onClick={() => setFinishedInviting(true)}>
+      <Button variant="link" className="text-sm" onClick={() => setFinishedInviting(true)}>
         Skip for now
       </Button>
     </div>
@@ -197,8 +245,8 @@ const FinalStep = () => {
       <Card className="w-full mb-2">
         <CardContent className="flex flex-col gap-5">
           <div className="flex flex-row justify-between items-center gap-4">
-            <div className="text-sm font-semibold">Follow us on LinkedIn</div>
-            <Button variant="outline" asChild>
+            <div className="text-sm">Follow us on LinkedIn</div>
+            <Button variant="outline" className="text-sm" asChild>
               <a href="https://twitter.com/bordlyapp" target="_blank" rel="noopener noreferrer">
                 <svg
                   className="size-4 h-6 w-6"
@@ -214,8 +262,8 @@ const FinalStep = () => {
             </Button>
           </div>
           <div className="flex flex-row justify-between items-center gap-4">
-            <div className="text-sm font-semibold">Follow us on X</div>
-            <Button variant="outline" asChild>
+            <div className="text-sm">Follow us on X</div>
+            <Button variant="outline" className="text-sm" asChild>
               <a href="https://x.com/BordlyAI" target="_blank" rel="noopener noreferrer">
                 <SiX className="size-4 h-3.5" />
                 @BordlyAI
@@ -223,8 +271,8 @@ const FinalStep = () => {
             </Button>
           </div>
           <div className="flex flex-row justify-between items-center gap-4">
-            <div className="text-sm font-semibold">Star us on GitHub</div>
-            <Button variant="outline" asChild>
+            <div className="text-sm">Star us on GitHub</div>
+            <Button variant="outline" className="text-sm" asChild>
               <a href="https://github.com/BemiHQ/bordly" target="_blank" rel="noopener noreferrer">
                 <SiGithub />
                 BemiHQ/Bordly

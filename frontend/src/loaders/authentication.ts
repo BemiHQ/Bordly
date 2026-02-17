@@ -42,5 +42,9 @@ export const ensureLoggedIn =
       throw redirect({ to: ROUTES.WELCOME });
     }
 
-    return { currentUser };
+    if (boards.length > 0 && currentRoute === ROUTES.WELCOME) {
+      throw redirect({ to: ROUTES.BOARD.replace('$boardId', boards[0].friendlyId) });
+    }
+
+    return { currentUser, boards };
   };

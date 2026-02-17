@@ -10,12 +10,12 @@ export const BOARD_ROUTES = {
   board: {
     get: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       const { board } = authAsBoardMember({ ctx, input });
-      await BoardService.populate(board, ['boardColumns', 'gmailAccounts']);
+      await BoardService.populate(board, ['boardColumns', 'boardAccounts.gmailAccount']);
       const boardMembers = await BoardMemberService.findMembers(board, { populate: ['user'] });
       return {
         board: board.toJson(),
         boardColumnsAsc: [...board.boardColumns].sort((a, b) => a.position - b.position).map((col) => col.toJson()),
-        gmailAccounts: board.gmailAccounts.map((acc) => acc.toJson()),
+        gmailAccounts: board.boardAccounts.map((ba) => ba.loadedGmailAccount.toJson()),
         boardMembers: boardMembers.map((member) => member.toJson()),
       };
     }),
@@ -26,11 +26,17 @@ export const BOARD_ROUTES = {
         const updatedBoard = await BoardService.setName(board, { name: input.name });
         return { board: updatedBoard.toJson() };
       }),
-    createFirstBoard: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input, ctx }) => {
-      if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
-      const { board, error } = await BoardService.createFirstBoard({ name: input.name, user: ctx.user });
-      return { board: board?.toJson(), error };
-    }),
+    createFirstBoard: publicProcedure
+      .input(z.object({ name: z.string().min(1), receivingEmails: z.array(z.email()).optional() }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        const { board, error } = await BoardService.createFirstBoard({
+          name: input.name,
+          user: ctx.user,
+          receivingEmails: input.receivingEmails,
+        });
+        return { board: board?.toJson(), error };
+      }),
     deleteGmailAccount: publicProcedure
       .input(z.object({ boardId: z.uuid(), gmailAccountId: z.uuid() }))
       .mutation(async ({ input, ctx }) => {

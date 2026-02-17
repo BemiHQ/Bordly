@@ -101,7 +101,7 @@ function BoardCardComponent() {
   };
 
   // Prefetch email addresses for ReplyCard
-  usePrefetchQuery(queryClient, { ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
+  usePrefetchQuery(queryClient, { ...trpc.senderEmailAddress.getAddresses.queryOptions({ boardId }) });
 
   return (
     <RouteProvider value={{ trpc, queryClient, currentUser }}>

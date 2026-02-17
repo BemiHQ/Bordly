@@ -96,7 +96,7 @@ export class BoardInviteService {
       to: [boardInvite.email],
       subject: `You are invited by ${boardInvite.loadedInvitedBy.fullName}`,
       bodyText: renderTemplate(INVITE_EMAIL_TEMPLATE, {
-        inviterFirstName: boardInvite.loadedInvitedBy.firstName!,
+        inviterFirstName: boardInvite.loadedInvitedBy.firstName,
         boardName: boardInvite.loadedBoard.name,
         inviteLink: ENV.APP_ENDPOINT,
       }),

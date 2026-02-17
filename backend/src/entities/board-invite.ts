@@ -44,7 +44,7 @@ export class BoardInvite extends BaseEntity {
     super();
     this.board = board;
     this.state = state;
-    this.email = email;
+    this.email = email.toLowerCase();
     this.role = role;
     this.invitedBy = invitedBy;
     this.validate();

@@ -1,5 +1,6 @@
 import type { AutoPath, PopulatePath } from '@mikro-orm/postgresql';
 import { Board } from '@/entities/board';
+import { BoardAccount } from '@/entities/board-account';
 import { BoardMember, Role } from '@/entities/board-member';
 import type { User } from '@/entities/user';
 import { enqueue, QUEUES } from '@/pg-boss-queues';
@@ -34,24 +35,32 @@ export class BoardService {
     return board;
   }
 
-  static async createFirstBoard({ name, user }: { name: string; user: User }) {
+  static async createFirstBoard({
+    name,
+    user,
+    receivingEmails,
+  }: {
+    name: string;
+    user: User;
+    receivingEmails?: string[];
+  }) {
     await orm.em.populate(user, ['gmailAccount']);
     const { gmailAccount } = user;
     if (!(await GmailAccountService.hasGmailAccess(gmailAccount))) {
       return { board: undefined, error: ERRORS.NO_GMAIL_ACCESS };
     }
 
-    const bordlyUser = await UserService.bordlyUser();
     const board = new Board({ name });
+    const boardAccount = new BoardAccount({ board, gmailAccount, receivingEmails });
     const boardMember = new BoardMember({ board, user, role: Role.ADMIN });
+    const bordlyUser = await UserService.bordlyUser();
     const bordlyBoardMember = new BoardMember({ board, user: bordlyUser, role: Role.AGENT });
 
-    gmailAccount.addToBoard(board);
     user.boardMembers.add(boardMember);
-    orm.em.persist([board, boardMember, bordlyBoardMember, gmailAccount]);
+    orm.em.persist([board, boardMember, bordlyBoardMember, gmailAccount, boardAccount]);
 
     await orm.em.flush();
-    await enqueue(QUEUES.CREATE_INITIAL_EMAIL_MESSAGES, { gmailAccountId: gmailAccount.id });
+    await enqueue(QUEUES.CREATE_INITIAL_EMAIL_MESSAGES, { boardAccountId: boardAccount.id });
 
     return { board, error: undefined };
   }

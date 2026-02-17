@@ -2,13 +2,13 @@ import { Entity, ManyToOne, Property, Unique } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { GmailAccount } from '@/entities/gmail-account';
 
-export interface EmailAddress {
+export interface SenderEmailAddress {
   loadedGmailAccount: GmailAccount;
 }
 
-@Entity({ tableName: 'email_addresses' })
+@Entity({ tableName: 'sender_email_addresses' })
 @Unique({ properties: ['gmailAccount', 'email'] })
-export class EmailAddress extends BaseEntity {
+export class SenderEmailAddress extends BaseEntity {
   @ManyToOne()
   gmailAccount: GmailAccount;
 
@@ -43,7 +43,7 @@ export class EmailAddress extends BaseEntity {
     this.gmailAccount = gmailAccount;
     this.isPrimary = isPrimary;
     this.isDefault = isDefault;
-    this.email = email;
+    this.email = email.toLowerCase();
     this.name = name;
     this.replyTo = replyTo;
     this.validate();
@@ -70,7 +70,6 @@ export class EmailAddress extends BaseEntity {
   toJson() {
     return {
       id: this.id,
-      gmailAccountId: this.gmailAccount.id,
       isPrimary: this.isPrimary,
       isDefault: this.isDefault,
       email: this.email,

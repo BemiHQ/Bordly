@@ -1,7 +1,7 @@
 import { RequestContext } from '@mikro-orm/postgresql';
 import type { Job, Queue } from 'pg-boss';
-import { EmailAddressService } from '@/services/email-address.service';
 import { EmailMessageService } from '@/services/email-message.service';
+import { SenderEmailAddressService } from '@/services/sender-email-address.service';
 import { reportError } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
 import { pgBossInstance } from '@/utils/pg-boss';
@@ -14,7 +14,7 @@ export const QUEUES = {
 } as const;
 
 interface QueueDataMap {
-  [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: { gmailAccountId: string };
+  [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: { boardAccountId: string };
   [QUEUES.SYNC_EMAIL_ADDRESSES]: {};
 }
 
@@ -23,15 +23,15 @@ const CONFIG_BY_QUEUE = {
     options: { retryLimit: 5, retryDelay: 5, retryBackoff: true },
     schedule: null,
     handler: async (job) => {
-      const { gmailAccountId } = job.data;
-      await EmailMessageService.createInitialBoardEmailMessages(gmailAccountId);
+      const { boardAccountId } = job.data;
+      await EmailMessageService.createInitialBoardEmailMessages(boardAccountId);
     },
   },
   [QUEUES.SYNC_EMAIL_ADDRESSES]: {
     options: { retryLimit: 3, retryDelay: 60, retryBackoff: true },
     schedule: '0 0 * * *',
     handler: async () => {
-      await EmailAddressService.syncEmailAddresses();
+      await SenderEmailAddressService.syncEmailAddresses();
     },
   },
 } as {

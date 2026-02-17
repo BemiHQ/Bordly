@@ -86,10 +86,10 @@ export class EmailDraft extends BaseEntity {
     bodyHtml?: string;
   }) {
     this.generated = generated;
-    this.from = from;
-    this.to = to;
-    this.cc = cc;
-    this.bcc = bcc;
+    this.from = { ...from, email: from.email.toLowerCase() };
+    this.to = to?.map((p) => ({ ...p, email: p.email.toLowerCase() }));
+    this.cc = cc?.map((p) => ({ ...p, email: p.email.toLowerCase() }));
+    this.bcc = bcc?.map((p) => ({ ...p, email: p.email.toLowerCase() }));
     this.subject = subject;
     this.bodyHtml = bodyHtml;
     this.validate();
