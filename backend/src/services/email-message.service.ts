@@ -295,6 +295,9 @@ export class EmailMessageService {
         if (error instanceof Error && error.message.includes('Requested entity was not found')) {
           console.log(`[GMAIL] Message ${externalMessageId} for ${gmailAccount.email} was not found.`);
           alreadDeletedExternalMessageIds.add(externalMessageId);
+        } else {
+          reportError(error);
+          throw error;
         }
       }
     }

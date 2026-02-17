@@ -78,7 +78,9 @@ export class DomainService {
       } else if (!response.ok) {
         fetchErrorStatus = response.status;
       }
-    } catch (_error) {}
+    } catch (error) {
+      console.error(`[FETCH] Error reading favicon for ${rootDomainName}:`, error);
+    }
     // If not found, go to `https://${rootDomainName}` and search for <link rel="icon" href="..."> or <link rel="shortcut icon" href="...">
     if (!iconUrl) {
       try {
@@ -98,7 +100,9 @@ export class DomainService {
         } else {
           fetchErrorStatus = response.status;
         }
-      } catch (_error) {} // Could not fetch or parse HTML
+      } catch (error) {
+        console.error(`[FETCH] Error reading homepage for ${rootDomainName}:`, error);
+      }
     }
     // Try finding another domain by rootDomainName
     if (!iconUrl) {
