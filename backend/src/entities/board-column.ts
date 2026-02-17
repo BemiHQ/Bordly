@@ -35,17 +35,16 @@ export class BoardColumn extends BaseEntity {
     this.validate();
   }
 
-  toJson({ detailed }: { detailed?: boolean } = { detailed: false }) {
-    const result = {
+  setName(name: string) {
+    this.name = name;
+    this.validate();
+  }
+
+  toJson() {
+    return {
       id: this.id,
       name: this.name,
       position: this.position,
-    };
-    if (!detailed) return result;
-
-    return {
-      ...result,
-      description: this.description,
     };
   }
 

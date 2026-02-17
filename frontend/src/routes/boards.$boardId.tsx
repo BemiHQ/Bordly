@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useBoardFilters } from '@/hooks/use-board-filters';
@@ -71,15 +72,60 @@ const EmptyState = () => (
 );
 
 const BoardColumn = ({
+  board,
   boardColumn,
   unreadBoardCardCount,
   children,
 }: {
+  board: Board;
   boardColumn: BoardColumn;
   unreadBoardCardCount: number;
   children: React.ReactNode;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: boardColumn.id });
+  const { queryClient, trpc } = useRouteContext();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState(boardColumn.name);
+
+  const boardQueryKey = trpc.board.get.queryKey({ boardId: board.id });
+
+  const optimisticallySetName = useOptimisticMutation({
+    queryClient,
+    queryKey: boardQueryKey,
+    onExecute: ({ name }) => {
+      queryClient.setQueryData(boardQueryKey, (oldData: BoardData | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardColumns: oldData.boardColumns.map((col) => (col.id === boardColumn.id ? { ...col, name } : col)),
+        };
+      });
+    },
+    errorToast: 'Failed to rename column. Please try again.',
+    mutation: useMutation(trpc.boardColumn.setName.mutationOptions()),
+  });
+
+  const handleNameClick = () => {
+    setIsEditing(true);
+    setEditedName(boardColumn.name);
+  };
+
+  const handleNameSubmit = () => {
+    const trimmedName = editedName.trim();
+    if (trimmedName && trimmedName !== boardColumn.name) {
+      optimisticallySetName({ boardId: board.id, boardColumnId: boardColumn.id, name: trimmedName });
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleNameSubmit();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setEditedName(boardColumn.name);
+    }
+  };
 
   return (
     <div
@@ -89,8 +135,25 @@ const BoardColumn = ({
         isOver ? 'border-semi-muted' : '',
       )}
     >
-      <div className="flex items-center gap-2 px-1">
-        <h2 className="text-sm font-semibold">{`${boardColumn.name}`}</h2>
+      <div className="flex items-center gap-2 px-1 min-h-7">
+        {isEditing ? (
+          <Input
+            inputSize="sm"
+            value={editedName}
+            onChange={(e) => setEditedName(e.target.value)}
+            onBlur={handleNameSubmit}
+            onKeyDown={handleKeyDown}
+            className="bg-background px-2 mt-0.5 h-6.5 text-sm font-semibold rounded-sm focus-visible:ring-1"
+            autoFocus
+          />
+        ) : (
+          <h2
+            className="ml-[9px] pt-0.5 text-sm font-semibold cursor-pointer hover:text-primary w-full"
+            onClick={handleNameClick}
+          >
+            {editedName}
+          </h2>
+        )}
         {unreadBoardCardCount > 0 && (
           <Badge variant="default" size="sm">
             {unreadBoardCardCount}
@@ -425,6 +488,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
           return (
             <BoardColumn
               key={boardColumn.id}
+              board={boardData.board}
               boardColumn={boardColumn}
               unreadBoardCardCount={unreadBoardCards?.length || 0}
             >

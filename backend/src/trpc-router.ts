@@ -7,6 +7,7 @@ import { State } from '@/entities/board-card';
 import { Role } from '@/entities/board-member';
 import { BoardService } from '@/services/board.service';
 import { BoardCardService } from '@/services/board-card.service';
+import { BoardColumnService } from '@/services/board-column.service';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { BoardMemberService } from '@/services/board-member.service';
 import { EmailMessageService } from '@/services/email-message.service';
@@ -226,6 +227,19 @@ const TRPC_ROUTES = {
           boardCard: boardCard.toJson(),
           emailMessages: emailMessages.map((msg) => msg.toJson()),
         };
+      }),
+  } satisfies TRPCRouterRecord,
+  boardColumn: {
+    setName: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardColumnId: z.uuid(), name: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+        const boardColumn = await BoardColumnService.setName(board, {
+          boardColumnId: input.boardColumnId,
+          name: input.name,
+        });
+        return { boardColumn: boardColumn.toJson() };
       }),
   } satisfies TRPCRouterRecord,
 };

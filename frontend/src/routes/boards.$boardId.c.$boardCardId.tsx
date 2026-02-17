@@ -4,7 +4,7 @@ import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState } from 'bordly-backend/utils/shared';
 import DOMPurify from 'dompurify';
-import { Archive, ChevronDownIcon, Download, Ellipsis, Mail, MailCheck, Paperclip } from 'lucide-react';
+import { Archive, ChevronDownIcon, Download, Ellipsis, Mail, Paperclip } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
