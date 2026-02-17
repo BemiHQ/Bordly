@@ -1,6 +1,6 @@
 import * as crypto from 'node:crypto';
 
-import { Env } from './env';
+import { Env } from '@/utils/env';
 
 const ENCRYPTION_ALGORITHM = 'aes256';
 const HASHING_ALGORITHM = 'sha3-512';

@@ -4,7 +4,7 @@ import { Migrator } from '@mikro-orm/migrations';
 import { defineConfig } from '@mikro-orm/postgresql';
 import { TsMorphMetadataProvider } from '@mikro-orm/reflection';
 
-import { Env } from './utils/env';
+import { Env } from '@/utils/env';
 
 const CURRENT_DIR = dirname(fileURLToPath(import.meta.url));
 

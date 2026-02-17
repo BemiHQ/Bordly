@@ -31,11 +31,11 @@ down-services:
 ps:
 	devbox services ls
 
+check:
+	devbox run "pnpm run check && cd backend && pnpm run build && rm -rf dist && cd ../frontend && pnpm run build && rm -rf dist"
+
 build:
 	devbox run "cd backend && pnpm run build && cd ../frontend && pnpm run build"
-
-check:
-	devbox run "pnpm run check"
 
 migrate:
 	devbox run --env-file backend/.env "cd backend && pnpm mikro-orm migration:up"

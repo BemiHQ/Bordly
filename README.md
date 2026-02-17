@@ -1,5 +1,12 @@
 # Bordly
 
+## Tech stack
+
+- Frontend: React, TanStack, TailwindCSS, Shadcn, Lucide React, Vite
+- Backend: Node.js, Fastify, MikroORM, PostgreSQL
+- Common: TypeScript, tRPC
+- Development: Nginx, Biome
+
 ## Configuration
 
 Copy and customize `.env` files:

@@ -1,9 +1,14 @@
-import { User } from '../entities/user';
-import { orm } from '../utils/orm';
+import { User } from '@/entities/user';
+import { orm } from '@/utils/orm';
 
 export const findUserByGoogleId = (googleId?: string | null) => {
   if (!googleId) return null;
   return orm.em.findOne(User, { googleId });
+};
+
+export const findUserById = (id: string) => {
+  if (!id) return null;
+  return orm.em.findOne(User, { id });
 };
 
 export const createUser = async ({

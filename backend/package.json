@@ -2,6 +2,12 @@
   "name": "bordly-backend",
   "license": "AGPL-3.0",
   "type": "module",
+  "exports": {
+    "./trpc": {
+      "types": "./src/trpc.ts",
+      "default": "./dist/trpc.js"
+    }
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
@@ -9,12 +15,18 @@
     "mikro-orm": "NODE_OPTIONS='--import tsx' mikro-orm"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/session": "^11.1.1",
     "@mikro-orm/core": "^6.6.5",
     "@mikro-orm/migrations": "^6.6.5",
     "@mikro-orm/postgresql": "^6.6.5",
     "@mikro-orm/reflection": "^6.6.5",
+    "@trpc/server": "^11.8.1",
     "fastify": "^5.7.1",
-    "googleapis": "^170.1.0"
+    "googleapis": "^170.1.0",
+    "superjson": "^2.2.6",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@mikro-orm/cli": "^6.6.5",

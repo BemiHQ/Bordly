@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { type Auth, google } from 'googleapis';
 
-import { createUser, findUserByGoogleId, updateLastSessionAt } from '../services/user-service';
-import { Env } from '../utils/env';
+import { createUser, findUserByGoogleId, updateLastSessionAt } from '@/services/user-service';
+import { Env } from '@/utils/env';
 
 const OAUTH2_CLIENT: Auth.OAuth2Client = new google.auth.OAuth2(
   Env.GOOGLE_OAUTH_CLIENT_ID,
@@ -48,6 +48,9 @@ export const authRoutes = async (fastify: FastifyInstance) => {
         });
       }
       await updateLastSessionAt(user);
+      request.session.userId = user.id;
+      await request.session.save();
+
       return reply.redirect(Env.APP_ENDPOINT);
     } catch (error) {
       fastify.log.error(error);

@@ -9,6 +9,7 @@ export class Env {
   static DB_SSL = process.env.DB_SSL === 'true';
 
   static ENCRYPTION_KEY = process.env.ENCRYPTION_KEY as string;
+  static COOKIE_SECRET = process.env.COOKIE_SECRET as string;
 
   static APP_ENDPOINT = process.env.APP_ENDPOINT as string;
 

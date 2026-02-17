@@ -1,6 +1,7 @@
 import { Entity, Property, Unique } from '@mikro-orm/postgresql';
-import { Encryption } from '../utils/encryption';
-import { BaseEntity } from './base-entity';
+
+import { BaseEntity } from '@/entities/base-entity';
+import { Encryption } from '@/utils/encryption';
 
 const ACCESS_TOKEN_EXPIRATION_MS = (3_600 - 5) * 1_000; // 1 hour - 5 seconds buffer
 
