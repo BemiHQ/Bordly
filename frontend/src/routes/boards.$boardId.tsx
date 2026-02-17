@@ -2,25 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
-import { Ellipsis, Link2, ListFilter } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { type BoardFilters, BoardNavbar, LOCAL_STORAGE_KEY_FILTERS_PREFIX } from '@/components/board-navbar';
 import { Navbar } from '@/components/navbar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
 import { formattedTimeAgo } from '@/utils/time';
@@ -28,16 +17,8 @@ import { ROUTES } from '@/utils/urls';
 
 const REFETCH_INTERVAL_MS = 30_000;
 
-const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
-type BoardFilters = {
-  unread: boolean;
-  gmailAccountIds: string[];
-};
-
 type BoardData = inferRouterOutputs<TRPCRouter>['board']['getBoard'];
-type Board = BoardData['board'];
 type BoardColumn = BoardData['boardColumns'][number];
-type GmailAccount = BoardData['gmailAccounts'][number];
 
 type BoardCardsData = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards'];
 type BoardCard = BoardCardsData['boardCards'][number];
@@ -72,141 +53,6 @@ const EmptyState = () => (
     </EmptyHeader>
   </Empty>
 );
-
-const FilterButton = ({
-  gmailAccounts,
-  filters,
-  setFilters,
-}: {
-  gmailAccounts: GmailAccount[];
-  filters: BoardFilters;
-  setFilters: (value: BoardFilters) => void;
-}) => {
-  const hasActiveFilters = !!filters.unread || filters.gmailAccountIds.length > 0;
-  const toggleEmailAccount = (accountId: string) => {
-    setFilters({
-      ...filters,
-      gmailAccountIds: filters.gmailAccountIds.includes(accountId)
-        ? filters.gmailAccountIds.filter((id) => id !== accountId)
-        : [...filters.gmailAccountIds, accountId],
-    });
-  };
-
-  return (
-    <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon-sm" className={hasActiveFilters ? 'bg-border hover:bg-border' : ''}>
-              <ListFilter className="text-muted-foreground" />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="left">Filters</TooltipContent>
-      </Tooltip>
-      <PopoverContent align="end">
-        <div className="flex flex-col gap-4 px-2 pb-2">
-          <h3 className="font-semibold text-sm text-center">Filters</h3>
-          <div className="flex flex-col gap-2">
-            <div className="text-2xs font-medium text-muted-foreground">Card status</div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <Checkbox
-                checked={filters.unread}
-                onCheckedChange={(checked) => setFilters({ ...filters, unread: !!checked })}
-              />
-              <span className="text-xs">Unread</span>
-            </label>
-          </div>
-          {gmailAccounts.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <div className="text-2xs font-medium text-muted-foreground">Email accounts</div>
-              <div className="flex flex-col gap-2.5">
-                {gmailAccounts.map((account) => (
-                  <label key={account.id} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={filters.gmailAccountIds.includes(account.id)}
-                      onCheckedChange={() => toggleEmailAccount(account.id)}
-                    />
-                    <span className="text-xs">{account.email}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-};
-
-const BoardNavbar = ({
-  board,
-  gmailAccounts,
-  filters,
-  setFilters,
-}: {
-  board: Board;
-  gmailAccounts: GmailAccount[];
-  filters: BoardFilters;
-  setFilters: (value: BoardFilters) => void;
-}) => {
-  const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
-
-  return (
-    <>
-      <div className="border-b bg-background px-6 py-2.5 flex items-center justify-between">
-        <h1 className="font-semibold">{board.name}</h1>
-        <div className="flex items-center gap-2">
-          <FilterButton gmailAccounts={gmailAccounts} filters={filters} setFilters={setFilters} />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm">
-                <Ellipsis className="text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setAccountsDialogOpen(true)}>
-                <Link2 />
-                Email accounts
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      <Dialog open={accountsDialogOpen} onOpenChange={setAccountsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Email accounts</DialogTitle>
-            <DialogDescription className="text-xs">
-              Manage email accounts associated with this board. Add or remove accounts to control which emails appear in
-              your board.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2 pt-1 pb-2">
-            {gmailAccounts.map((account) => (
-              <div key={account.id} className="flex items-center gap-3 px-3 py-2 border rounded-md">
-                <img src="/domain-icons/gmail.com.ico" alt={account.name} className="size-9 pt-0.5" />
-                <div className="flex-1 min-w-0 leading-3">
-                  <div className="font-medium text-sm">{account.name}</div>
-                  <div className="text-2xs text-muted-foreground">{account.email}</div>
-                </div>
-                <Button variant="outline" size="sm">
-                  Remove
-                </Button>
-              </div>
-            ))}
-            <div className="w-fit mt-3">
-              <Button variant="contrast" className="w-full" size="sm" asChild>
-                <a href={`${import.meta.env.VITE_API_ENDPOINT}/auth/google?boardId=${board.id}`}>Add new account</a>
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-};
 
 const BoardColumn = ({
   boardColumn,
