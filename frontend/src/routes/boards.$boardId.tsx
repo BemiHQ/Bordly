@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
-import { extractUuid } from '@/utils/strings';
+import { cn, extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
 
 const MAX_BOARD_COLUMN_POSITION = 1_000; // System Spam and Trash
@@ -94,6 +94,7 @@ const BoardCard = ({
         : [msg.from, ...(msg.to || []), ...(msg.cc || [])],
     )
     .filter((p) => !gmailAccounts.some((account) => p.email === account.email));
+  const anyUnread = emailMessages.some((msg) => !msg.read);
 
   return (
     <Card className="cursor-pointer p-3 transition-shadow hover:bg-background rounded-lg shadow-xs flex flex-col gap-1.5">
@@ -107,8 +108,11 @@ const BoardCard = ({
             {(participants[0].name || participants[0].email).charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <div className="text-sm truncate">
-          <span className="font-semibold">{participants[0].name || participants[0].email}</span>
+        <div className="text-sm truncate flex items-center">
+          {anyUnread && <div className="bg-blue-500 rounded-full min-w-2 min-h-2 mr-1.5" />}
+          <span className={anyUnread ? 'font-bold' : 'font-medium'}>
+            {participants[0].name || participants[0].email}
+          </span>
           {participants.length > 1 && (
             <span className="text-muted-foreground">
               ,{' '}
@@ -120,7 +124,7 @@ const BoardCard = ({
           )}
         </div>
       </div>
-      <div className="text-xs truncate">{title}</div>
+      <div className={cn('text-xs truncate', anyUnread && 'font-medium')}>{title}</div>
       <div className="text-xs text-muted-foreground truncate">{snippet}</div>
     </Card>
   );

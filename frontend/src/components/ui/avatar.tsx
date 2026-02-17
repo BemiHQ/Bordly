@@ -52,7 +52,9 @@ export const AvatarFallback = ({
   className,
   hashForBgColor,
   ...props
-}: React.ComponentProps<typeof AvatarPrimitive.Fallback> & { hashForBgColor: string }) => {
+}: React.ComponentProps<typeof AvatarPrimitive.Fallback> & {
+  hashForBgColor: string;
+}) => {
   const colorClassFromText = (text: string) => {
     let hash = 0;
     for (let i = 0; i < text.length; i++) {

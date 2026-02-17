@@ -22,6 +22,8 @@ const CATEGORIES = {
   PROMOTIONS: 'Promotions',
   SCHOOL: 'School',
   SECURITY: 'Security',
+  SHOPPING: 'Shopping',
+  TRAVEL: 'Travel',
   SOCIAL: 'Social',
   OTHERS: 'Others',
   // Special categories
