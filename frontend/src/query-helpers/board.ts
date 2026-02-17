@@ -7,6 +7,9 @@ export type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
 export type Board = BoardData['board'];
 export type BoardColumn = BoardData['boardColumnsAsc'][number];
 export type GmailAccount = BoardData['gmailAccounts'][number];
+export type BoardMember = BoardData['boardMembers'][number];
+
+export type BoardMemberRole = BoardMember['role'];
 
 const queryKey = (trpc: TrpcProxy, params: { boardId: string }) => {
   return trpc.board.get.queryKey(params);
@@ -82,5 +85,41 @@ export const renameBoardData = ({
   queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
     if (!oldData) return oldData;
     return { ...oldData, board: { ...oldData.board, name } } satisfies typeof oldData;
+  });
+};
+
+export const setBoardMemberRoleData = ({
+  trpc,
+  queryClient,
+  params: { boardId, userId, role },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; userId: string; role: BoardMemberRole };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardMembers: oldData.boardMembers.map((m) => (m.user.id === userId ? { ...m, role } : m)),
+    } satisfies typeof oldData;
+  });
+};
+
+export const removeBoardMemberData = ({
+  trpc,
+  queryClient,
+  params: { boardId, userId },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; userId: string };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardMembers: oldData.boardMembers.filter((m) => m.user.id !== userId),
+    } satisfies typeof oldData;
   });
 };

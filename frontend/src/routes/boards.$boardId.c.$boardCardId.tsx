@@ -127,7 +127,7 @@ function BoardCardComponent() {
                 <BoardCardDialogNavbar
                   context={context}
                   boardId={boardId}
-                  boardCardId={boardCardId}
+                  boardCard={boardCard}
                   boardColumn={boardColumn}
                 />
               </DialogHeader>

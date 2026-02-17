@@ -1,7 +1,8 @@
-import { Entity, Enum, Index, ManyToOne, Unique } from '@mikro-orm/postgresql';
+import { Collection, Entity, Enum, Index, ManyToOne, OneToMany, Unique } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
+import type { BoardCard } from '@/entities/board-card';
 import type { User } from '@/entities/user';
 import { BoardMemberRole } from '@/utils/shared';
 
@@ -21,6 +22,9 @@ export class BoardMember extends BaseEntity {
   @ManyToOne()
   user: User;
 
+  @OneToMany({ mappedBy: (boardCard: BoardCard) => boardCard.assignedBoardMember })
+  assignedBoardCards = new Collection<BoardCard>(this);
+
   @Enum(() => BoardMemberRole)
   role: BoardMemberRole;
 
@@ -37,8 +41,13 @@ export class BoardMember extends BaseEntity {
     this.validate();
   }
 
+  get isAgent() {
+    return this.role === BoardMemberRole.AGENT;
+  }
+
   toJson() {
     return {
+      id: this.id,
       user: this.loadedUser.toJson(),
       role: this.role,
     };

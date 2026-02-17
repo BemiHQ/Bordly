@@ -20,6 +20,8 @@ import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardCardState as State } from '@/utils/shared';
 import type { BoardCardReadPosition } from './board-card-read-position';
 
+const MAX_SNIPPET_LENGTH = 200;
+
 export { State };
 
 export interface BoardCard {
@@ -113,7 +115,7 @@ export class BoardCard extends BaseEntity {
     this.externalThreadId = externalThreadId;
     this.state = state;
     this.subject = subject;
-    this.snippet = snippet;
+    this.snippet = snippet.slice(0, MAX_SNIPPET_LENGTH);
     this.externalParticipantsAsc = externalParticipantsAsc;
     this.lastEventAt = lastEventAt;
     this.hasAttachments = hasAttachments;
@@ -141,7 +143,7 @@ export class BoardCard extends BaseEntity {
     movedToTrashAt?: Date;
   }) {
     this.state = state;
-    this.snippet = snippet;
+    this.snippet = snippet.slice(0, MAX_SNIPPET_LENGTH);
     this.externalParticipantsAsc = externalParticipantsAsc;
     this.lastEventAt = lastEventAt;
     this.hasAttachments = hasAttachments;
@@ -170,10 +172,33 @@ export class BoardCard extends BaseEntity {
     this.validate();
   }
 
+  setSnippet(snippet: string) {
+    this.snippet = snippet.slice(0, MAX_SNIPPET_LENGTH);
+    this.validate();
+  }
+
+  assignToBoardMember(boardMember: BoardMember) {
+    this.assignedBoardMember = boardMember;
+    this.validate();
+  }
+
+  unassignBoardMember() {
+    this.assignedBoardMember = undefined;
+    this.validate();
+  }
+
+  addParticipantUserId(userId: string) {
+    if (!this.participantUserIds || !this.participantUserIds.includes(userId)) {
+      this.participantUserIds = [...(this.participantUserIds || []), userId];
+      this.validate();
+    }
+  }
+
   toJson() {
     return {
       id: this.id,
       domain: this.loadedDomain.toJson(),
+      assignedBoardMemberId: this.assignedBoardMember?.id,
       emailDraft: this.emailDraft?.toJson(),
       gmailAccountId: this.gmailAccount.id,
       boardColumnId: this.boardColumn.id,
@@ -182,6 +207,7 @@ export class BoardCard extends BaseEntity {
       subject: this.subject,
       snippet: this.snippet,
       externalParticipantsAsc: this.externalParticipantsAsc,
+      participantUserIds: this.participantUserIds,
       lastEventAt: this.lastEventAt,
       hasAttachments: this.hasAttachments,
       emailMessageCount: this.emailMessageCount,
@@ -197,6 +223,8 @@ export class BoardCard extends BaseEntity {
     if (!this.state) throw new Error('State is required');
     if (!this.subject) throw new Error('Subject is required');
     if (this.snippet === undefined || this.snippet === null) throw new Error('Snippet is required');
+    if (this.snippet.length > MAX_SNIPPET_LENGTH)
+      throw new Error(`Snippet cannot be longer than ${MAX_SNIPPET_LENGTH} characters`);
     if (!this.externalParticipantsAsc || this.externalParticipantsAsc.length === 0)
       throw new Error('External participants is required and cannot be empty');
     if (!this.lastEventAt) throw new Error('LastEventAt is required');

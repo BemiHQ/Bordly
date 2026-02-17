@@ -13,13 +13,13 @@ import { Spinner } from '@/components/ui/spinner';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useRouteContext } from '@/hooks/use-route-context';
 import type { Board } from '@/query-helpers/board';
+import { type BoardMember, removeBoardMemberData, setBoardMemberRoleData } from '@/query-helpers/board';
 import {
   addBoardInviteData,
   type BoardInvite,
   removeBoardInviteData,
   setBoardInviteRoleData,
 } from '@/query-helpers/board-invites';
-import { removeBoardMemberData, setBoardMemberRoleData } from '@/query-helpers/board-members';
 
 const BoardMemberRoleSelect = ({
   board,
@@ -171,11 +171,13 @@ const BoardInviteRoleSelect = ({
 
 export const BoardMembersDialog = ({
   board,
+  boardMembers,
   currentUserId,
   open,
   onOpenChange,
 }: {
   board: Board;
+  boardMembers: BoardMember[];
   currentUserId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -184,17 +186,12 @@ export const BoardMembersDialog = ({
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<BoardMemberRole>(BoardMemberRole.MEMBER);
 
-  const { data, isLoading } = useQuery({
-    ...trpc.boardMember.getBoardMembers.queryOptions({ boardId: board.id }),
-    enabled: open,
-  });
-
   const { data: invitesData, isLoading: invitesLoading } = useQuery({
     ...trpc.boardInvite.getBoardInvites.queryOptions({ boardId: board.id }),
     enabled: open,
   });
 
-  const currentUserMember = data?.boardMembers.find((m) => m.user.id === currentUserId);
+  const currentUserMember = boardMembers.find((m) => m.user.id === currentUserId);
   const isCurrentUserAdmin = currentUserMember?.role === BoardMemberRole.ADMIN;
 
   const createInviteMutation = useMutation(
@@ -221,7 +218,7 @@ export const BoardMembersDialog = ({
 
   const optimisticallySetMemberRole = useOptimisticMutation({
     queryClient,
-    queryKey: trpc.boardMember.getBoardMembers.queryKey({ boardId: board.id }),
+    queryKey: trpc.board.get.queryKey({ boardId: board.id }),
     onExecute: ({ userId, role }) =>
       setBoardMemberRoleData({ trpc, queryClient, params: { boardId: board.id, userId, role } }),
     successToast: 'Role updated successfully',
@@ -292,14 +289,14 @@ export const BoardMembersDialog = ({
         )}
 
         <div className="flex flex-col gap-2 pt-1 pb-2">
-          {isLoading || invitesLoading ? (
+          {invitesLoading ? (
             <div className="flex items-center justify-center py-8">
               <Spinner />
             </div>
           ) : (
             <>
               <div className="text-xs font-medium">People with access</div>
-              {data?.boardMembers.map((member) => (
+              {boardMembers.map((member) => (
                 <Item key={member.user.id} variant="outline" className="py-2">
                   <ItemMedia>
                     <Avatar>

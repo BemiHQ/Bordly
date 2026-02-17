@@ -86,11 +86,12 @@ const ArchiveDropZone = ({ isDragging }: { isDragging: boolean }) => {
 const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boardCardsData: BoardCardsData }) => {
   const { filters } = useBoardFilters();
   const { queryClient, trpc } = useRouteContext();
+  const { currentUser } = Route.useLoaderData();
   const [activeBoardCard, setActiveBoardCard] = useState<BoardCard | null>(null);
   const [activeBoardColumn, setActiveBoardColumn] = useState<BoardColumnType | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  const { board, boardColumnsAsc } = boardData;
+  const { board, boardColumnsAsc, boardMembers } = boardData;
   const { boardCardsDesc } = boardCardsData;
 
   const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: board.id });
@@ -189,12 +190,16 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
             const boardCards = boardCardsDesc.filter((card) => card.boardColumnId === boardColumn.id);
 
             const filteredBoardCards = boardCards?.filter((card) => {
-              const hasActiveFilters = filters.unread || filters.hasAttachments || filters.draft;
+              const hasActiveFilters = filters.unread || filters.hasAttachments || filters.draft || filters.assigned;
               if (hasActiveFilters) {
                 const matchesUnread = filters.unread && card.unread;
                 const matchesHasAttachments = filters.hasAttachments && card.hasAttachments;
                 const matchesHasDraft = filters.draft && card.emailDraft && !card.emailDraft.generated;
-                if (!matchesUnread && !matchesHasAttachments && !matchesHasDraft) return false;
+                const matchesAssigned =
+                  filters.assigned &&
+                  card.assignedBoardMemberId &&
+                  boardMembers.find((m) => m.id === card.assignedBoardMemberId)?.user.id === currentUser!.id;
+                if (!matchesUnread && !matchesHasAttachments && !matchesHasDraft && !matchesAssigned) return false;
               }
 
               if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
@@ -213,7 +218,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
                 unreadBoardCardCount={unreadBoardCards?.length || 0}
                 isDraggingColumn={!!activeBoardColumn}
               >
-                <BoardColumnContent board={board} boardCards={filteredBoardCards} />
+                <BoardColumnContent board={board} boardCards={filteredBoardCards} boardMembers={boardMembers} />
               </BoardColumn>
             );
           })}
@@ -222,7 +227,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
       <DragOverlay dropAnimation={null}>
         {activeBoardCard ? (
           <BoardCardDragged>
-            <BoardCardContent boardCard={activeBoardCard} />
+            <BoardCardContent boardCard={activeBoardCard} boardMembers={boardMembers} />
           </BoardCardDragged>
         ) : activeBoardColumn ? (
           <BoardColumnDragged
@@ -234,6 +239,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
             <BoardColumnContent
               board={board}
               boardCards={boardCardsDesc.filter((card) => card.boardColumnId === activeBoardColumn.id)}
+              boardMembers={boardMembers}
               isDragOverlay
             />
           </BoardColumnDragged>
@@ -301,7 +307,12 @@ function BoardComponent() {
       <Navbar currentUser={currentUser} />
       {boardData && (
         <RouteProvider value={context}>
-          <BoardNavbar board={boardData.board} gmailAccounts={boardData.gmailAccounts} currentUserId={currentUser.id}>
+          <BoardNavbar
+            board={boardData.board}
+            boardMembers={boardData.boardMembers}
+            gmailAccounts={boardData.gmailAccounts}
+            currentUserId={currentUser.id}
+          >
             {boardCardsData && <BoardContent boardData={boardData} boardCardsData={boardCardsData} />}
           </BoardNavbar>
         </RouteProvider>

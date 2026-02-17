@@ -59,6 +59,12 @@ export class EmailDraftService {
         subject,
         bodyHtml,
       });
+
+      if (!boardCard.assignedBoardMember) {
+        const boardMember = user.boardMembers.find((bm) => bm.board.id === boardCard.loadedBoardColumn.board.id)!;
+        boardCard.assignToBoardMember(boardMember);
+      }
+      boardCard.addParticipantUserId(user.id);
     }
     boardCard.setLastEventAt(new Date());
     orm.em.persist([boardCard.emailDraft, boardCard]);

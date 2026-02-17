@@ -32,7 +32,7 @@ export class Board extends BaseEntity {
   }
 
   get solo() {
-    return this.boardMembers.length === 1;
+    return this.boardMembers.filter((m) => !m.isAgent).length === 1;
   }
 
   setName(name: string) {

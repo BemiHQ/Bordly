@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { type BoardFilters, BoardFiltersProvider, useBoardFilters } from '@/hooks/use-board-filters';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useRouteContext } from '@/hooks/use-route-context';
-import { type Board, type GmailAccount, renameBoardData } from '@/query-helpers/board';
+import { type Board, type BoardMember, type GmailAccount, renameBoardData } from '@/query-helpers/board';
 import { isSsr } from '@/utils/ssr';
 import { cn } from '@/utils/strings';
 
@@ -27,7 +27,7 @@ export const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
 const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
   const { filters, setFilters } = useBoardFilters();
   const hasActiveFilters =
-    filters.unread || filters.hasAttachments || filters.draft || filters.gmailAccountIds.length > 0;
+    filters.unread || filters.hasAttachments || filters.draft || filters.assigned || filters.gmailAccountIds.length > 0;
   const toggleEmailAccount = (accountId: string) => {
     setFilters({
       ...filters,
@@ -65,6 +65,13 @@ const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
                   onCheckedChange={(checked) => setFilters({ ...filters, unread: !!checked })}
                 />
                 <span>Unread</span>
+              </Label>
+              <Label className="flex items-center gap-2">
+                <Checkbox
+                  checked={filters.assigned}
+                  onCheckedChange={(checked) => setFilters({ ...filters, assigned: !!checked })}
+                />
+                <span>Assigned</span>
               </Label>
               <Label className="flex items-center gap-2">
                 <Checkbox
@@ -106,10 +113,12 @@ const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
 
 const MenuButton = ({
   board,
+  boardMembers,
   gmailAccounts,
   currentUserId,
 }: {
   board: Board;
+  boardMembers: BoardMember[];
   gmailAccounts: GmailAccount[];
   currentUserId: string;
 }) => {
@@ -143,6 +152,7 @@ const MenuButton = ({
       />
       <BoardMembersDialog
         board={board}
+        boardMembers={boardMembers}
         currentUserId={currentUserId}
         open={membersDialogOpen}
         onOpenChange={setMembersDialogOpen}
@@ -153,11 +163,13 @@ const MenuButton = ({
 
 export const BoardNavbar = ({
   board,
+  boardMembers,
   gmailAccounts,
   currentUserId,
   children,
 }: {
   board: Board;
+  boardMembers: BoardMember[];
   gmailAccounts: GmailAccount[];
   currentUserId: string;
   children?: React.ReactNode;
@@ -166,6 +178,7 @@ export const BoardNavbar = ({
     unread: false,
     hasAttachments: false,
     draft: false,
+    assigned: false,
     gmailAccountIds: [],
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -236,7 +249,12 @@ export const BoardNavbar = ({
         )}
         <div className="flex items-center gap-2">
           <FilterButton gmailAccounts={gmailAccounts} />
-          <MenuButton board={board} gmailAccounts={gmailAccounts} currentUserId={currentUserId} />
+          <MenuButton
+            board={board}
+            boardMembers={boardMembers}
+            gmailAccounts={gmailAccounts}
+            currentUserId={currentUserId}
+          />
         </div>
       </div>
       {children}

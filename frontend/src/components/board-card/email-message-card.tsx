@@ -104,7 +104,7 @@ const EmailMessageBody = ({
     );
   }
 
-  if (!backquotesText) return null;
+  if (!mainText && !backquotesText) return null;
 
   return (
     <div className="flex flex-col">

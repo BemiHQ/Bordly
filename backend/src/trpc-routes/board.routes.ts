@@ -1,6 +1,7 @@
 import { TRPCError, type TRPCRouterRecord } from '@trpc/server';
 import { z } from 'zod';
 import { BoardService } from '@/services/board.service';
+import { BoardMemberService } from '@/services/board-member.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 
 import { authAsBoardAdmin, authAsBoardMember, publicProcedure } from '@/trpc-config';
@@ -10,10 +11,12 @@ export const BOARD_ROUTES = {
     get: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       const { board } = authAsBoardMember({ ctx, input });
       await BoardService.populate(board, ['boardColumns', 'gmailAccounts']);
+      const boardMembers = await BoardMemberService.findMembers(board, { populate: ['user'] });
       return {
         board: board.toJson(),
         boardColumnsAsc: [...board.boardColumns].sort((a, b) => a.position - b.position).map((col) => col.toJson()),
         gmailAccounts: board.gmailAccounts.map((acc) => acc.toJson()),
+        boardMembers: boardMembers.map((member) => member.toJson()),
       };
     }),
     setName: publicProcedure

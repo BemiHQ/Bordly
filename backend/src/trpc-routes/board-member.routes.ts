@@ -3,15 +3,10 @@ import { z } from 'zod';
 import { Role } from '@/entities/board-member';
 import { BoardMemberService } from '@/services/board-member.service';
 
-import { authAsBoardAdmin, authAsBoardMember, publicProcedure } from '@/trpc-config';
+import { authAsBoardAdmin, publicProcedure } from '@/trpc-config';
 
 export const BOARD_MEMBER_ROUTES = {
   boardMember: {
-    getBoardMembers: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
-      const { board } = authAsBoardMember({ ctx, input });
-      const boardMembers = await BoardMemberService.findMembers(board, { populate: ['user'] });
-      return { boardMembers: boardMembers.map((member) => member.toJson()) };
-    }),
     setRole: publicProcedure
       .input(z.object({ boardId: z.uuid(), userId: z.uuid(), role: z.enum(Object.values(Role)) }))
       .mutation(async ({ input, ctx }) => {

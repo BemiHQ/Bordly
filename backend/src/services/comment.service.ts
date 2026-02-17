@@ -6,9 +6,15 @@ import type { User } from '@/entities/user';
 import { orm } from '@/utils/orm';
 
 export class CommentService {
-  static async create(boardCard: BoardCard, { user, text }: { user: User; text: string }) {
+  static async create(boardCard: BoardCard, { user, text, board }: { user: User; text: string; board: Board }) {
     const comment = new Comment({ boardCard, user, text });
 
+    if (!boardCard.assignedBoardMember) {
+      const boardMember = user.boardMembers.find((bm) => bm.board.id === board.id)!;
+      boardCard.assignToBoardMember(boardMember);
+    }
+    boardCard.addParticipantUserId(user.id);
+    boardCard.setSnippet(`${user.name}: ${text}`);
     boardCard.setLastEventAt(new Date());
 
     const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;

@@ -24,7 +24,7 @@ export const Avatar = ({
   size = 'default',
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Root> & {
-  size?: 'default' | 'lg' | 'sm' | 'xs';
+  size?: 'default' | 'lg' | 'sm' | 'xs' | '2xs';
 }) => {
   return (
     <AvatarPrimitive.Root
@@ -35,6 +35,7 @@ export const Avatar = ({
         'data-[size=lg]:size-10',
         'data-[size=sm]:size-6',
         'data-[size=xs]:size-5',
+        'data-[size=2xs]:size-4',
         className,
       )}
       {...props}
@@ -71,6 +72,7 @@ export const AvatarFallback = ({
         'text-sm',
         'group-data-[size=sm]/avatar:text-xs',
         'group-data-[size=xs]/avatar:text-2xs',
+        'group-data-[size=2xs]/avatar:text-2xs',
         colorClassFromText(hashForBgColor),
         className,
       )}
@@ -89,6 +91,7 @@ export const AvatarBadge = ({ className, ...props }: React.ComponentProps<'span'
         'group-data-[size=lg]/avatar:size-3 group-data-[size=lg]/avatar:[&>svg]:size-2',
         'group-data-[size=sm]/avatar:size-2 group-data-[size=sm]/avatar:[&>svg]:hidden',
         'group-data-[size=xs]/avatar:size-1 group-data-[size=xs]/avatar:[&>svg]:hidden',
+        'group-data-[size=2xs]/avatar:size-1 group-data-[size=2xs]/avatar:[&>svg]:hidden',
         className,
       )}
       {...props}
@@ -96,16 +99,24 @@ export const AvatarBadge = ({ className, ...props }: React.ComponentProps<'span'
   );
 };
 
-export const AvatarGroup = ({ className, ...props }: React.ComponentProps<'div'>) => {
+export const AvatarGroup = ({
+  className,
+  avatars,
+  ...props
+}: React.ComponentProps<'div'> & { avatars: React.ReactNode[] }) => {
   return (
     <div
       data-slot="avatar-group"
       className={cn(
-        '*:data-[slot=avatar]:ring-background group/avatar-group flex -space-x-2 *:data-[slot=avatar]:ring-2',
+        '*:data-[slot=avatar]:ring-background group/avatar-group flex -space-x-1 *:data-[slot=avatar]:bg-background',
+        '[&>*:first-child]:z-10 [&>*:nth-child(2)]:z-9 [&>*:nth-child(3)]:z-8 [&>*:nth-child(4)]:z-7 [&>*:nth-child(5)]:z-6',
+        avatars.length === 1 ? '' : '*:data-[slot=avatar]:ring-2',
         className,
       )}
       {...props}
-    />
+    >
+      {avatars.reverse()}
+    </div>
   );
 };
 
@@ -121,6 +132,7 @@ export const AvatarGroupCount = ({ className, ...props }: React.ComponentProps<'
         'group-has-data-[size=lg]/avatar-group:[&>svg]:size-5',
         'group-has-data-[size=sm]/avatar-group:[&>svg]:size-3',
         'group-has-data-[size=xs]/avatar-group:[&>svg]:size-2',
+        'group-has-data-[size=2xs]/avatar-group:[&>svg]:size-2',
         className,
       )}
       {...props}

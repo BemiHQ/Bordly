@@ -15,10 +15,17 @@ export class BoardMemberService {
   static async setRole(board: Board, { userId, role, currentUser }: { userId: string; role: Role; currentUser: User }) {
     if (currentUser.id === userId) throw new Error('Cannot change your own role');
 
-    const boardMember = await BoardMemberService.findByUserId(board, { userId });
+    const boardMember = await BoardMemberService.findByUserId(board, { userId, populate: ['assignedBoardCards'] });
 
     boardMember.setRole(role);
-    await orm.em.persist(boardMember).flush();
+    orm.em.persist(boardMember);
+
+    for (const boardCard of boardMember.assignedBoardCards) {
+      boardCard.assignedBoardMember = undefined;
+      orm.em.persist(boardCard);
+    }
+
+    await orm.em.flush();
 
     return boardMember;
   }
@@ -29,6 +36,13 @@ export class BoardMemberService {
     const boardMember = await BoardMemberService.findByUserId(board, { userId });
 
     await orm.em.remove(boardMember).flush();
+  }
+
+  static async findById<Hint extends string = never>(
+    board: Board,
+    { boardMemberId, populate = [] }: { boardMemberId: string; populate?: Populate<BoardMember, Hint> },
+  ) {
+    return orm.em.findOneOrFail(BoardMember, { board, id: boardMemberId }, { populate });
   }
 
   private static async findByUserId<Hint extends string = never>(

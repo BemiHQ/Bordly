@@ -4,6 +4,7 @@ export interface BoardFilters {
   unread: boolean;
   hasAttachments: boolean;
   draft: boolean;
+  assigned: boolean;
   gmailAccountIds: string[];
 }
 

@@ -13,7 +13,12 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useRouteContext } from '@/hooks/use-route-context';
-import { type Board, type BoardColumn as BoardColumnType, renameBoardColumnData } from '@/query-helpers/board';
+import {
+  type Board,
+  type BoardColumn as BoardColumnType,
+  type BoardMember,
+  renameBoardColumnData,
+} from '@/query-helpers/board';
 import type { BoardCard as BoardCardType } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
 
@@ -160,20 +165,22 @@ export const BoardColumnDragged = ({
 export const BoardColumnContent = ({
   board,
   boardCards,
+  boardMembers,
   isDragOverlay = false,
 }: {
   board: Board;
   boardCards: BoardCardType[];
+  boardMembers: BoardMember[];
   isDragOverlay?: boolean;
 }) => (
   <>
     {boardCards.map((boardCard) =>
       isDragOverlay ? (
         <BoardCardParentDragged key={boardCard.id}>
-          <BoardCardContent boardCard={boardCard} />
+          <BoardCardContent boardCard={boardCard} boardMembers={boardMembers} />
         </BoardCardParentDragged>
       ) : (
-        <BoardCard key={boardCard.id} board={board} boardCard={boardCard} />
+        <BoardCard key={boardCard.id} board={board} boardCard={boardCard} boardMembers={boardMembers} />
       ),
     )}
   </>

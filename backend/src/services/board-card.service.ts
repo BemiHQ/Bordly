@@ -3,11 +3,11 @@ import type { Board } from '@/entities/board';
 import { BoardCard, State } from '@/entities/board-card';
 import { BoardCardReadPosition } from '@/entities/board-card-read-position';
 import type { BoardColumn } from '@/entities/board-column';
-import { Role } from '@/entities/board-member';
 import { Domain } from '@/entities/domain';
 import type { EmailMessage, Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardColumnService } from '@/services/board-column.service';
+import { BoardMemberService } from '@/services/board-member.service';
 import { EmailDraftService } from '@/services/email-draft.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
@@ -147,6 +147,29 @@ export class BoardCardService {
     return boardCard;
   }
 
+  static async setAssignee<Hint extends string = never>(
+    board: Board,
+    {
+      boardCardId,
+      boardMemberId,
+      populate,
+    }: { boardCardId: string; boardMemberId: string | null; populate?: Populate<BoardCard, Hint> },
+  ) {
+    const boardCard = await BoardCardService.findById(board, { boardCardId, populate });
+
+    if (boardMemberId) {
+      const boardMember = await BoardMemberService.findById(board, { boardMemberId });
+      boardCard.assignToBoardMember(boardMember);
+    } else {
+      boardCard.unassignBoardMember();
+    }
+    orm.em.persist(boardCard);
+
+    await orm.em.flush();
+
+    return boardCard;
+  }
+
   static buildFromEmailMessages({
     gmailAccount,
     boardColumn,
@@ -190,7 +213,7 @@ export class BoardCardService {
       lastReadAt = msAgoFrom(lastEventAt);
     }
     for (const boardMember of gmailAccount.board.boardMembers) {
-      if (boardMember.role === Role.AGENT) continue;
+      if (boardMember.isAgent) continue;
 
       boardCard.boardCardReadPositions.add(
         new BoardCardReadPosition({ boardCard, user: boardMember.user, lastReadAt }),

@@ -24,7 +24,7 @@ export const COMMENT_ROUTES = {
           boardCardId: input.boardCardId,
           populate: BOARD_CARD_POPULATE,
         });
-        const comment = await CommentService.create(boardCard, { user, text: input.text });
+        const comment = await CommentService.create(boardCard, { user, text: input.text, board });
         return {
           comment: comment.toJson(),
           boardCard: boardCardToJson(boardCard, ctx),

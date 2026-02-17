@@ -1,14 +1,15 @@
 import { useDraggable } from '@dnd-kit/core';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { BoardMemberRole } from 'bordly-backend/utils/shared';
 import { Mail, MailCheck, Mails, Paperclip } from 'lucide-react';
 import { useState } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useRouteContext } from '@/hooks/use-route-context';
-import type { Board } from '@/query-helpers/board';
+import type { Board, BoardMember } from '@/query-helpers/board';
 import { type BoardCard as BoardCardType, setUnreadBoardCardData } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
 import { formattedTimeAgo } from '@/utils/time';
@@ -18,10 +19,12 @@ export const DRAG_TYPE = 'board-card';
 
 export const BoardCardContent = ({
   boardCard,
+  boardMembers,
   isHovered,
   onToggleReadStatus,
 }: {
   boardCard: BoardCardType;
+  boardMembers: BoardMember[];
   isHovered?: boolean;
   onToggleReadStatus?: (e: React.MouseEvent) => void;
 }) => {
@@ -31,6 +34,9 @@ export const BoardCardContent = ({
   const draft = boardCard.emailDraft && !boardCard.emailDraft.generated;
   const { unread } = boardCard;
   const grayscale = !unread && !draft && !isHovered && isHovered !== undefined;
+
+  const participantMembers = boardMembers.filter((m) => boardCard.participantUserIds?.includes(m.user.id)) || [];
+  const assignedMember = boardMembers.find((m) => m.id === boardCard.assignedBoardMemberId);
 
   return (
     <div className={cn('flex flex-col transition-filter duration-200', grayscale ? 'grayscale-100' : '')}>
@@ -78,7 +84,10 @@ export const BoardCardContent = ({
                 {unread ? <MailCheck className="size-4" /> : <Mail className="size-4" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent>{unread ? 'Mark as read' : 'Mark as unread'}</TooltipContent>
+            <TooltipContent>
+              {unread ? 'Mark as read' : 'Mark as unread'}
+              {boardMembers.filter((m) => m.role !== BoardMemberRole.AGENT).length === 1 ? '' : ' (only for you)'}
+            </TooltipContent>
           </Tooltip>
         ) : (
           <div
@@ -95,22 +104,60 @@ export const BoardCardContent = ({
         {boardCard.subject}
       </div>
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
-      {(boardCard.hasAttachments || boardCard.emailMessageCount > 1) && (
-        <div className="flex items-center gap-3 mt-1 text-2xs text-muted-foreground">
-          {boardCard.hasAttachments && <Paperclip className="size-3" />}
-          {boardCard.emailMessageCount > 1 && (
-            <div className="flex items-center gap-1">
-              <Mails className="size-3.5" />
-              <span>{boardCard.emailMessageCount}</span>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="flex items-center gap-3 mt-1 text-2xs text-muted-foreground">
+        {(assignedMember || participantMembers.length > 0) && (
+          <AvatarGroup
+            avatars={[
+              assignedMember && (
+                <Avatar size="2xs" className="transition-filter duration-200">
+                  <AvatarImage
+                    src={assignedMember.user.photoUrl}
+                    alt={assignedMember.user.name}
+                    className={grayscale ? 'opacity-75' : ''}
+                  />
+                  <AvatarFallback hashForBgColor={assignedMember.user.name} className={grayscale ? 'opacity-75' : ''}>
+                    {assignedMember.user.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ),
+              ...participantMembers
+                .filter((m) => m.id !== assignedMember?.id)
+                .map((member) => (
+                  <Avatar key={member.user.id} size="2xs" className="transition-filter duration-200 grayscale">
+                    <AvatarImage
+                      src={member.user.photoUrl}
+                      alt={member.user.name}
+                      className={grayscale ? 'opacity-75' : ''}
+                    />
+                    <AvatarFallback hashForBgColor={member.user.name} className={grayscale ? 'opacity-75' : ''}>
+                      {member.user.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                )),
+            ]}
+          />
+        )}
+        {boardCard.hasAttachments && <Paperclip className="size-3" />}
+        {boardCard.emailMessageCount > 1 && (
+          <div className="flex items-center gap-1">
+            <Mails className="size-3.5" />
+            <span>{boardCard.emailMessageCount}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCardType }) => {
+export const BoardCard = ({
+  board,
+  boardCard,
+  boardMembers,
+}: {
+  board: Board;
+  boardCard: BoardCardType;
+  boardMembers: BoardMember[];
+}) => {
   const { queryClient, trpc } = useRouteContext();
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
@@ -163,7 +210,12 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleCardClick}
     >
-      <BoardCardContent boardCard={boardCard} isHovered={isHovered} onToggleReadStatus={handleToggleReadStatus} />
+      <BoardCardContent
+        boardCard={boardCard}
+        boardMembers={boardMembers}
+        isHovered={isHovered}
+        onToggleReadStatus={handleToggleReadStatus}
+      />
     </Card>
   );
 };
