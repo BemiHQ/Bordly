@@ -143,7 +143,12 @@ function BoardCardComponent() {
                     />
                   ))}
                   {showReply && (
-                    <ReplyCard boardId={boardId} boardCardId={boardCardId} onCancel={() => setShowReply(false)} />
+                    <ReplyCard
+                      boardId={boardId}
+                      boardCardId={boardCardId}
+                      emailDraft={boardCard.emailDraft}
+                      onCancel={() => setShowReply(false)}
+                    />
                   )}
                 </div>
               </div>

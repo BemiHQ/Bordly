@@ -1,12 +1,14 @@
-import { Entity, ManyToOne, Property, Unique } from '@mikro-orm/postgresql';
+import { Entity, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCard } from '@/entities/board-card';
 import type { Participant } from '@/entities/email-message';
 
+export type { Participant } from '@/entities/email-message';
+
 @Entity({ tableName: 'email_drafts' })
 @Unique({ properties: ['boardCard'] })
 export class EmailDraft extends BaseEntity {
-  @ManyToOne()
+  @OneToOne()
   boardCard: BoardCard;
 
   @Property()
@@ -55,6 +57,47 @@ export class EmailDraft extends BaseEntity {
     this.subject = subject;
     this.bodyHtml = bodyHtml;
     this.validate();
+  }
+
+  update({
+    generated,
+    from,
+    to,
+    cc,
+    bcc,
+    subject,
+    bodyHtml,
+  }: {
+    generated: boolean;
+    from: Participant;
+    to?: Participant[];
+    cc?: Participant[];
+    bcc?: Participant[];
+    subject?: string;
+    bodyHtml?: string;
+  }) {
+    this.generated = generated;
+    this.from = from;
+    this.to = to;
+    this.cc = cc;
+    this.bcc = bcc;
+    this.subject = subject;
+    this.bodyHtml = bodyHtml;
+    this.validate();
+  }
+
+  toJson() {
+    return {
+      id: this.id,
+      boardCardId: this.boardCard.id,
+      generated: this.generated,
+      from: this.from,
+      to: this.to,
+      cc: this.cc,
+      bcc: this.bcc,
+      subject: this.subject,
+      bodyHtml: this.bodyHtml,
+    };
   }
 
   private validate() {

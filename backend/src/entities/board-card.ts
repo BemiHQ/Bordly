@@ -1,8 +1,9 @@
-import { Entity, Enum, Index, ManyToOne, Property, Unique } from '@mikro-orm/postgresql';
+import { Entity, Enum, Index, ManyToOne, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardColumn } from '@/entities/board-column';
 import type { Domain } from '@/entities/domain';
+import type { EmailDraft } from '@/entities/email-draft';
 import type { Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardCardState as State } from '@/utils/shared';
@@ -20,6 +21,8 @@ export class BoardCard extends BaseEntity {
   boardColumn: BoardColumn;
   @ManyToOne()
   domain: Domain;
+  @OneToOne({ mappedBy: (emailDraft: EmailDraft) => emailDraft.boardCard, nullable: true })
+  emailDraft?: EmailDraft;
 
   @Property()
   externalThreadId: string;
@@ -171,6 +174,7 @@ export class BoardCard extends BaseEntity {
       emailMessageCount: this.emailMessageCount,
       unreadEmailMessageIds: this.unreadEmailMessageIds,
       pinnedPosition: this.pinnedPosition,
+      emailDraft: this.emailDraft?.toJson(),
     };
   }
 

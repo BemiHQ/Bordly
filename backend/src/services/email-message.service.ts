@@ -30,7 +30,8 @@ const CATEGORIES = {
   FINANCE: 'Finance',
   MEETINGS: 'Meetings',
   PROMOTIONS: 'Promotions',
-  SCHOOL: 'School',
+  EDUCATION: 'Education',
+  CUSTOMER_INQUIRIES: 'Customer Inquiries',
   SECURITY: 'Security',
   SHOPPING: 'Shopping',
   TRAVEL: 'Travel',
@@ -205,13 +206,39 @@ export class EmailMessageService {
     board: Board,
     { boardCardId, populate }: { boardCardId: string; populate?: Populate<EmailMessage, Hint> },
   ) {
-    const boardCard = await BoardCardService.findById(board, { boardCardId, populate: ['boardColumn'] });
+    const boardCard = await BoardCardService.findById(board, { boardCardId, populate: ['boardColumn', 'emailDraft'] });
     const emailMessagesAsc = await orm.em.find(
       EmailMessage,
       { gmailAccount: boardCard.gmailAccount, externalThreadId: boardCard.externalThreadId },
       { populate, orderBy: { externalCreatedAt: 'ASC' } },
     );
     return { boardCard, emailMessagesAsc };
+  }
+
+  static parseParticipant(emailAddress?: string) {
+    if (!emailAddress) return;
+
+    const participant = { name: null, email: '' } as Participant;
+
+    const formattedEmail = emailAddress.replaceAll('"', '').trim();
+
+    const match = formattedEmail.match(/^(.*?)(<([^>]+)>)?$/); // Matches 'Name <email>' or just 'email'
+    if (match) {
+      const namePart = match[1]!.trim();
+      const emailPart = match[3] ? match[3].trim() : namePart;
+      participant.email = emailPart;
+      if (namePart && namePart !== emailPart) {
+        participant.name = namePart; // If name part is different from email, use it as name
+      }
+    } else {
+      participant.email = formattedEmail;
+    }
+
+    if (participant.email.toLowerCase().startsWith('undisclosed-recipients')) {
+      return;
+    }
+
+    return participant;
   }
 
   // -------------------------------------------------------------------------------------------------------------------
@@ -595,31 +622,5 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
 
     emailMessage.attachments.set(attachments);
     return emailMessage;
-  }
-
-  private static parseParticipant(emailAddress?: string) {
-    if (!emailAddress) return;
-
-    const participant = { name: null, email: '' } as Participant;
-
-    const formattedEmail = emailAddress.replaceAll('"', '').trim();
-
-    const match = formattedEmail.match(/^(.*?)(<([^>]+)>)?$/); // Matches 'Name <email>' or just 'email'
-    if (match) {
-      const namePart = match[1]!.trim();
-      const emailPart = match[3] ? match[3].trim() : namePart;
-      participant.email = emailPart;
-      if (namePart && namePart !== emailPart) {
-        participant.name = namePart; // If name part is different from email, use it as name
-      }
-    } else {
-      participant.email = formattedEmail;
-    }
-
-    if (participant.email.toLowerCase().startsWith('undisclosed-recipients')) {
-      return;
-    }
-
-    return participant;
   }
 }

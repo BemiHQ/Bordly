@@ -24,7 +24,7 @@ export const BOARD_INVITE_ROUTES = {
         return { boardInvite: boardInvite.toJson() };
       }),
     createMemberBoardInvites: publicProcedure
-      .input(z.object({ boardId: z.uuid(), emails: z.array(z.email()) }))
+      .input(z.object({ boardId: z.uuid(), emails: z.array(z.email()).min(1) }))
       .mutation(async ({ input, ctx }) => {
         const { board, user } = authAsBoardAdmin({ ctx, input });
         await BoardInviteService.createMemberBoardInvites(board, { emails: input.emails, invitedBy: user });

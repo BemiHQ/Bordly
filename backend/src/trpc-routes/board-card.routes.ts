@@ -9,7 +9,7 @@ export const BOARD_CARD_ROUTES = {
   boardCard: {
     getBoardCards: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       const { board } = authAsBoardMember({ ctx, input });
-      const { boardCardsDesc } = await BoardCardService.findCardsByBoard(board, { populate: ['domain'] });
+      const { boardCardsDesc } = await BoardCardService.findCardsByBoard(board, { populate: ['domain', 'emailDraft'] });
       return { boardCardsDesc: boardCardsDesc.map((card) => card.toJson()) };
     }),
     markAsRead: publicProcedure
@@ -18,7 +18,7 @@ export const BOARD_CARD_ROUTES = {
         const { board } = authAsBoardMember({ ctx, input });
         const boardCard = await BoardCardService.markAsRead(board, {
           boardCardId: input.boardCardId,
-          populate: ['domain'],
+          populate: ['domain', 'emailDraft'],
         });
         return { boardCard: boardCard.toJson() };
       }),
@@ -28,7 +28,7 @@ export const BOARD_CARD_ROUTES = {
         const { board } = authAsBoardMember({ ctx, input });
         const boardCard = await BoardCardService.markAsUnread(board, {
           boardCardId: input.boardCardId,
-          populate: ['domain'],
+          populate: ['domain', 'emailDraft'],
         });
         return { boardCard: boardCard.toJson() };
       }),
@@ -39,7 +39,7 @@ export const BOARD_CARD_ROUTES = {
         const boardCard = await BoardCardService.setBoardColumn(board, {
           boardCardId: input.boardCardId,
           boardColumnId: input.boardColumnId,
-          populate: ['domain'],
+          populate: ['domain', 'emailDraft'],
         });
         return { boardCard: boardCard.toJson() };
       }),
@@ -50,7 +50,7 @@ export const BOARD_CARD_ROUTES = {
         const boardCard = await BoardCardService.setState(board, {
           boardCardId: input.boardCardId,
           state: input.state,
-          populate: ['domain'],
+          populate: ['domain', 'emailDraft'],
         });
         return { boardCard: boardCard.toJson() };
       }),
