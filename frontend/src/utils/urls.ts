@@ -4,6 +4,7 @@ export const ROUTES = {
   HOME: '/',
   AUTH: '/auth',
   WELCOME: '/welcome',
+  BOARD: '/boards/$boardId',
 };
 
 export const API_ENDPOINTS = {

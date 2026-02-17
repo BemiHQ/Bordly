@@ -37,6 +37,14 @@ export class BoardCard extends BaseEntity {
     this.validate();
   }
 
+  toJson() {
+    return {
+      id: this.id,
+      externalThreadId: this.externalThreadId,
+      pinnedPosition: this.pinnedPosition,
+    };
+  }
+
   private validate() {
     if (!this.board) throw new Error('Board is required');
     if (!this.boardColumn) throw new Error('BoardColumn is required');

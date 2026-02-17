@@ -26,26 +26,22 @@ export class Board extends BaseEntity {
 
   @Property()
   name: string;
-  @Property()
-  slug: string;
 
   constructor({ name }: { name: string }) {
     super();
     this.name = name;
-    this.slug = slugify(name);
     this.validate();
   }
 
   toJson() {
     return {
       id: this.id,
-      slug: this.slug,
+      friendlyId: `${slugify(this.name)}-${this.id}`,
       name: this.name,
     };
   }
 
   private validate() {
     if (!this.name) throw new Error('Name is required');
-    if (!this.slug) throw new Error('Slug is required');
   }
 }

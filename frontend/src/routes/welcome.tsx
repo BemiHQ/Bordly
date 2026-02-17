@@ -22,7 +22,7 @@ export const Route = createFileRoute('/welcome')({
       throw redirect({ to: ROUTES.AUTH });
     }
     if (currentUser.boards.length > 0) {
-      throw redirect({ to: ROUTES.HOME });
+      throw redirect({ to: ROUTES.BOARD.replace('$boardId', currentUser.boards[0].friendlyId) });
     }
     return { currentUser };
   },

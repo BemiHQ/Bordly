@@ -9,8 +9,12 @@ export const Route = createFileRoute('/auth')({
   component: Auth,
   beforeLoad: async ({ context }) => {
     const currentUser = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
-    if (currentUser) {
-      throw redirect({ to: ROUTES.HOME });
+    if (!currentUser) return;
+
+    if (currentUser.boards.length > 0) {
+      throw redirect({ to: ROUTES.BOARD.replace('$boardId', currentUser.boards[0].friendlyId) });
+    } else {
+      throw redirect({ to: ROUTES.WELCOME });
     }
   },
 });

@@ -43,16 +43,6 @@
           "nullable": false,
           "length": 255,
           "mappedType": "string"
-        },
-        "slug": {
-          "name": "slug",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 255,
-          "mappedType": "string"
         }
       },
       "name": "boards",

@@ -43,6 +43,26 @@ Only output one of the above categories without any explanation.`,
 };
 
 export class EmailMessageService {
+  static async findMessagesByThreadId({
+    gmailAccounts,
+    threadIds,
+  }: {
+    gmailAccounts: GmailAccount[];
+    threadIds: string[];
+  }) {
+    if (threadIds.length === 0) return [];
+    const emailMessages = await orm.em.find(EmailMessage, {
+      gmailAccount: { $in: gmailAccounts.map((account) => account) },
+      externalThreadId: { $in: threadIds },
+    });
+
+    const emailMessagesByThreadId: Record<string, EmailMessage[]> = {};
+    for (const emailMessage of emailMessages) {
+      (emailMessagesByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
+    }
+    return emailMessagesByThreadId;
+  }
+
   static async createInitialEmailMessages(gmailAccountId: string) {
     const gmailAccount = await GmailAccountService.findById(gmailAccountId, { populate: ['board'] });
     if (!gmailAccount.board) throw new Error('Gmail account does not have an associated board');
@@ -72,11 +92,7 @@ export class EmailMessageService {
         messageData: messageDetails.data,
       });
       orm.em.persist([emailMessage, ...attachments]);
-
-      if (!emailMessagesByThreadId[emailMessage.externalThreadId]) {
-        emailMessagesByThreadId[emailMessage.externalThreadId] = [];
-      }
-      emailMessagesByThreadId[emailMessage.externalThreadId]!.push(emailMessage);
+      (emailMessagesByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
     }
 
     // Categorize email threads
@@ -84,10 +100,7 @@ export class EmailMessageService {
     const emailThreadIdsByCategory: Record<string, string[]> = {};
     for (const [threadId, emailMessages] of Object.entries(emailMessagesByThreadId)) {
       const category = await EmailMessageService.categorizeEmailThread({ agent, emailMessages });
-      if (!emailThreadIdsByCategory[category]) {
-        emailThreadIdsByCategory[category] = [];
-      }
-      emailThreadIdsByCategory[category].push(threadId);
+      (emailThreadIdsByCategory[category] ??= []).push(threadId);
     }
 
     // Find top N categories by number of threads. Always append "Others" category
@@ -104,10 +117,8 @@ export class EmailMessageService {
     const boardColumnsByCategory: Record<string, BoardColumn> = {};
     for (const [initialCategory, threadIds] of Object.entries(emailThreadIdsByCategory)) {
       let category = initialCategory;
-
-      // Map less frequent categories to "Others"
       if (!topCategories.includes(category) && category !== CATEGORIES.SPAM && category !== CATEGORIES.TRASH) {
-        category = CATEGORIES.OTHERS;
+        category = CATEGORIES.OTHERS; // Map less frequent categories to "Others"
       }
 
       if (!boardColumnsByCategory[category]) {

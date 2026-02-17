@@ -1,3 +1,4 @@
+import type { Populate } from '@mikro-orm/postgresql';
 import { Board } from '@/entities/board';
 import { BoardMember } from '@/entities/board-member';
 import type { GmailAccount } from '@/entities/gmail-account';
@@ -6,8 +7,11 @@ import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { orm } from '@/utils/orm';
 
 export class BoardService {
-  static async findByIdForUser({ boardId, user }: { boardId: string; user: User }) {
-    return orm.em.findOneOrFail(Board, { id: boardId, boardMembers: { user } });
+  static async findByIdForUser(
+    boardId: string,
+    { user, populate = [] }: { user: User; populate?: Populate<Board, 'string'> },
+  ) {
+    return orm.em.findOneOrFail(Board, { id: boardId, boardMembers: { user } }, { populate });
   }
 
   static async createFirstBoard({ name, user }: { name: string; user: User }) {

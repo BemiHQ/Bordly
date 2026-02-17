@@ -38,6 +38,9 @@
       "complexity": {
         "noStaticOnlyClass": "off"
       },
+      "suspicious": {
+        "noAssignInExpressions": "off"
+      },
       "style": {
         "noNonNullAssertion": "off"
       }

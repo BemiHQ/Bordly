@@ -38,6 +38,20 @@ export class BoardColumn extends BaseEntity {
     this.validate();
   }
 
+  toJson({ detailed }: { detailed?: boolean } = { detailed: false }) {
+    const result = {
+      id: this.id,
+      name: this.name,
+      position: this.position,
+    };
+    if (!detailed) return result;
+
+    return {
+      ...result,
+      description: this.description,
+    };
+  }
+
   private validate() {
     if (!this.board) throw new Error('Board is required');
     if (!this.name) throw new Error('Name is required');

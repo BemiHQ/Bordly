@@ -92,6 +92,16 @@ export class EmailMessage extends BaseEntity {
     this.validate();
   }
 
+  toJson() {
+    return {
+      id: this.id,
+      from: this.from,
+      subject: this.subject,
+      snippet: this.snippet,
+      to: this.to,
+    };
+  }
+
   private validate() {
     if (!this.gmailAccount) throw new Error('Gmail Account is required');
     if (!this.externalId) throw new Error('External ID is required');

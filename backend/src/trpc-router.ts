@@ -8,6 +8,8 @@ import type { User } from '@/entities/user';
 import { BoardService } from '@/services/board.service';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { UserService } from '@/services/user.service';
+import { unique } from '@/utils/lists';
+import { EmailMessageService } from './services/email-message.service';
 
 export const createContext = async ({ req }: CreateFastifyContextOptions) => {
   const userId = req.session.get('userId') as string | undefined;
@@ -48,14 +50,36 @@ const ROUTES = {
       if (!ctx.user) return null;
       return ctx.user.toJson();
     }),
-  },
+  } satisfies TRPCRouterRecord,
   board: {
+    getBoard: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
+      if (!ctx.user) throw new Error('Not authenticated');
+      const board = await BoardService.findByIdForUser(input.boardId, {
+        user: ctx.user,
+        populate: ['gmailAccounts', 'boardColumns', 'boardCards'],
+      });
+      const emailMessagesByThreadId = await EmailMessageService.findMessagesByThreadId({
+        gmailAccounts: board.gmailAccounts.getItems(),
+        threadIds: unique(board.boardCards.getItems().map((card) => card.externalThreadId)),
+      });
+      return {
+        board: board.toJson(),
+        boardColumns: board.boardColumns.getItems().map((col) => col.toJson()),
+        boardCards: board.boardCards.getItems().map((card) => card.toJson()),
+        emailMessagesByThreadId: Object.fromEntries(
+          Object.entries(emailMessagesByThreadId).map(([threadId, emailMessages]) => [
+            threadId,
+            emailMessages.map((msg) => msg.toJson()),
+          ]),
+        ),
+      };
+    }),
     createFirstBoard: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input, ctx }) => {
       if (!ctx.user) throw new Error('Not authenticated');
       const board = await BoardService.createFirstBoard({ name: input.name, user: ctx.user });
       return board.toJson();
     }),
-  },
+  } satisfies TRPCRouterRecord,
   boardInvite: {
     createInvites: publicProcedure
       .input(z.object({ boardId: z.uuid(), emails: z.array(z.email()) }))
@@ -68,8 +92,8 @@ const ROUTES = {
         });
         return invites.map((invite) => invite.toJson());
       }),
-  },
-} as Record<string, TRPCRouterRecord>;
+  } satisfies TRPCRouterRecord,
+};
 
 export const trpcRouter = createTRPCRouter(ROUTES);
 export type TRPCRouter = typeof trpcRouter;
