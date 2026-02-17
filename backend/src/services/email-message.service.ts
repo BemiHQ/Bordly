@@ -205,12 +205,12 @@ export class EmailMessageService {
     { boardCardId, populate }: { boardCardId: string; populate?: Populate<EmailMessage, Hint> },
   ) {
     const boardCard = await BoardCardService.findById(board, { boardCardId });
-    const emailMessages = await orm.em.find(
+    const emailMessagesAsc = await orm.em.find(
       EmailMessage,
       { gmailAccount: boardCard.gmailAccount, externalThreadId: boardCard.externalThreadId },
       { populate, orderBy: { externalCreatedAt: 'ASC' } },
     );
-    return { boardCard, emailMessages };
+    return { boardCard, emailMessagesAsc };
   }
 
   // -------------------------------------------------------------------------------------------------------------------

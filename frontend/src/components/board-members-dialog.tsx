@@ -36,7 +36,9 @@ const BoardMemberRoleSelect = ({
       onSuccess: () => {
         queryClient.setQueryData(trpc.boardMember.getBoardMembers.queryKey({ boardId: board.id }), (oldData) => {
           if (!oldData) return oldData;
-          return { boardMembers: oldData.boardMembers.filter((m) => m.user.id !== member.user.id) };
+          return {
+            boardMembers: oldData.boardMembers.filter((m) => m.user.id !== member.user.id),
+          } satisfies typeof oldData;
         });
         toast.success('Member removed successfully', { position: 'top-center' });
         setShowRemovePopover(false);
@@ -113,7 +115,7 @@ const BoardInviteRoleSelect = ({
       onSuccess: () => {
         queryClient.setQueryData(trpc.boardInvite.getBoardInvites.queryKey({ boardId: board.id }), (oldData) => {
           if (!oldData) return oldData;
-          return { boardInvites: oldData.boardInvites.filter((i) => i.id !== invite.id) };
+          return { boardInvites: oldData.boardInvites.filter((i) => i.id !== invite.id) } satisfies typeof oldData;
         });
         toast.success('Invite removed successfully', { position: 'top-center' });
         setShowRemovePopover(false);
@@ -206,7 +208,7 @@ export const BoardMembersDialog = ({
       onSuccess: (data) => {
         queryClient.setQueryData(trpc.boardInvite.getBoardInvites.queryKey({ boardId: board.id }), (oldData) => {
           if (!oldData) return oldData;
-          return { boardInvites: [...oldData.boardInvites, data.boardInvite] };
+          return { boardInvites: [...oldData.boardInvites, data.boardInvite] } satisfies typeof oldData;
         });
         toast.success('Invite sent successfully', { position: 'top-center' });
         setInviteEmail('');
@@ -222,7 +224,9 @@ export const BoardMembersDialog = ({
     onExecute: ({ userId, role }) => {
       queryClient.setQueryData(trpc.boardMember.getBoardMembers.queryKey({ boardId: board.id }), (oldData) => {
         if (!oldData) return oldData;
-        return { boardMembers: oldData.boardMembers.map((m) => (m.user.id === userId ? { ...m, role: role } : m)) };
+        return {
+          boardMembers: oldData.boardMembers.map((m) => (m.user.id === userId ? { ...m, role: role } : m)),
+        } satisfies typeof oldData;
       });
     },
     successToast: 'Role updated successfully',
@@ -236,7 +240,9 @@ export const BoardMembersDialog = ({
     onExecute: ({ boardInviteId, role }) => {
       queryClient.setQueryData(trpc.boardInvite.getBoardInvites.queryKey({ boardId: board.id }), (oldData) => {
         if (!oldData) return oldData;
-        return { boardInvites: oldData.boardInvites.map((i) => (i.id === boardInviteId ? { ...i, role: role } : i)) };
+        return {
+          boardInvites: oldData.boardInvites.map((i) => (i.id === boardInviteId ? { ...i, role: role } : i)),
+        } satisfies typeof oldData;
       });
     },
     successToast: 'Role updated successfully',

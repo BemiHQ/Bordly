@@ -70,7 +70,7 @@ const TRPC_ROUTES = {
       await BoardService.populate(board, ['boardColumns', 'gmailAccounts']);
       return {
         board: board.toJson(),
-        boardColumns: [...board.boardColumns].sort((a, b) => a.position - b.position).map((col) => col.toJson()),
+        boardColumnsAsc: [...board.boardColumns].sort((a, b) => a.position - b.position).map((col) => col.toJson()),
         gmailAccounts: board.gmailAccounts.map((acc) => acc.toJson()),
       };
     }),
@@ -87,12 +87,35 @@ const TRPC_ROUTES = {
         await GmailAccountService.deleteFromBoard(board, { gmailAccountId: input.gmailAccountId });
       }),
   } satisfies TRPCRouterRecord,
+  boardColumn: {
+    setName: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardColumnId: z.uuid(), name: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+        const boardColumn = await BoardColumnService.setName(board, {
+          boardColumnId: input.boardColumnId,
+          name: input.name,
+        });
+        return { boardColumn: boardColumn.toJson() };
+      }),
+    setPosition: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardColumnId: z.uuid(), position: z.number().int().min(0) }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+        await BoardColumnService.setPosition(board, {
+          boardColumnId: input.boardColumnId,
+          position: input.position,
+        });
+      }),
+  } satisfies TRPCRouterRecord,
   boardCard: {
     getBoardCards: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       if (!ctx.user) throw new Error('Not authenticated');
       const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
-      const boardCards = await BoardCardService.findCardsByBoard(board, { populate: ['domain'] });
-      return { boardCards: boardCards.map((card) => card.toJson()) };
+      const { boardCardsDesc } = await BoardCardService.findCardsByBoard(board, { populate: ['domain'] });
+      return { boardCardsDesc: boardCardsDesc.map((card) => card.toJson()) };
     }),
     markAsRead: publicProcedure
       .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() }))
@@ -219,27 +242,14 @@ const TRPC_ROUTES = {
       .query(async ({ input, ctx }) => {
         if (!ctx.user) throw new Error('Not authenticated');
         const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
-        const { boardCard, emailMessages } = await EmailMessageService.findEmailMessages(board, {
+        const { boardCard, emailMessagesAsc } = await EmailMessageService.findEmailMessages(board, {
           boardCardId: input.boardCardId,
           populate: ['domain', 'attachments'],
         });
         return {
           boardCard: boardCard.toJson(),
-          emailMessages: emailMessages.map((msg) => msg.toJson()),
+          emailMessagesAsc: emailMessagesAsc.map((msg) => msg.toJson()),
         };
-      }),
-  } satisfies TRPCRouterRecord,
-  boardColumn: {
-    setName: publicProcedure
-      .input(z.object({ boardId: z.uuid(), boardColumnId: z.uuid(), name: z.string().min(1) }))
-      .mutation(async ({ input, ctx }) => {
-        if (!ctx.user) throw new Error('Not authenticated');
-        const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
-        const boardColumn = await BoardColumnService.setName(board, {
-          boardColumnId: input.boardColumnId,
-          name: input.name,
-        });
-        return { boardColumn: boardColumn.toJson() };
       }),
   } satisfies TRPCRouterRecord,
 };

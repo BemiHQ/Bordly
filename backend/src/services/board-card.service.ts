@@ -33,7 +33,12 @@ export class BoardCardService {
     board: Board,
     { state = State.INBOX, populate = [] }: { state?: State; populate?: Populate<BoardCard, Hint> },
   ) {
-    return orm.em.find(BoardCard, { state, boardColumn: { board: { id: board.id } } }, { populate });
+    const boardCardsDesc = await orm.em.find(
+      BoardCard,
+      { state, boardColumn: { board: { id: board.id } } },
+      { populate, orderBy: { lastEventAt: 'DESC' } },
+    );
+    return { boardCardsDesc };
   }
 
   static async findById<Hint extends string = never>(

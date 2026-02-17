@@ -18,7 +18,9 @@ type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
 type Board = BoardData['board'];
 
 type BoardCardsData = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards'];
-type BoardCardType = BoardCardsData['boardCards'][number];
+type BoardCardType = BoardCardsData['boardCardsDesc'][number];
+
+export const DRAG_TYPE = 'board-card';
 
 export const BoardCardContent = ({
   boardCard,
@@ -33,19 +35,13 @@ export const BoardCardContent = ({
 }) => {
   const firstParticipant = boardCard.participants[0];
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
-
   const { iconUrl } = boardCard.domain;
+  const grayscale = !unread && !isHovered && isHovered !== undefined;
 
   return (
-    <div className="flex flex-col">
+    <div className={cn('flex flex-col transition-filter duration-200', grayscale ? 'grayscale-100' : '')}>
       <div className="flex items-center mb-1.5">
-        <Avatar
-          size="xs"
-          className={cn(
-            'transition-filter duration-200',
-            unread || isHovered === true || isHovered === undefined ? '' : 'grayscale-100 opacity-60',
-          )}
-        >
+        <Avatar size="xs" className={cn('transition-filter duration-200', grayscale ? 'opacity-60' : '')}>
           <AvatarImage
             src={
               iconUrl && !iconUrl.startsWith('/')
@@ -128,7 +124,7 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: boardCard.id,
-    data: { boardCard },
+    data: { boardCard, type: DRAG_TYPE },
   });
 
   const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: board.id });
@@ -137,14 +133,14 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
     queryClient,
     queryKey: boardCardsQueryKey,
     onExecute: ({ boardCardId }) => {
-      queryClient.setQueryData(boardCardsQueryKey, (oldData: BoardCardsData | undefined) => {
+      queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          boardCards: oldData.boardCards.map((c) =>
+          boardCardsDesc: oldData.boardCardsDesc.map((c) =>
             c.id === boardCardId ? { ...c, unreadEmailMessageIds: undefined } : c,
           ),
-        };
+        } satisfies typeof oldData;
       });
     },
     errorToast: 'Failed to mark the card as read. Please try again.',
@@ -155,27 +151,24 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
     queryClient,
     queryKey: boardCardsQueryKey,
     onExecute: ({ boardCardId }) => {
-      queryClient.setQueryData(boardCardsQueryKey, (oldData: BoardCardsData | undefined) => {
+      queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          boardCards: oldData.boardCards.map((c) =>
+          boardCardsDesc: oldData.boardCardsDesc.map((c) =>
             c.id === boardCardId ? { ...c, unreadEmailMessageIds: ['temp-id'] } : c,
           ),
-        };
+        } satisfies typeof oldData;
       });
     },
     onSuccess: ({ boardCard }: { boardCard: BoardCardType }) => {
-      queryClient.setQueryData(
-        trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }),
-        (oldData: BoardCardsData | undefined) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            boardCards: oldData.boardCards.map((card) => (card.id === boardCard.id ? boardCard : card)),
-          };
-        },
-      );
+      queryClient.setQueryData(trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }), (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCardsDesc: oldData.boardCardsDesc.map((card) => (card.id === boardCard.id ? boardCard : card)),
+        } satisfies typeof oldData;
+      });
     },
     errorToast: 'Failed to mark the card as unread. Please try again.',
     mutation: useMutation(trpc.boardCard.markAsUnread.mutationOptions()),
@@ -214,4 +207,16 @@ export const BoardCard = ({ board, boardCard }: { board: Board; boardCard: Board
       />
     </Card>
   );
+};
+
+export const BoardCardDragged = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <Card className="cursor-grabbing p-3 rounded-lg shadow-lg w-64" style={{ transform: 'rotate(5deg)' }}>
+      {children}
+    </Card>
+  );
+};
+
+export const BoardCardParentDragged = ({ children }: { children: React.ReactNode }) => {
+  return <Card className="p-3 rounded-lg">{children}</Card>;
 };

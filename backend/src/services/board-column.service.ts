@@ -28,4 +28,37 @@ export class BoardColumnService {
     await orm.em.flush();
     return boardColumn;
   }
+
+  static async setPosition<Hint extends string = never>(
+    board: Board,
+    {
+      boardColumnId,
+      position,
+      populate = [],
+    }: { boardColumnId: string; position: number; populate?: Populate<BoardColumn, Hint> },
+  ) {
+    const boardColumn = await BoardColumnService.findById(boardColumnId, { board, populate });
+    const allColumns = await orm.em.find(BoardColumn, { board: { id: board.id } }, { orderBy: { position: 'ASC' } });
+    const oldPosition = boardColumn.position;
+    if (oldPosition === position) return boardColumn;
+
+    // Move all columns to temporary high positions to avoid unique constraint violations
+    const offset = allColumns.length;
+    allColumns.forEach((col, i) => {
+      col.setPosition(offset + i);
+      orm.em.persist(col);
+    });
+    await orm.em.flush();
+
+    // Reorder columns and assign final positions
+    const reorderedColumns = allColumns.filter((col) => col.id !== boardColumnId);
+    reorderedColumns.splice(position, 0, boardColumn);
+    reorderedColumns.forEach((col, i) => {
+      col.setPosition(i);
+      orm.em.persist(col);
+    });
+    await orm.em.flush();
+
+    return boardColumn;
+  }
 }

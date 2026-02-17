@@ -22,7 +22,7 @@ import { formattedShortTime, shortDateTime } from '@/utils/time';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
-type EmailMessage = EmailMessagesData['emailMessages'][number];
+type EmailMessage = EmailMessagesData['emailMessagesAsc'][number];
 type Attachment = EmailMessage['attachments'][number];
 type BoardCard = EmailMessagesData['boardCard'];
 
@@ -509,7 +509,7 @@ function BoardCardComponent() {
     ...context.trpc.emailMessage.getEmailMessages.queryOptions({ boardId, boardCardId }),
   });
   const boardCard = emailMessagesData?.boardCard;
-  const emailMessages = emailMessagesData?.emailMessages;
+  const emailMessagesAsc = emailMessagesData?.emailMessagesAsc;
 
   const boardCardsQueryKey = context.trpc.boardCard.getBoardCards.queryKey({ boardId });
   const optimisticallyMarkAsUnread = useOptimisticMutation({
@@ -520,10 +520,10 @@ function BoardCardComponent() {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          boardCards: oldData.boardCards.map((c) =>
+          boardCardsDesc: oldData.boardCardsDesc.map((c) =>
             c.id === boardCardId ? { ...c, unreadEmailMessageIds: ['temp-id'] } : c,
           ),
-        };
+        } satisfies typeof oldData;
       });
     },
     onSuccess: ({ boardCard }: { boardCard: BoardCard }) => {
@@ -531,8 +531,8 @@ function BoardCardComponent() {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          boardCards: oldData.boardCards.map((card) => (card.id === boardCard.id ? boardCard : card)),
-        };
+          boardCardsDesc: oldData.boardCardsDesc.map((card) => (card.id === boardCard.id ? boardCard : card)),
+        } satisfies typeof oldData;
       });
     },
     errorToast: 'Failed to mark the card as unread. Please try again.',
@@ -545,7 +545,10 @@ function BoardCardComponent() {
     onExecute: ({ boardCardId }) => {
       context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
         if (!oldData) return oldData;
-        return { ...oldData, boardCards: oldData.boardCards.filter((card) => card.id !== boardCardId) };
+        return {
+          ...oldData,
+          boardCardsDesc: oldData.boardCardsDesc.filter((card) => card.id !== boardCardId),
+        } satisfies typeof oldData;
       });
     },
     successToast: 'Card archived',
@@ -560,8 +563,8 @@ function BoardCardComponent() {
           if (!oldData) return oldData;
           return {
             ...oldData,
-            boardCards: oldData.boardCards.map((card) => (card.id === boardCard.id ? boardCard : card)),
-          };
+            boardCardsDesc: oldData.boardCardsDesc.map((card) => (card.id === boardCard.id ? boardCard : card)),
+          } satisfies typeof oldData;
         });
       },
     }),
@@ -630,9 +633,9 @@ function BoardCardComponent() {
                 <Spinner />
               </div>
             )}
-            {emailMessages && (
+            {emailMessagesAsc && (
               <div className="flex flex-col gap-4 px-6 pb-6">
-                {emailMessages.map((emailMessage) => (
+                {emailMessagesAsc.map((emailMessage) => (
                   <EmailMessageCard
                     key={emailMessage.id}
                     emailMessage={emailMessage}

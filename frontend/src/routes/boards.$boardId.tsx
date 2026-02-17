@@ -1,5 +1,6 @@
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortable';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
@@ -8,13 +9,16 @@ import { BoardCardState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
 import { Archive } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { BoardCard, BoardCardContent } from '@/components/board-card';
+import { BoardCardContent, BoardCardDragged, DRAG_TYPE as DRAG_TYPE_CARD } from '@/components/board-card';
+import {
+  BoardColumn,
+  BoardColumnContent,
+  BoardColumnDragged,
+  DRAG_TYPE as DRAG_TYPE_COLUMN,
+} from '@/components/board-column';
 import { BoardNavbar } from '@/components/board-navbar';
 import { Navbar } from '@/components/navbar';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { useBoardFilters } from '@/hooks/use-board-filters';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
@@ -29,11 +33,10 @@ const REFETCH_INTERVAL_MS = 30_000;
 const ARCHIVE_DROP_ZONE_ID = 'archive-zone';
 
 type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
-type Board = BoardData['board'];
-type BoardColumn = BoardData['boardColumns'][number];
+type BoardColumnType = BoardData['boardColumnsAsc'][number];
 
 type BoardCardsData = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards'];
-type BoardCardType = BoardCardsData['boardCards'][number];
+type BoardCardType = BoardCardsData['boardCardsDesc'][number];
 
 export const Route = createFileRoute('/boards/$boardId')({
   component: BoardComponent,
@@ -60,100 +63,6 @@ const EmptyState = () => (
     </EmptyHeader>
   </Empty>
 );
-
-const BoardColumn = ({
-  board,
-  boardColumn,
-  unreadBoardCardCount,
-  children,
-}: {
-  board: Board;
-  boardColumn: BoardColumn;
-  unreadBoardCardCount: number;
-  children: React.ReactNode;
-}) => {
-  const { setNodeRef, isOver } = useDroppable({ id: boardColumn.id });
-  const { queryClient, trpc } = useRouteContext();
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState(boardColumn.name);
-
-  const boardQueryKey = trpc.board.get.queryKey({ boardId: board.id });
-
-  const optimisticallySetName = useOptimisticMutation({
-    queryClient,
-    queryKey: boardQueryKey,
-    onExecute: ({ name }) => {
-      queryClient.setQueryData(boardQueryKey, (oldData: BoardData | undefined) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardColumns: oldData.boardColumns.map((col) => (col.id === boardColumn.id ? { ...col, name } : col)),
-        };
-      });
-    },
-    errorToast: 'Failed to rename column. Please try again.',
-    mutation: useMutation(trpc.boardColumn.setName.mutationOptions()),
-  });
-
-  const handleNameClick = () => {
-    setIsEditing(true);
-    setEditedName(boardColumn.name);
-  };
-
-  const handleNameSubmit = () => {
-    const trimmedName = editedName.trim();
-    if (trimmedName && trimmedName !== boardColumn.name) {
-      optimisticallySetName({ boardId: board.id, boardColumnId: boardColumn.id, name: trimmedName });
-    }
-    setIsEditing(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleNameSubmit();
-    } else if (e.key === 'Escape') {
-      setIsEditing(false);
-      setEditedName(boardColumn.name);
-    }
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        'bg-secondary flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-2 rounded-lg p-2 border border-border transition-colors',
-        isOver ? 'border-semi-muted' : '',
-      )}
-    >
-      <div className="flex items-center gap-2 px-1 min-h-7">
-        {isEditing ? (
-          <Input
-            inputSize="sm"
-            value={editedName}
-            onChange={(e) => setEditedName(e.target.value)}
-            onBlur={handleNameSubmit}
-            onKeyDown={handleKeyDown}
-            className="bg-background px-2 mt-0.5 h-6.5 text-sm font-semibold rounded-sm focus-visible:ring-1"
-            autoFocus
-          />
-        ) : (
-          <h2
-            className="ml-[9px] pt-0.5 text-sm font-semibold cursor-pointer hover:text-primary w-full"
-            onClick={handleNameClick}
-          >
-            {editedName}
-          </h2>
-        )}
-        {unreadBoardCardCount > 0 && (
-          <Badge variant="default" size="sm">
-            {unreadBoardCardCount}
-          </Badge>
-        )}
-      </div>
-      <div className={cn('flex flex-col gap-2 overflow-y-auto scrollbar-thin', isOver && 'opacity-0')}>{children}</div>
-    </div>
-  );
-};
 
 const ArchiveDropZone = ({ isDragging }: { isDragging: boolean }) => {
   const { setNodeRef, isOver } = useDroppable({ id: ARCHIVE_DROP_ZONE_ID });
@@ -187,117 +96,176 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
   const { filters } = useBoardFilters();
   const { queryClient, trpc } = useRouteContext();
   const [activeBoardCard, setActiveBoardCard] = useState<BoardCardType | null>(null);
+  const [activeBoardColumn, setActiveBoardColumn] = useState<BoardColumnType | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: boardData.board.id });
+  const { board, boardColumnsAsc } = boardData;
+  const { boardCardsDesc } = boardCardsData;
 
-  const optimisticallyArchive = useOptimisticMutationWithUndo({
+  const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: board.id });
+  const optimisticallyArchiveBoardCard = useOptimisticMutationWithUndo({
     queryClient,
     queryKey: boardCardsQueryKey,
     onExecute: ({ boardCardId }) => {
-      queryClient.setQueryData(boardCardsQueryKey, (oldData: BoardCardsData | undefined) => {
+      queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
         if (!oldData) return oldData;
-        return { ...oldData, boardCards: oldData.boardCards.filter((card) => card.id !== boardCardId) };
+        return {
+          ...oldData,
+          boardCardsDesc: oldData.boardCardsDesc.filter((card) => card.id !== boardCardId),
+        } satisfies typeof oldData;
       });
     },
     successToast: 'Card archived',
     errorToast: 'Failed to archive the card. Please try again.',
     delayedMutation: useMutation(trpc.boardCard.setState.mutationOptions()),
   });
-
-  const optimisticallyMove = useOptimisticMutation({
+  const optimisticallyMoveBoardCard = useOptimisticMutation({
     queryClient,
     queryKey: boardCardsQueryKey,
     onExecute: ({ boardCardId, boardColumnId }) => {
-      queryClient.setQueryData(boardCardsQueryKey, (oldData: BoardCardsData | undefined) => {
+      queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          boardCards: oldData.boardCards.map((card) => (card.id === boardCardId ? { ...card, boardColumnId } : card)),
-        };
+          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, boardColumnId } : c)),
+        } satisfies typeof oldData;
       });
     },
     errorToast: 'Failed to move the card. Please try again.',
     mutation: useMutation(trpc.boardCard.setBoardColumn.mutationOptions()),
   });
 
+  const boardQueryKey = trpc.board.get.queryKey({ boardId: board.id });
+  const optimisticallyMoveBoardColumn = useOptimisticMutation({
+    queryClient,
+    queryKey: boardQueryKey,
+    onExecute: ({ boardColumnId, position }: { boardColumnId: string; position: number }) => {
+      queryClient.setQueryData(boardQueryKey, (oldData) => {
+        if (!oldData) return oldData;
+        const columnsCopy = [...oldData.boardColumnsAsc];
+        const columnIndex = columnsCopy.findIndex((col) => col.id === boardColumnId);
+        const [movedColumn] = columnsCopy.splice(columnIndex, 1);
+        columnsCopy.splice(position, 0, movedColumn);
+        const reorderedColumns = columnsCopy.map((col, index) => ({ ...col, position: index }));
+        return { ...oldData, boardColumnsAsc: reorderedColumns } satisfies typeof oldData;
+      });
+    },
+    errorToast: 'Failed to reorder column. Please try again.',
+    mutation: useMutation(trpc.boardColumn.setPosition.mutationOptions()),
+  });
+
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const boardCard = active.data.current?.boardCard as BoardCardType | undefined;
-    if (boardCard) {
-      setActiveBoardCard(boardCard);
+    const dragType = active.data.current?.type;
+
+    if (dragType === DRAG_TYPE_CARD) {
+      const boardCard = active.data.current?.boardCard as BoardCardType | undefined;
+      if (boardCard) {
+        setActiveBoardCard(boardCard);
+      }
+    } else if (dragType === DRAG_TYPE_COLUMN) {
+      const boardColumn = boardColumnsAsc.find((col) => col.id === active.id);
+      if (boardColumn) {
+        setActiveBoardColumn(boardColumn);
+      }
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveBoardCard(null);
+    setActiveBoardColumn(null);
     if (!over) return;
 
-    const boardCardId = active.id as string;
-    const boardCard = boardCardsData.boardCards.find((card) => card.id === boardCardId);
+    const dragType = active.data.current?.type;
 
-    if (!boardCard) return;
+    if (dragType === DRAG_TYPE_CARD) {
+      const boardCardId = active.id as string;
+      const boardCard = boardCardsDesc.find((card) => card.id === boardCardId);
 
-    if (over.id === ARCHIVE_DROP_ZONE_ID) {
-      optimisticallyArchive({ boardId: boardData.board.id, boardCardId, state: BoardCardState.ARCHIVED });
-    } else {
-      const boardColumnId = over.id as string;
-      if (boardCard.boardColumnId !== boardColumnId) {
-        optimisticallyMove({ boardId: boardData.board.id, boardCardId, boardColumnId });
+      if (!boardCard) return;
+
+      if (over.id === ARCHIVE_DROP_ZONE_ID) {
+        optimisticallyArchiveBoardCard({ boardId: board.id, boardCardId, state: BoardCardState.ARCHIVED });
+      } else {
+        const boardColumnId = over.id as string;
+        if (boardCard.boardColumnId !== boardColumnId) {
+          optimisticallyMoveBoardCard({ boardId: board.id, boardCardId, boardColumnId });
+        }
+      }
+    } else if (dragType === DRAG_TYPE_COLUMN) {
+      const activeId = active.id as string;
+      const overId = over.id as string;
+      if (activeId !== overId) {
+        const newIndex = boardColumnsAsc.findIndex((col) => col.id === overId);
+        optimisticallyMoveBoardColumn({ boardId: board.id, boardColumnId: activeId, position: newIndex });
       }
     }
   };
 
-  if (boardData.boardColumns.length === 0) {
+  if (boardColumnsAsc.length === 0) {
     return <EmptyState />;
   }
+
+  const columnIds = boardColumnsAsc.map((col) => col.id);
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <ArchiveDropZone isDragging={!!activeBoardCard} />
-      <div className="flex overflow-x-auto p-3 gap-3">
-        {boardData.boardColumns.map((boardColumn) => {
-          const boardCards = boardCardsData?.boardCards
-            .filter((card) => card.boardColumnId === boardColumn.id)
-            .sort((a, b) => b.lastEventAt.getTime() - a.lastEventAt.getTime());
+      <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
+        <div className="flex overflow-x-auto p-3 gap-3">
+          {boardColumnsAsc.map((boardColumn) => {
+            const boardCards = boardCardsDesc.filter((card) => card.boardColumnId === boardColumn.id);
 
-          const filteredBoardCards = boardCards?.filter((card) => {
-            const hasActiveFilters = filters.unread || filters.sent || filters.hasAttachments;
-            if (hasActiveFilters) {
-              const matchesUnread = filters.unread && card.unreadEmailMessageIds;
-              const matchesSent = filters.sent && card.hasSent;
-              const matchesHasAttachments = filters.hasAttachments && card.hasAttachments;
-              if (!matchesUnread && !matchesSent && !matchesHasAttachments) return false;
-            }
+            const filteredBoardCards = boardCards?.filter((card) => {
+              const hasActiveFilters = filters.unread || filters.sent || filters.hasAttachments;
+              if (hasActiveFilters) {
+                const matchesUnread = filters.unread && card.unreadEmailMessageIds;
+                const matchesSent = filters.sent && card.hasSent;
+                const matchesHasAttachments = filters.hasAttachments && card.hasAttachments;
+                if (!matchesUnread && !matchesSent && !matchesHasAttachments) return false;
+              }
 
-            if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
-              return false;
-            }
-            return true;
-          });
+              if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
+                return false;
+              }
+              return true;
+            });
 
-          const unreadBoardCards = boardCards?.filter((card) => card.unreadEmailMessageIds);
+            const unreadBoardCards = boardCards?.filter((card) => card.unreadEmailMessageIds);
 
-          return (
-            <BoardColumn
-              key={boardColumn.id}
-              board={boardData.board}
-              boardColumn={boardColumn}
-              unreadBoardCardCount={unreadBoardCards?.length || 0}
-            >
-              {filteredBoardCards?.map((boardCard) => (
-                <BoardCard key={boardCard.id} board={boardData.board} boardCard={boardCard} />
-              ))}
-            </BoardColumn>
-          );
-        })}
-      </div>
+            return (
+              <BoardColumn
+                key={boardColumn.id}
+                board={board}
+                boardColumn={boardColumn}
+                unreadBoardCardCount={unreadBoardCards?.length || 0}
+                isDraggingColumn={!!activeBoardColumn}
+              >
+                <BoardColumnContent board={board} boardCards={filteredBoardCards} />
+              </BoardColumn>
+            );
+          })}
+        </div>
+      </SortableContext>
       <DragOverlay dropAnimation={null}>
         {activeBoardCard ? (
-          <Card className="cursor-grabbing p-3 rounded-lg shadow-lg w-64" style={{ transform: 'rotate(5deg)' }}>
+          <BoardCardDragged>
             <BoardCardContent boardCard={activeBoardCard} unread={!!activeBoardCard.unreadEmailMessageIds} />
-          </Card>
+          </BoardCardDragged>
+        ) : activeBoardColumn ? (
+          <BoardColumnDragged
+            boardColumn={activeBoardColumn}
+            unreadBoardCardCount={
+              boardCardsDesc.filter((c) => c.boardColumnId === activeBoardColumn.id && c.unreadEmailMessageIds).length
+            }
+          >
+            <BoardColumnContent
+              board={board}
+              boardCards={boardCardsDesc.filter((card) => card.boardColumnId === activeBoardColumn.id)}
+              isDragOverlay
+            />
+          </BoardColumnDragged>
         ) : null}
       </DragOverlay>
     </DndContext>
@@ -311,7 +279,7 @@ function BoardComponent() {
 
   const { data: boardData } = useQuery({
     ...context.trpc.board.get.queryOptions({ boardId: extractUuid(params.boardId) }),
-    refetchInterval: ({ state: { data } }) => (data?.boardColumns.length === 0 ? REFETCH_INTERVAL_MS : false),
+    refetchInterval: ({ state: { data } }) => (data?.boardColumnsAsc.length === 0 ? REFETCH_INTERVAL_MS : false),
     refetchIntervalInBackground: true,
   });
 
@@ -339,7 +307,7 @@ function BoardComponent() {
 
   // Dynamic page title
   useEffect(() => {
-    const unreadBoardCardCount = Object.values(boardCardsData?.boardCards || []).filter(
+    const unreadBoardCardCount = Object.values(boardCardsData?.boardCardsDesc || []).filter(
       (card) => !!card.unreadEmailMessageIds,
     ).length;
 

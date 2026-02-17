@@ -47,9 +47,12 @@ const RemoveAccountPopover = ({
             gmailAccountIds: prev.gmailAccountIds.filter((id) => id !== gmailAccount.id),
           }));
           // Remove the deleted account from the board data in the cache
-          queryClient.setQueryData(trpc.board.get.queryKey({ boardId: board.id }), (oldData: BoardData | undefined) => {
+          queryClient.setQueryData(trpc.board.get.queryKey({ boardId: board.id }), (oldData) => {
             if (!oldData) return oldData;
-            return { ...oldData, gmailAccounts: oldData.gmailAccounts.filter((a) => a.id !== gmailAccount.id) };
+            return {
+              ...oldData,
+              gmailAccounts: oldData.gmailAccounts.filter((a) => a.id !== gmailAccount.id),
+            } satisfies typeof oldData;
           });
           toast.success('Email account removed successfully', { position: 'top-center' });
         }
