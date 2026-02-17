@@ -4,10 +4,11 @@ init:
 		sed -i "s/#port = 5432/port = 5433/g" ./.devbox/virtenv/postgresql/data/postgresql.conf
 
 create:
-	devbox run "createdb -p 5433 bordly_dev && createuser -p 5433 --superuser postgres"
+	devbox run "createdb -p 5433 bordly_dev && createuser -p 5433 --superuser postgres" && \
+		make migrate
 
 sh:
-	devbox shell
+	devbox --env-file backend/.env shell
 
 install:
 	devbox run "cd backend && pnpm install && cd ../frontend && pnpm install"
@@ -35,3 +36,12 @@ build:
 
 check:
 	devbox run "pnpm run check"
+
+migrate:
+	devbox run --env-file backend/.env "cd backend && pnpm mikro-orm migration:up"
+
+rollback:
+	devbox run --env-file backend/.env "cd backend && pnpm mikro-orm migration:down"
+
+add-migration:
+	devbox run --env-file backend/.env "cd backend && pnpm mikro-orm migration:create --name $$NAME"

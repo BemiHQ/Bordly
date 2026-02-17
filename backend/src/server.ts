@@ -1,7 +1,7 @@
 import { RequestContext } from '@mikro-orm/postgresql';
 import Fastify from 'fastify';
 
-import { authRoutes } from './routes/auth';
+import { authRoutes } from './routes/auth-routes';
 import { Env } from './utils/env';
 import { orm } from './utils/orm';
 

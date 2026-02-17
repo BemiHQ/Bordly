@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { type Auth, google } from 'googleapis';
+
+import { createUser, findUserByGoogleId, updateLastSessionAt } from '../services/user-service';
 import { Env } from '../utils/env';
 
 const OAUTH2_CLIENT: Auth.OAuth2Client = new google.auth.OAuth2(
@@ -14,7 +16,7 @@ const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/gmail.modify',
 ];
 
-export async function authRoutes(fastify: FastifyInstance) {
+export const authRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/auth/google', async (_request, reply) => {
     const authUrl = OAUTH2_CLIENT.generateAuthUrl({ access_type: 'offline', scope: GOOGLE_SCOPES, prompt: 'consent' });
     reply.redirect(authUrl);
@@ -33,22 +35,24 @@ export async function authRoutes(fastify: FastifyInstance) {
       const oauth2 = google.oauth2({ version: 'v2', auth: OAUTH2_CLIENT });
       const userInfo = await oauth2.userinfo.get();
 
-      return {
-        user: {
-          googleId: userInfo.data.id,
-          email: userInfo.data.email,
-          name: userInfo.data.name,
-          picture: userInfo.data.picture,
-        },
-        tokens: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expiry_date: tokens.expiry_date,
-        },
-      };
+      let user = await findUserByGoogleId(userInfo.data.id);
+      if (!user) {
+        user = await createUser({
+          email: userInfo.data.email || '',
+          name: userInfo.data.name || '',
+          photoUrl: userInfo.data.picture || '',
+          googleId: userInfo.data.id || '',
+          accessToken: tokens.access_token || '',
+          refreshToken: tokens.refresh_token || '',
+          accessTokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
+        });
+      }
+      await updateLastSessionAt(user);
+
+      return user.toJson();
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
-}
+};
