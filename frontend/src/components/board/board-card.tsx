@@ -36,7 +36,8 @@ export const BoardCardContent = ({
   const firstParticipant = boardCard.participants[0];
   const firstParticipantName = firstParticipant.name || firstParticipant.email;
   const { iconUrl } = boardCard.domain;
-  const grayscale = !unread && !isHovered && isHovered !== undefined;
+  const draft = !!boardCard.emailDraft;
+  const grayscale = !unread && !draft && !isHovered && isHovered !== undefined;
 
   return (
     <div className={cn('flex flex-col transition-filter duration-200', grayscale ? 'grayscale-100' : '')}>
@@ -56,8 +57,9 @@ export const BoardCardContent = ({
         </Avatar>
         <div className="mx-2 text-sm flex items-center min-w-0 flex-1">
           {unread && <div className="bg-blue-500 rounded-full min-w-2 min-h-2 mr-1.5 flex-shrink-0" />}
+          {!unread && draft && <div className="bg-semi-muted rounded-full min-w-2 min-h-2 mr-1.5 flex-shrink-0" />}
           <div className="truncate">
-            <span className={unread ? 'font-bold' : 'font-medium'}>{firstParticipantName}</span>
+            <span className={unread || draft ? 'font-bold' : 'font-medium'}>{firstParticipantName}</span>
             {boardCard.participants.length > 1 && (
               <span className="text-muted-foreground">
                 ,{' '}
@@ -96,7 +98,7 @@ export const BoardCardContent = ({
           </div>
         )}
       </div>
-      <div className={cn('text-xs truncate mb-1', unread ? 'font-medium' : 'text-text-secondary')}>
+      <div className={cn('text-xs truncate mb-1', unread || draft ? 'font-medium' : 'text-text-secondary')}>
         {boardCard.subject}
       </div>
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>

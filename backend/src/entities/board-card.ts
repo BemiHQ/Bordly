@@ -160,10 +160,11 @@ export class BoardCard extends BaseEntity {
   toJson() {
     return {
       id: this.id,
+      domain: this.domain.toJson(),
+      emailDraft: this.emailDraft?.toJson(),
       gmailAccountId: this.gmailAccount.id,
       boardColumnId: this.boardColumn.id,
       externalThreadId: this.externalThreadId,
-      domain: this.domain.toJson(),
       state: this.state,
       subject: this.subject,
       snippet: this.snippet,
@@ -174,7 +175,6 @@ export class BoardCard extends BaseEntity {
       emailMessageCount: this.emailMessageCount,
       unreadEmailMessageIds: this.unreadEmailMessageIds,
       pinnedPosition: this.pinnedPosition,
-      emailDraft: this.emailDraft?.toJson(),
     };
   }
 

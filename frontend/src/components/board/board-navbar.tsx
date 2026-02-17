@@ -31,7 +31,8 @@ export const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
 
 const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
   const { filters, setFilters } = useBoardFilters();
-  const hasActiveFilters = filters.unread || filters.hasAttachments || filters.gmailAccountIds.length > 0;
+  const hasActiveFilters =
+    filters.unread || filters.hasAttachments || filters.draft || filters.gmailAccountIds.length > 0;
   const toggleEmailAccount = (accountId: string) => {
     setFilters({
       ...filters,
@@ -69,6 +70,13 @@ const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
                   onCheckedChange={(checked) => setFilters({ ...filters, unread: !!checked })}
                 />
                 <span>Unread</span>
+              </Label>
+              <Label className="flex items-center gap-2">
+                <Checkbox
+                  checked={filters.draft}
+                  onCheckedChange={(checked) => setFilters({ ...filters, draft: !!checked })}
+                />
+                <span>Draft</span>
               </Label>
               <Label className="flex items-center gap-2">
                 <Checkbox
@@ -170,6 +178,7 @@ export const BoardNavbar = ({
     unread: false,
     sent: false,
     hasAttachments: false,
+    draft: false,
     gmailAccountIds: [],
   });
   const [isEditing, setIsEditing] = useState(false);

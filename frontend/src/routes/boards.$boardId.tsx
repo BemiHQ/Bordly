@@ -218,12 +218,13 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
             const boardCards = boardCardsDesc.filter((card) => card.boardColumnId === boardColumn.id);
 
             const filteredBoardCards = boardCards?.filter((card) => {
-              const hasActiveFilters = filters.unread || filters.sent || filters.hasAttachments;
+              const hasActiveFilters = filters.unread || filters.sent || filters.hasAttachments || filters.draft;
               if (hasActiveFilters) {
                 const matchesUnread = filters.unread && card.unreadEmailMessageIds;
                 const matchesSent = filters.sent && card.hasSent;
                 const matchesHasAttachments = filters.hasAttachments && card.hasAttachments;
-                if (!matchesUnread && !matchesSent && !matchesHasAttachments) return false;
+                const matchesHasDraft = filters.draft && card.emailDraft;
+                if (!matchesUnread && !matchesSent && !matchesHasAttachments && !matchesHasDraft) return false;
               }
 
               if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
