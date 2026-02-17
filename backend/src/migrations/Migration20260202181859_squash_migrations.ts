@@ -1,6 +1,6 @@
 import { Migration } from '@mikro-orm/migrations';
 
-export class Migration20260202154812_squash_migrations extends Migration {
+export class Migration20260202181859_squash_migrations extends Migration {
   override async up(): Promise<void> {
     this.addSql(`create extension if not exists "uuid-ossp";`);
     this.addSql(
@@ -28,11 +28,13 @@ export class Migration20260202154812_squash_migrations extends Migration {
     this.addSql(`alter table "users" add constraint "users_email_unique" unique ("email");`);
 
     this.addSql(
-      `create table "gmail_accounts" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid null, "user_id" uuid not null, "name" varchar(255) not null, "email" varchar(255) not null, "google_id" varchar(255) not null, "access_token_encrypted" text not null, "access_token_expires_at" timestamptz not null, "refresh_token_encrypted" text not null, constraint "gmail_accounts_pkey" primary key ("id"));`,
+      `create table "gmail_accounts" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid null, "user_id" uuid not null, "name" varchar(255) not null, "email" varchar(255) not null, "access_token_encrypted" text not null, "access_token_expires_at" timestamptz not null, "refresh_token_encrypted" text not null, "external_id" varchar(255) not null, "external_history_id" varchar(255) null, constraint "gmail_accounts_pkey" primary key ("id"));`,
     );
     this.addSql(`create index "gmail_accounts_user_id_index" on "gmail_accounts" ("user_id");`);
     this.addSql(`alter table "gmail_accounts" add constraint "gmail_accounts_email_unique" unique ("email");`);
-    this.addSql(`alter table "gmail_accounts" add constraint "gmail_accounts_google_id_unique" unique ("google_id");`);
+    this.addSql(
+      `alter table "gmail_accounts" add constraint "gmail_accounts_external_id_unique" unique ("external_id");`,
+    );
 
     this.addSql(
       `create table "email_messages" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "gmail_account_id" uuid not null, "external_id" varchar(255) not null, "external_thread_id" varchar(255) not null, "external_created_at" timestamptz not null, "from" jsonb not null, "to" jsonb null, "reply_to" jsonb null, "cc" jsonb null, "bcc" jsonb null, "sent" boolean not null, "labels" text[] not null, "subject" varchar(255) not null, "snippet" varchar(255) not null, "body_text" text null, "body_html" text null, constraint "email_messages_pkey" primary key ("id"));`,

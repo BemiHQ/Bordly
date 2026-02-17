@@ -9,7 +9,7 @@ import type { User } from '@/entities/user';
 import { Encryption } from '@/utils/encryption';
 
 @Entity({ tableName: 'gmail_accounts' })
-@Unique({ properties: ['googleId'] })
+@Unique({ properties: ['externalId'] })
 @Unique({ properties: ['email'] })
 @Index({ properties: ['user'] })
 export class GmailAccount extends BaseEntity {
@@ -29,20 +29,22 @@ export class GmailAccount extends BaseEntity {
   name: string;
   @Property()
   email: string;
-  @Property()
-  googleId: string;
   @Property({ columnType: 'text' })
   accessTokenEncrypted: string;
   @Property()
   accessTokenExpiresAt: Date;
   @Property({ columnType: 'text' })
   refreshTokenEncrypted: string;
+  @Property()
+  externalId: string;
+  @Property({ nullable: true })
+  externalHistoryId?: string;
 
   constructor({
     user,
     name,
     email,
-    googleId,
+    externalId,
     accessToken,
     refreshToken,
     accessTokenExpiresAt,
@@ -50,7 +52,7 @@ export class GmailAccount extends BaseEntity {
     user: User;
     name: string;
     email: string;
-    googleId: string;
+    externalId: string;
     accessToken: string;
     refreshToken: string;
     accessTokenExpiresAt: Date;
@@ -59,7 +61,7 @@ export class GmailAccount extends BaseEntity {
     this.email = email;
     this.name = name;
     this.user = user;
-    this.googleId = googleId;
+    this.externalId = externalId;
     this.accessTokenEncrypted = Encryption.encrypt(accessToken);
     this.accessTokenExpiresAt = accessTokenExpiresAt;
     this.refreshTokenEncrypted = Encryption.encrypt(refreshToken);
@@ -89,6 +91,10 @@ export class GmailAccount extends BaseEntity {
     this.accessTokenExpiresAt = expiresAt;
   }
 
+  setExternalHistoryId(externalHistoryId: string) {
+    this.externalHistoryId = externalHistoryId;
+  }
+
   toJson() {
     return {
       id: this.id,
@@ -101,7 +107,7 @@ export class GmailAccount extends BaseEntity {
     if (!this.user) throw new Error('User is required');
     if (!this.name) throw new Error('Name is required');
     if (!this.email) throw new Error('Email is required');
-    if (!this.googleId) throw new Error('Google ID is required');
+    if (!this.externalId) throw new Error('External ID is required');
     if (!this.accessTokenEncrypted) throw new Error('Access token is required');
     if (!this.accessTokenExpiresAt) throw new Error('Access token expiration date is required');
     if (!this.refreshTokenEncrypted) throw new Error('Refresh token is required');

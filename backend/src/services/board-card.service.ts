@@ -1,13 +1,15 @@
 import type { Populate } from '@mikro-orm/postgresql';
-
 import type { Board } from '@/entities/board';
 import { BoardCard, State } from '@/entities/board-card';
+import type { BoardColumn } from '@/entities/board-column';
+import type { Domain } from '@/entities/domain';
+import type { EmailMessage } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardColumnService } from '@/services/board-column.service';
 import { EmailMessageService } from '@/services/email-message.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
-import { GoogleApi } from '@/utils/google-api';
-
+import { GoogleApi, LABEL } from '@/utils/google-api';
+import { mapBy } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 
 export class BoardCardService {
@@ -24,11 +26,7 @@ export class BoardCardService {
       { gmailAccount, externalThreadId: { $in: externalThreadIds } },
       { populate },
     );
-    const boardCardByThreadId: Record<string, BoardCard> = {};
-    for (const boardCard of boardCards) {
-      boardCardByThreadId[boardCard.externalThreadId] = boardCard;
-    }
-    return boardCardByThreadId;
+    return mapBy(boardCards, (boardCard) => boardCard.externalThreadId);
   }
 
   static async findCardsByBoard<Hint extends string = never>(
@@ -54,6 +52,7 @@ export class BoardCardService {
       populate: ['gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
 
+    console.log('[GMAIL] Marking thread as read:', boardCard.externalThreadId);
     const gmail = await BoardCardService.initGmail(boardCard);
     await GoogleApi.gmailMarkThreadAsRead(gmail, boardCard.externalThreadId);
 
@@ -73,6 +72,7 @@ export class BoardCardService {
     });
     const lastEmailMessage = await EmailMessageService.findLastByExternalThreadId(boardCard.externalThreadId);
 
+    console.log('[GMAIL] Marking thread as unread:', boardCard.externalThreadId);
     const gmail = await BoardCardService.initGmail(boardCard);
     await GoogleApi.gmailMarkThreadAsUnread(gmail, boardCard.externalThreadId);
 
@@ -119,8 +119,83 @@ export class BoardCardService {
     return boardCard;
   }
 
-  static async initGmail(boardCard: BoardCard) {
+  static buildFromEmailMessages({
+    gmailAccount,
+    boardColumn,
+    emailMessagesDesc,
+    domain,
+  }: {
+    gmailAccount: GmailAccount;
+    boardColumn: BoardColumn;
+    emailMessagesDesc: EmailMessage[];
+    domain: Domain;
+  }) {
+    if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
+
+    const state = BoardCardService.stateFromEmailMessages(emailMessagesDesc);
+    const unreadEmailMessageIds = emailMessagesDesc.filter((m) => m.labels.includes(LABEL.UNREAD)).map((m) => m.id);
+    const lastEmailMessage = emailMessagesDesc[0]!;
+    const firstEmailMessage = emailMessagesDesc[emailMessagesDesc.length - 1]!;
+
+    const boardCard = new BoardCard({
+      gmailAccount,
+      boardColumn,
+      domain,
+      externalThreadId: lastEmailMessage.externalThreadId,
+      state,
+      subject: firstEmailMessage.subject,
+      snippet: lastEmailMessage.snippet,
+      participants: EmailMessageService.uniqueParticipantsAsc({ emailMessagesDesc, gmailAccount }),
+      lastEventAt: lastEmailMessage.externalCreatedAt,
+      hasSent: emailMessagesDesc.some((msg) => msg.sent),
+      emailMessageCount: emailMessagesDesc.length,
+      unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
+      movedToTrashAt: state === State.TRASHED ? new Date() : undefined,
+    });
+
+    return boardCard;
+  }
+
+  static rebuildFromEmailMessages({
+    boardCard,
+    gmailAccount,
+    emailMessagesDesc,
+  }: {
+    boardCard: BoardCard;
+    gmailAccount: GmailAccount;
+    emailMessagesDesc: EmailMessage[];
+  }) {
+    if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
+
+    const state = BoardCardService.stateFromEmailMessages(emailMessagesDesc);
+    const unreadEmailMessageIds = emailMessagesDesc.filter((m) => m.labels.includes(LABEL.UNREAD)).map((m) => m.id);
+    const lastEmailMessage = emailMessagesDesc[0]!;
+
+    boardCard.update({
+      state,
+      snippet: lastEmailMessage.snippet,
+      participants: EmailMessageService.uniqueParticipantsAsc({ emailMessagesDesc, gmailAccount }),
+      lastEventAt: lastEmailMessage.externalCreatedAt,
+      hasSent: emailMessagesDesc.some((msg) => msg.sent),
+      emailMessageCount: emailMessagesDesc.length,
+      unreadEmailMessageIds: unreadEmailMessageIds.length > 0 ? unreadEmailMessageIds : undefined,
+      movedToTrashAt: boardCard.movedToTrashAt || (state === State.TRASHED ? new Date() : undefined),
+    });
+
+    return boardCard;
+  }
+
+  private static async initGmail(boardCard: BoardCard) {
     const { oauth2Client } = await GmailAccountService.refreshAccessToken(boardCard.gmailAccount);
     return GoogleApi.newGmail(oauth2Client);
+  }
+
+  private static stateFromEmailMessages(emailMessages: EmailMessage[]) {
+    if (emailMessages.every((msg) => msg.labels.includes(LABEL.SPAM))) {
+      return State.SPAM;
+    } else if (emailMessages.every((msg) => msg.labels.includes(LABEL.TRASH))) {
+      return State.TRASHED;
+    }
+    return State.INBOX;
   }
 }

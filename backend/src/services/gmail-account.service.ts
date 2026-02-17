@@ -12,12 +12,12 @@ import { GoogleApi } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
 
 export class GmailAccountService {
-  static tryFindByGoogleId<Hint extends string = never>(
-    googleId?: string | null,
+  static tryFindByExternalId<Hint extends string = never>(
+    externalId?: string | null,
     { populate }: { populate?: Populate<GmailAccount, Hint> } = { populate: [] },
   ) {
-    if (!googleId) return null;
-    return orm.em.findOne(GmailAccount, { googleId }, { populate });
+    if (!externalId) return null;
+    return orm.em.findOne(GmailAccount, { externalId }, { populate });
   }
 
   static findById<Hint extends string = never>(

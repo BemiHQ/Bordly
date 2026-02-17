@@ -4,6 +4,13 @@ import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 
 import { ENV } from '@/utils/env';
 
+export const LABEL = {
+  SPAM: 'SPAM',
+  TRASH: 'TRASH',
+  SENT: 'SENT',
+  UNREAD: 'UNREAD',
+};
+
 export class GoogleApi {
   static newOauth2Client(credentials?: { accessToken: string; accessTokenExpiresAt: Date; refreshToken: string }) {
     const oauth2Client: Auth.OAuth2Client = new google.auth.OAuth2(
@@ -103,7 +110,7 @@ export class GoogleApi {
       userId: 'me',
       id: threadId,
       requestBody: {
-        removeLabelIds: ['UNREAD'],
+        removeLabelIds: [LABEL.UNREAD],
       },
     });
   }
@@ -113,8 +120,26 @@ export class GoogleApi {
       userId: 'me',
       id: threadId,
       requestBody: {
-        addLabelIds: ['UNREAD'],
+        addLabelIds: [LABEL.UNREAD],
       },
     });
+  }
+
+  static async gmailListMessages(gmail: gmail_v1.Gmail, { limit }: { limit: number }) {
+    const listResponse = await gmail.users.messages.list({
+      userId: 'me',
+      maxResults: limit,
+      includeSpamTrash: true,
+    });
+    return listResponse.data.messages || [];
+  }
+
+  static async gmailGetMessage(gmail: gmail_v1.Gmail, messageId: string) {
+    const getResponse = await gmail.users.messages.get({
+      userId: 'me',
+      id: messageId,
+      format: 'full',
+    });
+    return getResponse.data;
   }
 }

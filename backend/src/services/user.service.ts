@@ -17,7 +17,7 @@ export class UserService {
     email,
     name,
     photoUrl,
-    googleId,
+    externalId,
     accessToken,
     refreshToken,
     accessTokenExpiresAt,
@@ -25,7 +25,7 @@ export class UserService {
     email: string;
     name: string;
     photoUrl: string;
-    googleId: string;
+    externalId: string;
     accessToken: string;
     refreshToken: string;
     accessTokenExpiresAt: Date;
@@ -35,7 +35,7 @@ export class UserService {
       user,
       name,
       email,
-      googleId,
+      externalId,
       accessToken,
       refreshToken,
       accessTokenExpiresAt,

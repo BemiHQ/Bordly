@@ -3,13 +3,6 @@ import type { Attachment } from '@/entities/attachment';
 import { BaseEntity } from '@/entities/base-entity';
 import type { GmailAccount } from '@/entities/gmail-account';
 
-export const LABELS = {
-  SPAM: 'SPAM',
-  TRASH: 'TRASH',
-  SENT: 'SENT',
-  UNREAD: 'UNREAD',
-};
-
 export interface Participant {
   name: string | null;
   email: string;
@@ -108,6 +101,10 @@ export class EmailMessage extends BaseEntity {
     this.bodyText = bodyText;
     this.bodyHtml = bodyHtml;
     this.validate();
+  }
+
+  setLabels(labels: string[]) {
+    this.labels = labels;
   }
 
   toJson() {

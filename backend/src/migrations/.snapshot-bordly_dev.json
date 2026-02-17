@@ -415,16 +415,6 @@
           "length": 255,
           "mappedType": "string"
         },
-        "google_id": {
-          "name": "google_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 255,
-          "mappedType": "string"
-        },
         "access_token_encrypted": {
           "name": "access_token_encrypted",
           "type": "text",
@@ -452,6 +442,26 @@
           "primary": false,
           "nullable": false,
           "mappedType": "text"
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 255,
+          "mappedType": "string"
+        },
+        "external_history_id": {
+          "name": "external_history_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 255,
+          "mappedType": "string"
         }
       },
       "name": "gmail_accounts",
@@ -474,8 +484,8 @@
           "unique": true
         },
         {
-          "keyName": "gmail_accounts_google_id_unique",
-          "columnNames": ["google_id"],
+          "keyName": "gmail_accounts_external_id_unique",
+          "columnNames": ["external_id"],
           "composite": false,
           "constraint": true,
           "primary": false,

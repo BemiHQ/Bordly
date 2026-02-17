@@ -39,14 +39,14 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       oauth2Client.setCredentials(tokens);
       const userInfo = await GoogleApi.newOauth2(oauth2Client).userinfo.get();
 
-      let gmailAccount = await GmailAccountService.tryFindByGoogleId(userInfo.data.id, { populate: ['user'] });
+      let gmailAccount = await GmailAccountService.tryFindByExternalId(userInfo.data.id, { populate: ['user'] });
       let user = gmailAccount?.user as User;
       if (!user) {
         const userWithGmailAccount = await UserService.createWithGmailAccount({
           email: userInfo.data.email as string,
           name: userInfo.data.name as string,
           photoUrl: userInfo.data.picture as string,
-          googleId: userInfo.data.id as string,
+          externalId: userInfo.data.id as string,
           accessToken: tokens.access_token as string,
           refreshToken: tokens.refresh_token as string,
           accessTokenExpiresAt: new Date(tokens.expiry_date as number),

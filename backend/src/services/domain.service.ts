@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 
 import { Domain } from '@/entities/domain';
+import { mapBy } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 
 const REQUEST_TIMEOUT_MS = 3_000;
@@ -56,15 +57,10 @@ const DOUBLE_DOMAIN_NAMESPACES = [
 ];
 
 export class DomainService {
-  static async findAndBuildDomainByName(domainNames: string[]) {
+  static async findDomainByName(domainNames: string[]) {
     if (domainNames.length === 0) return {};
-
     const domains = await orm.em.find(Domain, { name: { $in: domainNames } });
-    const domainByName: Record<string, Domain> = {};
-    for (const domain of domains) {
-      domainByName[domain.name] = domain;
-    }
-    return domainByName;
+    return mapBy(domains, (domain) => domain.name);
   }
 
   static async fetchIconUrl(domain: Domain) {
