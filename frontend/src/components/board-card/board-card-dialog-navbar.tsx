@@ -4,42 +4,65 @@ import { BoardCardState } from 'bordly-backend/utils/shared';
 import { Archive, Mail, OctagonX, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
-import type { RouteContext } from '@/hooks/use-route-context';
-import { type BoardCard, type BoardColumn, replaceBoardColumnData } from '@/query-helpers/board-card';
-import { changeBoardCardColumnData, removeBoardCardData, setUnreadBoardCardData } from '@/query-helpers/board-cards';
+import { useRouteContext } from '@/hooks/use-route-context';
+import { solo } from '@/query-helpers/board';
+import {
+  type BoardCard,
+  type BoardColumn,
+  replaceBoardColumnData,
+  setAssignedBoardMemberData,
+} from '@/query-helpers/board-card';
+import {
+  changeBoardCardColumnData,
+  removeBoardCardData,
+  setBoardCardAssignedBoardMemberData,
+  setUnreadBoardCardData,
+} from '@/query-helpers/board-cards';
 import { ROUTES } from '@/utils/urls';
 
 export const BoardCardDialogNavbar = ({
-  context,
   boardId,
   boardCard,
   boardColumn,
 }: {
-  context: RouteContext;
   boardId: string;
   boardCard: BoardCard;
   boardColumn: BoardColumn;
 }) => {
-  const { trpc, queryClient } = context;
+  const { trpc, queryClient, currentUser } = useRouteContext();
   const navigate = useNavigate();
+
+  const boardCardId = boardCard.id;
 
   const { data: boardData } = useQuery({ ...trpc.board.get.queryOptions({ boardId }) });
   const boardColumnsAsc = boardData?.boardColumnsAsc ?? [];
-  const boardMembers = boardData?.boardMembers ?? [];
 
-  const boardCardId = boardCard.id;
+  const boardMembers = boardData?.boardMembers ?? [];
+  const soloBoard = solo(boardMembers);
   const participantMembers = boardMembers.filter((m) => boardCard.participantUserIds?.includes(m.user.id));
   const assignedMember = boardMembers.find((m) => m.id === boardCard.assignedBoardMemberId);
+  const currentUserMember = boardMembers.find((m) => m.user.id === currentUser!.id)!;
 
   const boardCardQueryKey = trpc.boardCard.get.queryKey({ boardId, boardCardId });
   const optimisticallySetAssignee = useOptimisticMutation({
     queryClient,
     queryKey: boardCardQueryKey,
-    onExecute: () => {},
+    onExecute: (params) => {
+      setAssignedBoardMemberData({ trpc, queryClient, params });
+      setBoardCardAssignedBoardMemberData({ trpc, queryClient, params });
+    },
     errorToast: 'Failed to update assignee. Please try again.',
     mutation: useMutation(trpc.boardCard.setAssignee.mutationOptions()),
   });
@@ -128,20 +151,21 @@ export const BoardCardDialogNavbar = ({
         </SelectContent>
       </Select>
       <div className="flex items-center gap-2">
-        {(participantMembers.length > 1 ||
-          (participantMembers.length === 1 && participantMembers[0].id !== assignedMember?.id)) && (
-          <AvatarGroup
-            className="mr-2"
-            avatars={participantMembers.map((member) => (
-              <Avatar key={member.user.id} size="xs">
-                <AvatarImage src={member.user.photoUrl} alt={member.user.name} />
-                <AvatarFallback hashForBgColor={member.user.name}>
-                  {member.user.name.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-          />
-        )}
+        {!soloBoard &&
+          (participantMembers.length > 1 ||
+            (participantMembers.length === 1 && participantMembers[0].id !== assignedMember?.id)) && (
+            <AvatarGroup
+              className="mr-2"
+              avatars={participantMembers.map((member) => (
+                <Avatar key={member.user.id} size="xs">
+                  <AvatarImage src={member.user.photoUrl} alt={member.user.name} />
+                  <AvatarFallback hashForBgColor={member.user.name}>
+                    {member.user.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+            />
+          )}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -207,7 +231,7 @@ export const BoardCardDialogNavbar = ({
           </TooltipTrigger>
           <TooltipContent side="bottom">
             Mark as unread
-            {boardMembers.filter((m) => !m.isAgent).length === 1 ? '' : ' (only for you)'}
+            {soloBoard ? '' : ' (only for you)'}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -218,11 +242,16 @@ export const BoardCardDialogNavbar = ({
             optimisticallySetAssignee({
               boardId,
               boardCardId,
-              boardMemberId: value === 'unassigned' ? null : value,
+              assignedBoardMemberId: value === 'unassigned' ? null : value,
             })
           }
         >
-          <SelectTrigger size="sm" variant="ghost" className="text-sm p-0 gap-1.5" hideChevron>
+          <SelectTrigger
+            size="sm"
+            variant="ghost"
+            className="font-medium text-muted-foreground p-0 gap-1.5"
+            hideChevron
+          >
             {assignedMember ? (
               <div className="flex items-center gap-1.5">
                 <Avatar size="xs">
@@ -234,25 +263,59 @@ export const BoardCardDialogNavbar = ({
                 <span>{assignedMember.user.name}</span>
               </div>
             ) : (
-              <span className="text-muted-foreground">Unassigned</span>
+              <span>Unassigned</span>
             )}
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             <SelectGroup>
-              <SelectItem value="unassigned">Unassigned</SelectItem>
-              {boardMembers.map((member) => (
-                <SelectItem key={member.id} value={member.id}>
-                  <div className="flex items-center gap-2">
-                    <Avatar size="xs">
-                      <AvatarImage src={member.user.photoUrl} alt={member.user.name} />
-                      <AvatarFallback hashForBgColor={member.user.name}>
-                        {member.user.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>{member.user.name}</span>
-                  </div>
-                </SelectItem>
-              ))}
+              {assignedMember ? (
+                <>
+                  <SelectItem value={assignedMember.id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar size="xs">
+                        <AvatarImage src={assignedMember.user.photoUrl} alt={assignedMember.user.name} />
+                        <AvatarFallback hashForBgColor={assignedMember.user.name}>
+                          {assignedMember.user.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{assignedMember.user.name}</span>
+                    </div>
+                  </SelectItem>
+                  <SelectSeparator />
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                </>
+              ) : (
+                <>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  <SelectSeparator />
+                  <SelectItem value={currentUserMember.id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar size="xs">
+                        <AvatarImage src={currentUserMember.user.photoUrl} alt={currentUserMember.user.name} />
+                        <AvatarFallback hashForBgColor={currentUserMember.user.name}>
+                          {currentUserMember.user.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{currentUserMember.user.name}</span>
+                    </div>
+                  </SelectItem>
+                </>
+              )}
+              {boardMembers
+                .filter((m) => m.id !== assignedMember?.id && m.id !== currentUserMember.id && !m.isAgent)
+                .map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar size="xs">
+                        <AvatarImage src={member.user.photoUrl} alt={member.user.name} />
+                        <AvatarFallback hashForBgColor={member.user.name}>
+                          {member.user.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{member.user.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
             </SelectGroup>
           </SelectContent>
         </Select>

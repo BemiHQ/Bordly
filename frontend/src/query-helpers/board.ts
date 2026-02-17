@@ -15,6 +15,10 @@ const queryKey = (trpc: TrpcProxy, params: { boardId: string }) => {
   return trpc.board.get.queryKey(params);
 };
 
+export const solo = (boardMembers: BoardMember[]) => {
+  return boardMembers.filter((m) => !m.isAgent).length === 1;
+};
+
 export const removeGmailAccountData = ({
   trpc,
   queryClient,

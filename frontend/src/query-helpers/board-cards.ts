@@ -10,6 +10,26 @@ const queryKey = (trpc: TrpcProxy, params: { boardId: string }) => {
   return trpc.boardCard.getBoardCards.queryKey(params);
 };
 
+export const setBoardCardAssignedBoardMemberData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardCardId, assignedBoardMemberId },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardCardId: string; assignedBoardMemberId: string | null };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardCardsDesc: oldData.boardCardsDesc.map((c) =>
+        c.id === boardCardId ? { ...c, assignedBoardMemberId: assignedBoardMemberId || undefined } : c,
+      ),
+    } satisfies typeof oldData;
+  });
+};
+
 export const setBoardCardEmailDraftData = ({
   trpc,
   queryClient,

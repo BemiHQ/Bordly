@@ -1,5 +1,5 @@
 import * as AvatarPrimitive from '@radix-ui/react-avatar';
-import type * as React from 'react';
+import * as React from 'react';
 
 import { cn } from '@/utils/strings';
 
@@ -114,7 +114,10 @@ export const AvatarGroup = ({
       )}
       {...props}
     >
-      {avatars.reverse()}
+      {avatars.reverse().map((avatar, index) => {
+        // biome-ignore lint/suspicious/noArrayIndexKey: index is okay here
+        return <React.Fragment key={index}>{avatar}</React.Fragment>;
+      })}
     </div>
   );
 };

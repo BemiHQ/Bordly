@@ -20,6 +20,24 @@ const queryKey = (trpc: TrpcProxy, params: { boardId: string; boardCardId: strin
   return trpc.boardCard.get.queryKey(params);
 };
 
+export const setAssignedBoardMemberData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardCardId, assignedBoardMemberId },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardCardId: string; assignedBoardMemberId: string | null };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardCard: { ...oldData.boardCard, assignedBoardMemberId: assignedBoardMemberId || undefined },
+    } satisfies typeof oldData;
+  });
+};
+
 export const removeEmailDraftData = ({
   trpc,
   queryClient,

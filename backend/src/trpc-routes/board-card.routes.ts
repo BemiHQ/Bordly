@@ -91,12 +91,12 @@ export const BOARD_CARD_ROUTES = {
         return { boardCard: toJson(boardCard, ctx) };
       }),
     setAssignee: publicProcedure
-      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid(), boardMemberId: z.uuid().nullable() }))
+      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid(), assignedBoardMemberId: z.uuid().nullable() }))
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardMember({ ctx, input });
         const boardCard = await BoardCardService.setAssignee(board, {
           boardCardId: input.boardCardId,
-          boardMemberId: input.boardMemberId,
+          boardMemberId: input.assignedBoardMemberId,
           populate: POPULATE,
         });
         return { boardCard: toJson(boardCard, ctx) };

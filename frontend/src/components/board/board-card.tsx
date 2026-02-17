@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useRouteContext } from '@/hooks/use-route-context';
-import type { Board, BoardMember } from '@/query-helpers/board';
+import { type Board, type BoardMember, solo } from '@/query-helpers/board';
 import { type BoardCard as BoardCardType, setUnreadBoardCardData } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
 import { formattedTimeAgo } from '@/utils/time';
@@ -34,6 +34,7 @@ export const BoardCardContent = ({
   const { unread } = boardCard;
   const grayscale = !unread && !draft && !isHovered && isHovered !== undefined;
 
+  const soloBoard = solo(boardMembers);
   const participantMembers = boardMembers.filter((m) => boardCard.participantUserIds?.includes(m.user.id)) || [];
   const assignedMember = boardMembers.find((m) => m.id === boardCard.assignedBoardMemberId);
 
@@ -85,7 +86,7 @@ export const BoardCardContent = ({
             </TooltipTrigger>
             <TooltipContent>
               {unread ? 'Mark as read' : 'Mark as unread'}
-              {boardMembers.filter((m) => !m.isAgent).length === 1 ? '' : ' (only for you)'}
+              {soloBoard ? '' : ' (only for you)'}
             </TooltipContent>
           </Tooltip>
         ) : (
@@ -104,7 +105,7 @@ export const BoardCardContent = ({
       </div>
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
       <div className="flex items-center gap-3 mt-1 text-2xs text-muted-foreground">
-        {(assignedMember || participantMembers.length > 0) && (
+        {(assignedMember || (!soloBoard && participantMembers.length > 0)) && (
           <AvatarGroup
             avatars={[
               assignedMember && (
@@ -122,23 +123,25 @@ export const BoardCardContent = ({
                   </AvatarFallback>
                 </Avatar>
               ),
-              ...participantMembers
-                .filter((m) => m.id !== assignedMember?.id)
-                .map((member) => (
-                  <Avatar key={member.user.id} size="2xs">
-                    <AvatarImage
-                      src={member.user.photoUrl}
-                      alt={member.user.name}
-                      className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
-                    />
-                    <AvatarFallback
-                      hashForBgColor={member.user.name}
-                      className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
-                    >
-                      {member.user.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                )),
+              ...(soloBoard
+                ? []
+                : participantMembers
+                    .filter((m) => m.id !== assignedMember?.id)
+                    .map((member) => (
+                      <Avatar key={member.user.id} size="2xs">
+                        <AvatarImage
+                          src={member.user.photoUrl}
+                          alt={member.user.name}
+                          className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
+                        />
+                        <AvatarFallback
+                          hashForBgColor={member.user.name}
+                          className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
+                        >
+                          {member.user.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))),
             ]}
           />
         )}

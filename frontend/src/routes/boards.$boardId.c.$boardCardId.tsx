@@ -125,12 +125,7 @@ function BoardCardComponent() {
           {!isLoading && boardCard && boardColumn && emailMessagesAsc && (
             <>
               <DialogHeader className={cn('px-5 pt-2 pb-1.5 transition-shadow', isScrolled && 'shadow-sm')}>
-                <BoardCardDialogNavbar
-                  context={context}
-                  boardId={boardId}
-                  boardCard={boardCard}
-                  boardColumn={boardColumn}
-                />
+                <BoardCardDialogNavbar boardId={boardId} boardCard={boardCard} boardColumn={boardColumn} />
               </DialogHeader>
               <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 mb-14">
                 <DialogTitle className="mb-3 mt-2">{boardCard?.subject}</DialogTitle>
