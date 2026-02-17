@@ -113,10 +113,10 @@ export class GmailApi {
     await gmail.users.threads.modify({ userId: 'me', id: threadId, requestBody: { addLabelIds: [LABEL.SPAM] } });
   }
 
-  static async listMessages(gmail: gmail_v1.Gmail, { limit, to }: { limit: number; to?: string[] }) {
+  static async listMessages(gmail: gmail_v1.Gmail, { limit, emails }: { limit: number; emails?: string[] }) {
     let q: string | undefined;
-    if (to && to.length > 0) {
-      q = to.map((email) => `to:${email}`).join(' OR ');
+    if (emails && emails.length > 0) {
+      q = emails.map((email) => `(from:${email} OR to:${email})`).join(' OR ');
     }
     const listResponse = await gmail.users.messages.list({
       userId: 'me',

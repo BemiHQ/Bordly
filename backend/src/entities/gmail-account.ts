@@ -1,6 +1,5 @@
-import { Collection, Entity, Index, ManyToOne, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
+import { Collection, Entity, Index, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
-import type { Board } from '@/entities/board';
 import type { BoardAccount } from '@/entities/board-account';
 import type { BoardCard } from '@/entities/board-card';
 import type { EmailMessage } from '@/entities/email-message';
@@ -18,8 +17,6 @@ export interface GmailAccount {
 @Unique({ properties: ['email'] })
 @Index({ properties: ['user'] })
 export class GmailAccount extends BaseEntity {
-  @ManyToOne()
-  board?: Board; // TODO: delete with migration
   @OneToOne()
   user: User;
 

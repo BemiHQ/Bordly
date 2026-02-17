@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { ensureLoggedIn } from '@/loaders/authentication';
+import { cn } from '@/utils/strings';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/welcome')({
@@ -115,7 +116,7 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
             <Field className="mt-0.5">
               <div className="flex items-center gap-2">
                 <Checkbox id="sync-all" checked={syncAll} onCheckedChange={(checked) => setSyncAll(checked === true)} />
-                <FieldLabel htmlFor="sync-all" className="cursor-pointer">
+                <FieldLabel htmlFor="sync-all" className={cn('cursor-pointer', !syncAll && 'text-muted-foreground')}>
                   Sync all emails received in {senderEmailAddresses.find((ea) => ea.isPrimary)!.email}
                 </FieldLabel>
               </div>

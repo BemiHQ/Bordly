@@ -107,7 +107,7 @@ export class EmailMessageService {
     console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
     const messages = await GmailApi.listMessages(gmail, {
       limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT,
-      to: boardAccount.receivingEmails,
+      emails: boardAccount.receivingEmails,
     });
     if (messages.length === 0) return;
 
@@ -657,7 +657,7 @@ export class EmailMessageService {
       );
       const messages = await GmailApi.listMessages(gmail, {
         limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT,
-        to: allReceivingEmails.length > 0 ? allReceivingEmails : undefined,
+        emails: allReceivingEmails.length > 0 ? allReceivingEmails : undefined,
       });
       externalEmailMessageIdsToAdd.push(...messages.map((m) => m.id).filter((id): id is string => !!id));
     }

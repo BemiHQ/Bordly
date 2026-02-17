@@ -396,15 +396,6 @@
           "length": 6,
           "mappedType": "datetime"
         },
-        "board_id": {
-          "name": "board_id",
-          "type": "uuid",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "uuid"
-        },
         "user_id": {
           "name": "user_id",
           "type": "uuid",
@@ -529,15 +520,6 @@
       ],
       "checks": [],
       "foreignKeys": {
-        "gmail_accounts_board_id_foreign": {
-          "constraintName": "gmail_accounts_board_id_foreign",
-          "columnNames": ["board_id"],
-          "localTableName": "public.gmail_accounts",
-          "referencedColumnNames": ["id"],
-          "referencedTableName": "public.boards",
-          "deleteRule": "set null",
-          "updateRule": "cascade"
-        },
         "gmail_accounts_user_id_foreign": {
           "constraintName": "gmail_accounts_user_id_foreign",
           "columnNames": ["user_id"],
