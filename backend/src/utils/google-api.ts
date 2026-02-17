@@ -68,7 +68,7 @@ export const gmailBody = (payload?: gmail_v1.Schema$MessagePart) => {
   return { bodyText, bodyHtml };
 };
 
-export const gmailAttachments = (payload?: gmail_v1.Schema$MessagePart) => {
+export const gmailAttachmentsData = (payload?: gmail_v1.Schema$MessagePart) => {
   if (!payload || !payload.parts) return [];
 
   const attachments: { externalId: string; filename: string; mimeType: string; size: number }[] = [];

@@ -2,8 +2,8 @@ import { Board } from '@/entities/board';
 import { BoardMember } from '@/entities/board-member';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
+import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { orm } from '@/utils/orm';
-import { enqueue, QUEUES } from '@/utils/pg-boss';
 
 export class BoardService {
   static async findByIdForUser({ boardId, user }: { boardId: string; user: User }) {

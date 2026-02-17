@@ -3,13 +3,12 @@ import secureSession from '@fastify/secure-session';
 import { RequestContext } from '@mikro-orm/postgresql';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import Fastify from 'fastify';
-
+import { listenToQueues } from '@/pg-boss-queues';
 import { authRoutes } from '@/routes/auth.routes';
-import { trpcRouter } from '@/trpc-router';
+import { createContext, trpcRouter } from '@/trpc-router';
 import { ENV } from '@/utils/env';
 import { orm } from '@/utils/orm';
-import { closePgBoss, listenToQueues, pgBossInstance } from '@/utils/pg-boss';
-import { createContext } from '@/utils/trpc';
+import { closePgBoss } from '@/utils/pg-boss';
 
 const fastify = Fastify({ logger: false });
 
@@ -48,8 +47,7 @@ fastify.register(authRoutes);
 
 const start = async () => {
   try {
-    const boss = await pgBossInstance();
-    await listenToQueues(boss);
+    await listenToQueues();
 
     await fastify.listen({ port: ENV.PORT });
     console.log(`[HTTP] Server listening on port ${ENV.PORT}`);
