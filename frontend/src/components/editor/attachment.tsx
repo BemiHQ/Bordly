@@ -51,7 +51,7 @@ export const Attachment = ({
         <button
           type="button"
           onClick={(e) => {
-            e.stopPropagation();
+            e.preventDefault();
             onDelete();
           }}
           className="text-muted-foreground hover:text-foreground ml-0.5 cursor-pointer"

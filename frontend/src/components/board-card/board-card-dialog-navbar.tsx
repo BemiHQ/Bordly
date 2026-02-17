@@ -128,7 +128,8 @@ export const BoardCardDialogNavbar = ({
         </SelectContent>
       </Select>
       <div className="flex items-center gap-2">
-        {participantMembers.length > 0 && (
+        {(participantMembers.length > 1 ||
+          (participantMembers.length === 1 && participantMembers[0].id !== assignedMember?.id)) && (
           <AvatarGroup
             className="mr-2"
             avatars={participantMembers.map((member) => (

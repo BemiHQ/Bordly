@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { Mail, MailCheck, Mails, Paperclip } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from '@/components/ui/avatar';
@@ -108,13 +108,16 @@ export const BoardCardContent = ({
           <AvatarGroup
             avatars={[
               assignedMember && (
-                <Avatar size="2xs" className="transition-filter duration-200">
+                <Avatar size="2xs">
                   <AvatarImage
                     src={assignedMember.user.photoUrl}
                     alt={assignedMember.user.name}
-                    className={grayscale ? 'opacity-75' : ''}
+                    className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
                   />
-                  <AvatarFallback hashForBgColor={assignedMember.user.name} className={grayscale ? 'opacity-75' : ''}>
+                  <AvatarFallback
+                    hashForBgColor={assignedMember.user.name}
+                    className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
+                  >
                     {assignedMember.user.name.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -122,13 +125,16 @@ export const BoardCardContent = ({
               ...participantMembers
                 .filter((m) => m.id !== assignedMember?.id)
                 .map((member) => (
-                  <Avatar key={member.user.id} size="2xs" className="transition-filter duration-200 grayscale">
+                  <Avatar key={member.user.id} size="2xs">
                     <AvatarImage
                       src={member.user.photoUrl}
                       alt={member.user.name}
-                      className={grayscale ? 'opacity-75' : ''}
+                      className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
                     />
-                    <AvatarFallback hashForBgColor={member.user.name} className={grayscale ? 'opacity-75' : ''}>
+                    <AvatarFallback
+                      hashForBgColor={member.user.name}
+                      className={cn('transition-filter duration-200', grayscale && 'opacity-75')}
+                    >
                       {member.user.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -158,7 +164,6 @@ export const BoardCard = ({
   boardMembers: BoardMember[];
 }) => {
   const { queryClient, trpc } = useRouteContext();
-  const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -185,7 +190,7 @@ export const BoardCard = ({
   });
 
   const handleToggleReadStatus = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.preventDefault();
     if (boardCard.unread) {
       optimisticallyMarkAsRead({ boardId: board.id, boardCardId: boardCard.id });
     } else {
@@ -194,28 +199,25 @@ export const BoardCard = ({
     setIsHovered(false);
   };
 
-  const handleCardClick = () => {
-    navigate({ to: ROUTES.BOARD_CARD.replace('$boardId', board.friendlyId).replace('$boardCardId', boardCard.id) });
-  };
-
   return (
-    <Card
-      ref={setNodeRef}
-      style={isDragging ? { opacity: 0 } : undefined}
-      {...attributes}
-      {...listeners}
-      className={`p-3 transition-shadow rounded-lg shadow-xs cursor-pointer ${isHovered ? 'border-semi-muted' : ''}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={handleCardClick}
-    >
-      <BoardCardContent
-        boardCard={boardCard}
-        boardMembers={boardMembers}
-        isHovered={isHovered}
-        onToggleReadStatus={handleToggleReadStatus}
-      />
-    </Card>
+    <Link to={ROUTES.BOARD_CARD.replace('$boardId', board.friendlyId).replace('$boardCardId', boardCard.id)}>
+      <Card
+        ref={setNodeRef}
+        style={isDragging ? { opacity: 0 } : undefined}
+        {...attributes}
+        {...listeners}
+        className={`p-3 transition-shadow rounded-lg shadow-xs cursor-pointer ${isHovered ? 'border-semi-muted' : ''}`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <BoardCardContent
+          boardCard={boardCard}
+          boardMembers={boardMembers}
+          isHovered={isHovered}
+          onToggleReadStatus={handleToggleReadStatus}
+        />
+      </Card>
+    </Link>
   );
 };
 

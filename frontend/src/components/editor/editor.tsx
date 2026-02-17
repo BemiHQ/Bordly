@@ -79,7 +79,6 @@ export const editorConfig = ({ initialHtml }: { initialHtml?: string }): Paramet
       const target = event.target as HTMLElement;
       if (target.tagName === 'A' || target.closest('a')) {
         event.preventDefault();
-        event.stopPropagation();
         return true;
       }
       return false;

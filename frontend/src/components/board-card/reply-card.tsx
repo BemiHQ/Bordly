@@ -409,7 +409,7 @@ export const ReplyCard = ({
                 size="icon-sm"
                 className="text-muted-foreground hover:text-primary"
                 onClick={(e) => {
-                  e.stopPropagation();
+                  e.preventDefault();
                   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
                   input?.click();
                 }}

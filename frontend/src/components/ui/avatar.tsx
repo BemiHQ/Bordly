@@ -110,7 +110,6 @@ export const AvatarGroup = ({
       className={cn(
         '*:data-[slot=avatar]:ring-background group/avatar-group flex -space-x-1 *:data-[slot=avatar]:bg-background',
         '[&>*:first-child]:z-10 [&>*:nth-child(2)]:z-9 [&>*:nth-child(3)]:z-8 [&>*:nth-child(4)]:z-7 [&>*:nth-child(5)]:z-6',
-        avatars.length === 1 ? '' : '*:data-[slot=avatar]:ring-2',
         className,
       )}
       {...props}
