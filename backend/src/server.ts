@@ -1,12 +1,9 @@
 import Fastify from 'fastify';
+import { authRoutes } from './routes/auth.js';
 
-const fastify = Fastify({
-  logger: true,
-});
+const fastify = Fastify({ logger: true });
 
-fastify.get('/', async (_request, _reply) => {
-  return { hello: 'world' };
-});
+fastify.register(authRoutes);
 
 const start = async () => {
   try {

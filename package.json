@@ -1,9 +1,10 @@
 {
+  "name": "bordly",
   "scripts": {
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check --write",
-    "dev": "concurrently -n backend,frontend -c blue,magenta 'cd backend && pnpm run dev' 'cd frontend && pnpm run dev'"
+    "dev": "concurrently -n backend,frontend -c blue,magenta 'make up-backend' 'make up-frontend'"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.12",
