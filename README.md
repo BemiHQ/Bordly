@@ -3,7 +3,7 @@
 ## Tech stack
 
 - Frontend: React, TanStack, TailwindCSS, Shadcn, Lucide React, Vite
-- Backend: Node.js, Fastify, MikroORM, PostgreSQL
+- Backend: Node.js, Fastify, Mastra, MikroORM, Pg Boss, PostgreSQL, AWS SES
 - Common: TypeScript, tRPC
 - Development: Nginx, Biome
 

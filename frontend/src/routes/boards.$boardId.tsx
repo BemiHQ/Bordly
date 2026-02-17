@@ -2,25 +2,30 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
+import { ListFilter } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import { Navbar } from '@/components/navbar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
 
-const MAX_BOARD_COLUMN_POSITION = 1_000; // System Spam and Trash
+const LOCAL_STORAGE_KEY_SHOW_UNREAD_ONLY = 'showUnreadOnly';
 
-type Board = inferRouterOutputs<TRPCRouter>['board']['getBoard'];
-type BoardColumn = Board['boardColumns'][number];
+type BoardData = inferRouterOutputs<TRPCRouter>['board']['getBoard'];
+type Board = BoardData['board'];
+type BoardColumn = BoardData['boardColumns'][number];
 
-type BoardCards = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards'];
-type BoardCard = BoardCards['boardCards'][number];
-type EmailMessagesByThreadId = BoardCards['emailMessagesByThreadId'];
+type BoardCardsData = inferRouterOutputs<TRPCRouter>['boardCard']['getBoardCards'];
+type BoardCard = BoardCardsData['boardCards'][number];
+type EmailMessagesByThreadId = BoardCardsData['emailMessagesByThreadId'];
 type EmailMessage = EmailMessagesByThreadId[number][number];
-type GmailAccount = BoardCards['gmailAccounts'][number];
+type GmailAccount = BoardCardsData['gmailAccounts'][number];
 
 export const Route = createFileRoute('/boards/$boardId')({
   component: Home,
@@ -33,13 +38,11 @@ export const Route = createFileRoute('/boards/$boardId')({
       throw redirect({ to: ROUTES.WELCOME });
     }
 
-    const board = await context.queryClient.ensureQueryData(
-      context.trpc.board.getBoard.queryOptions({
-        boardId: extractUuid(params.boardId),
-      }),
+    const boardData = await context.queryClient.ensureQueryData(
+      context.trpc.board.getBoard.queryOptions({ boardId: extractUuid(params.boardId) }),
     );
 
-    return { currentUser, board };
+    return { currentUser, boardData };
   },
 });
 
@@ -55,21 +58,56 @@ const EmptyState = () => (
   </Empty>
 );
 
-const BoardNavbar = ({ board }: { board: Board }) => {
+const BoardNavbar = ({
+  board,
+  showUnreadOnly,
+  setShowUnreadOnly,
+}: {
+  board: Board;
+  showUnreadOnly: boolean;
+  setShowUnreadOnly: (value: boolean) => void;
+}) => {
   return (
-    <div className="border-b bg-background px-6 py-3">
-      <h1 className="font-semibold">{board.board.name}</h1>
+    <div className="border-b bg-background px-6 py-2.5 flex items-center justify-between">
+      <h1 className="font-semibold">{board.name}</h1>
+      <Tooltip>
+        <TooltipTrigger>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className={showUnreadOnly ? 'bg-border hover:bg-border' : ''}
+            onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+          >
+            <ListFilter className="text-muted-foreground" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">{showUnreadOnly ? 'Show all emails' : 'Show unread emails only'}</TooltipContent>
+      </Tooltip>
     </div>
   );
 };
 
-const BoardColumn = ({ boardColumn, children }: { boardColumn: BoardColumn; children: React.ReactNode }) => {
-  if (boardColumn.position > MAX_BOARD_COLUMN_POSITION) return null;
+const BoardColumn = ({
+  boardColumn,
+  boardCards,
+  emailMessagesByThreadId,
+  children,
+}: {
+  boardColumn: BoardColumn;
+  boardCards: BoardCard[] | undefined;
+  emailMessagesByThreadId: EmailMessagesByThreadId | undefined;
+  children: React.ReactNode;
+}) => {
+  const unreadThreadCount =
+    boardCards && emailMessagesByThreadId
+      ? boardCards.filter((card) => emailMessagesByThreadId[card.externalThreadId].some((msg) => !msg.read)).length
+      : 0;
 
   return (
-    <div className="flex w-68 h-fit max-h-[calc(100vh-116px)] flex-col gap-2 rounded-lg bg-primary-foreground p-2 border border-border scrollbar-thin overflow-y-auto shadow-sm">
-      <div className="flex items-center justify-between px-1">
-        <h2 className="text-sm font-semibold">{boardColumn.name}</h2>
+    <div className="flex min-w-68 w-68 h-fit max-h-[calc(100vh-116px)] flex-col gap-2 rounded-lg bg-primary-foreground p-2 border border-border scrollbar-thin overflow-y-auto shadow-sm">
+      <div className="flex items-center gap-2 px-1">
+        <h2 className="text-sm font-semibold">{`${boardColumn.name}`}</h2>
+        {unreadThreadCount > 0 && <div className="pt-[1px] text-xs font-bold text-semi-muted">{unreadThreadCount}</div>}
       </div>
       <div className="flex flex-col gap-2">{children}</div>
     </div>
@@ -78,15 +116,22 @@ const BoardColumn = ({ boardColumn, children }: { boardColumn: BoardColumn; chil
 
 const BoardCard = ({
   boardCard: _boardCard,
+  showUnreadOnly,
   gmailAccounts,
   domainIconUrlByName,
   emailMessages,
 }: {
   boardCard: BoardCard;
+  showUnreadOnly: boolean;
   gmailAccounts: GmailAccount[];
   domainIconUrlByName: Record<string, string>;
   emailMessages: EmailMessage[];
 }) => {
+  const anyUnread = emailMessages.some((msg) => !msg.read);
+  if (showUnreadOnly && !anyUnread) {
+    return null;
+  }
+
   const title = emailMessages.find((msg) => msg.subject)?.subject || 'No subject';
   const snippet = emailMessages[emailMessages.length - 1]?.snippet || 'Empty';
   const participants = emailMessages
@@ -96,7 +141,6 @@ const BoardCard = ({
         : [msg.from, ...(msg.to || []), ...(msg.cc || [])],
     )
     .filter((p) => !gmailAccounts.some((account) => p.email === account.email));
-  const anyUnread = emailMessages.some((msg) => !msg.read);
 
   return (
     <Card className="cursor-pointer p-3 transition-shadow hover:bg-background rounded-lg shadow-xs flex flex-col gap-1.5">
@@ -133,37 +177,63 @@ const BoardCard = ({
 };
 
 function Home() {
-  const { currentUser, board } = Route.useLoaderData();
+  const { currentUser, boardData } = Route.useLoaderData();
+  const { board, boardColumns } = boardData;
+
   const context = Route.useRouteContext();
   const params = Route.useParams();
   const { data: boardCardsData } = useQuery(
-    context.trpc.boardCard.getBoardCards.queryOptions({
-      boardId: extractUuid(params.boardId),
-    }),
+    context.trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
   );
+  const [showUnreadOnly, setShowUnreadOnly] = useState(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_SHOW_UNREAD_ONLY);
+    return saved ? JSON.parse(saved) : false;
+  });
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY_SHOW_UNREAD_ONLY, JSON.stringify(showUnreadOnly));
+  }, [showUnreadOnly]);
+
+  useEffect(() => {
+    const unreadThreadCount = Object.values(boardCardsData?.emailMessagesByThreadId || {}).filter((messages) =>
+      messages.some((msg) => !msg.read),
+    ).length;
+
+    if (unreadThreadCount === 0) {
+      document.title = `${board.name} – Bordly`;
+    } else {
+      document.title = `(${unreadThreadCount}) ${board.name} – Bordly`;
+    }
+  }, [board.name, boardCardsData]);
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar currentUser={currentUser} />
-      <BoardNavbar board={board} />
-      {board.boardColumns.length === 0 && <EmptyState />}
-      {board.boardColumns.length > 0 && (
+      <BoardNavbar board={board} showUnreadOnly={showUnreadOnly} setShowUnreadOnly={setShowUnreadOnly} />
+      {boardColumns.length === 0 && <EmptyState />}
+      {boardColumns.length > 0 && (
         <div className="flex overflow-x-auto p-3 gap-3">
-          {board.boardColumns.map((boardColumn) => (
-            <BoardColumn key={boardColumn.id} boardColumn={boardColumn}>
-              {boardCardsData?.boardCards
-                .filter((card) => card.boardColumnId === boardColumn.id)
-                .map((boardCard) => (
+          {boardColumns.map((boardColumn) => {
+            const boardCards = boardCardsData?.boardCards.filter((card) => card.boardColumnId === boardColumn.id);
+            return (
+              <BoardColumn
+                key={boardColumn.id}
+                boardColumn={boardColumn}
+                boardCards={boardCards}
+                emailMessagesByThreadId={boardCardsData?.emailMessagesByThreadId}
+              >
+                {boardCards?.map((boardCard) => (
                   <BoardCard
                     key={boardCard.id}
                     boardCard={boardCard}
-                    gmailAccounts={boardCardsData.gmailAccounts}
-                    domainIconUrlByName={boardCardsData.domainIconUrlByName}
-                    emailMessages={boardCardsData.emailMessagesByThreadId[boardCard.externalThreadId]}
+                    showUnreadOnly={showUnreadOnly}
+                    gmailAccounts={boardCardsData!.gmailAccounts}
+                    domainIconUrlByName={boardCardsData!.domainIconUrlByName}
+                    emailMessages={boardCardsData!.emailMessagesByThreadId[boardCard.externalThreadId]}
                   />
                 ))}
-            </BoardColumn>
-          ))}
+              </BoardColumn>
+            );
+          })}
         </div>
       )}
     </div>

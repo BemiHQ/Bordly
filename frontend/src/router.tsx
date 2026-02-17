@@ -85,7 +85,7 @@ export const getRouter = () => {
     scrollRestoration: true,
     defaultPreload: 'intent',
     context: { trpc, queryClient },
-    defaultPendingComponent: () => <div className={`p-2 text-2xl`}>Spinning...</div>,
+    defaultPendingComponent: () => null,
     Wrap: function WrapComponent({ children }) {
       return (
         <QueryClientProvider client={queryClient}>

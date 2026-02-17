@@ -2,7 +2,7 @@ import { Collection, Entity, ManyToMany, OneToMany, Property } from '@mikro-orm/
 
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCard } from '@/entities/board-card';
-import type { BoardColumn } from '@/entities/board-column';
+import { type BoardColumn, MAX_USER_COLUMN_POSITION } from '@/entities/board-column';
 import type { BoardInvite } from '@/entities/board-invite';
 import type { BoardMember } from '@/entities/board-member';
 import type { GmailAccount } from '@/entities/gmail-account';
@@ -31,6 +31,10 @@ export class Board extends BaseEntity {
     super();
     this.name = name;
     this.validate();
+  }
+
+  get userColumns() {
+    return this.boardColumns.getItems().filter((col) => col.position <= MAX_USER_COLUMN_POSITION);
   }
 
   toJson() {

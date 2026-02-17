@@ -58,7 +58,7 @@ const ROUTES = {
       const board = await BoardService.findByIdForUser(input.boardId, { user: ctx.user, populate: ['boardColumns'] });
       return {
         board: board.toJson(),
-        boardColumns: board.boardColumns.getItems().map((col) => col.toJson()),
+        boardColumns: board.userColumns.map((col) => col.toJson()),
       };
     }),
     createFirstBoard: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input, ctx }) => {
@@ -72,15 +72,20 @@ const ROUTES = {
       if (!ctx.user) throw new Error('Not authenticated');
       const board = await BoardService.findByIdForUser(input.boardId, {
         user: ctx.user,
-        populate: ['boardCards', 'gmailAccounts'],
+        populate: ['boardColumns', 'boardCards', 'gmailAccounts'],
       });
+      const { userColumns } = board;
+      const boardCards = board.boardCards
+        .getItems()
+        .filter((card) => userColumns.some((col) => col.id === card.boardColumn.id));
+
       const { emailMessagesByThreadId, domainNames } = await EmailMessageService.findMessagesByThreadId({
         gmailAccounts: board.gmailAccounts.getItems(),
-        threadIds: unique(board.boardCards.getItems().map((card) => card.externalThreadId)),
+        threadIds: unique(boardCards.map((card) => card.externalThreadId)),
       });
       const domainIconUrlByName = await DomainService.findDomainIconUrlByName(domainNames);
       return {
-        boardCards: board.boardCards.getItems().map((card) => card.toJson()),
+        boardCards: boardCards.map((card) => card.toJson()),
         gmailAccounts: board.gmailAccounts.getItems().map((acc) => acc.toJson()),
         domainIconUrlByName,
         emailMessagesByThreadId: Object.fromEntries(

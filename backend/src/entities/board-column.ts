@@ -4,6 +4,7 @@ import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
 
+export const MAX_USER_COLUMN_POSITION = 1_000;
 export const SPAM_POSITION = 1_001;
 export const TRASH_POSITION = 1_002;
 
