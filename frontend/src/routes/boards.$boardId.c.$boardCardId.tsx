@@ -3,8 +3,8 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import DOMPurify from 'dompurify';
-import { ChevronDownIcon } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronDownIcon, Ellipsis } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -31,6 +31,101 @@ export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
     }
   },
 });
+
+const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
+  const [cleanedHtml, setCleanedHtml] = useState('');
+  const [trailingBlockquotesHtml, setTrailingBlockquotesHtml] = useState('');
+  const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!emailMessage.bodyHtml) return;
+
+    const sanitized = DOMPurify.sanitize(emailMessage.bodyHtml);
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(sanitized, 'text/html');
+    const bodyChildren = Array.from(doc.body.childNodes);
+
+    const trailingBlockquotes: Element[] = [];
+    for (let i = bodyChildren.length - 1; i >= 0; i--) {
+      const node = bodyChildren[i];
+      if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BLOCKQUOTE') {
+        trailingBlockquotes.unshift(node as Element); // prepend to maintain order
+      } else if (
+        node.nodeType === Node.ELEMENT_NODE ||
+        (node.nodeType === Node.TEXT_NODE && node.textContent?.trim())
+      ) {
+        break; // stop when we hit a non-blockquote element or non-empty text
+      }
+    }
+    if (trailingBlockquotes.length > 0) {
+      const quotesArray = trailingBlockquotes.map((bq) => bq.outerHTML);
+      setTrailingBlockquotesHtml(quotesArray.join(''));
+      trailingBlockquotes.forEach((bq) => {
+        bq.remove(); // remove trailing blockquotes from main content
+      });
+    }
+
+    // Remove trailing empty elements like <div><br></div>. This includes nested empty elements within containers
+    const removeTrailingEmpty = (container: Element | Document) => {
+      const children = Array.from(container.childNodes);
+      for (let i = children.length - 1; i >= 0; i--) {
+        const node = children[i];
+        if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
+          node.remove();
+          continue;
+        }
+
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const elem = node as Element;
+          if (!elem.textContent?.trim()) {
+            node.remove();
+            continue;
+          }
+          removeTrailingEmpty(elem); // recursively clean nested containers
+        }
+
+        if (node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim())) {
+          break; // stop when we hit actual content
+        }
+      }
+    };
+    removeTrailingEmpty(doc.body);
+    setCleanedHtml(doc.body.innerHTML);
+  }, [emailMessage.bodyHtml]);
+
+  if (emailMessage.bodyHtml) {
+    return (
+      <div className="flex flex-col">
+        <div
+          className="text-sm email-body"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Using DOMPurify to sanitize HTML content
+          dangerouslySetInnerHTML={{ __html: cleanedHtml }}
+        />
+        {trailingBlockquotesHtml && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setBlockquotesExpanded(!blockquotesExpanded)}
+              className="self-start my-2 h-3 px-1.5 text-muted-foreground hover:text-muted-foreground bg-border hover:bg-ring"
+            >
+              <Ellipsis className="size-4" />
+            </Button>
+            {blockquotesExpanded && (
+              <div
+                className="text-sm email-body"
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: Using DOMPurify to sanitize HTML content
+                dangerouslySetInnerHTML={{ __html: trailingBlockquotesHtml }}
+              />
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  return <div className="text-sm whitespace-pre-wrap">{emailMessage.bodyText}</div>;
+};
 
 const EmailMessageCard = ({ emailMessage }: { emailMessage: EmailMessage }) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -142,15 +237,7 @@ const EmailMessageCard = ({ emailMessage }: { emailMessage: EmailMessage }) => {
           </div>
         </div>
       </div>
-      {emailMessage.bodyHtml ? (
-        <div
-          className="text-sm email-body"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Using DOMPurify to sanitize HTML content
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(emailMessage.bodyHtml) }}
-        />
-      ) : (
-        <div className="text-sm whitespace-pre-wrap">{emailMessage.bodyText}</div>
-      )}
+      <EmailMessageBody emailMessage={emailMessage} />
     </Card>
   );
 };

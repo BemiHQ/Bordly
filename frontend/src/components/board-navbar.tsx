@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type BoardFilters, BoardFiltersProvider, useBoardFilters } from '@/hooks/use-board-filters';
 import { isSsr } from '@/utils/ssr';
+import { cn } from '@/utils/strings';
 
 type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
 type Board = BoardData['board'];
@@ -41,7 +42,11 @@ const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon-sm" className={hasActiveFilters ? 'bg-border hover:bg-border' : ''}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className={cn('px-2', hasActiveFilters && 'bg-border hover:bg-border')}
+            >
               <ListFilter className="text-muted-foreground" />
             </Button>
           </PopoverTrigger>
@@ -108,7 +113,7 @@ const MenuButton = ({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm">
+          <Button variant="ghost" size="icon-sm" className="px-2">
             <Ellipsis className="text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
