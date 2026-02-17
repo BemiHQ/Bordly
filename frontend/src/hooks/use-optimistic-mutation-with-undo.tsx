@@ -19,33 +19,40 @@ export const useOptimisticMutationWithUndo = <TData, TError, TMutationParams>({
   errorToast: string;
   delayedMutation: ReturnType<typeof useMutation<TData, TError, TMutationParams>>;
 }) => {
-  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
-  const previousDataRef = useRef<unknown>(null);
+  const pendingMutationsRef = useRef<Record<string, { params: TMutationParams; previousData: unknown }>>({});
 
   const execute = useCallback(
     (params: TMutationParams) => {
-      previousDataRef.current = queryClient.getQueryData(queryKey);
+      const previousData = queryClient.getQueryData(queryKey);
 
       onExecute(params);
 
-      if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
       const timeoutId = setTimeout(() => {
-        delayedMutation.mutate(params, {
-          onError: () => {
-            queryClient.setQueryData(queryKey, previousDataRef.current);
-            toast.error(errorToast, { position: 'top-center' });
-          },
-        });
+        const mutation = pendingMutationsRef.current[id];
+        if (mutation) {
+          delayedMutation.mutate(mutation.params, {
+            onError: () => {
+              queryClient.setQueryData(queryKey, mutation.previousData);
+              toast.error(errorToast, { position: 'top-center' });
+            },
+          });
+          delete pendingMutationsRef.current[id];
+        }
       }, DEFAULT_TOASTER_DURATION_MS);
-      timeoutIdRef.current = timeoutId;
+
+      const id = String(timeoutId);
+      pendingMutationsRef.current[id] = { params, previousData };
 
       toast.success(successToast, {
         action: {
           label: 'Undo',
           onClick: () => {
             clearTimeout(timeoutId);
-            timeoutIdRef.current = null;
-            queryClient.setQueryData(queryKey, previousDataRef.current);
+            const mutation = pendingMutationsRef.current[id];
+            if (mutation) {
+              queryClient.setQueryData(queryKey, mutation.previousData);
+              delete pendingMutationsRef.current[id];
+            }
           },
         },
         position: 'top-center',

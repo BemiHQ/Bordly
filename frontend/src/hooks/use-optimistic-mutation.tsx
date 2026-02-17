@@ -1,5 +1,5 @@
 import type { useMutation } from '@tanstack/react-query';
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { toast } from 'sonner';
 import type { RouteContext } from '@/hooks/use-route-context';
 
@@ -20,18 +20,16 @@ export const useOptimisticMutation = <TData, TError, TMutationParams>({
   errorToast: string;
   mutation: ReturnType<typeof useMutation<TData, TError, TMutationParams>>;
 }) => {
-  const previousDataRef = useRef<unknown>(null);
-
   const execute = useCallback(
     (params: TMutationParams) => {
-      previousDataRef.current = queryClient.getQueryData(queryKey);
+      const previousData = queryClient.getQueryData(queryKey);
 
       onExecute(params);
 
       mutation.mutate(params, {
         onSuccess,
         onError: () => {
-          queryClient.setQueryData(queryKey, previousDataRef.current);
+          queryClient.setQueryData(queryKey, previousData);
           toast.error(errorToast, { position: 'top-center' });
         },
       });
