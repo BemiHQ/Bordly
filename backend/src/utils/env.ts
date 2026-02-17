@@ -10,6 +10,8 @@ export class Env {
 
   static ENCRYPTION_KEY = process.env.ENCRYPTION_KEY as string;
 
+  static APP_ENDPOINT = process.env.APP_ENDPOINT as string;
+
   static GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID as string;
   static GOOGLE_OAUTH_CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET as string;
   static GOOGLE_OAUTH_CALLBACK_URL = process.env.GOOGLE_OAUTH_CALLBACK_URL as string;

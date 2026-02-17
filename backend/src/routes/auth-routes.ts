@@ -48,8 +48,7 @@ export const authRoutes = async (fastify: FastifyInstance) => {
         });
       }
       await updateLastSessionAt(user);
-
-      return user.toJson();
+      return reply.redirect(Env.APP_ENDPOINT);
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Authentication failed' });
