@@ -27,7 +27,7 @@ export const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
 
 const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
   const { filters, setFilters } = useBoardFilters();
-  const hasActiveFilters = !!filters.unread || filters.gmailAccountIds.length > 0;
+  const hasActiveFilters = filters.unread || filters.hasAttachments || filters.gmailAccountIds.length > 0;
   const toggleEmailAccount = (accountId: string) => {
     setFilters({
       ...filters,
@@ -72,6 +72,13 @@ const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
                   onCheckedChange={(checked) => setFilters({ ...filters, sent: !!checked })}
                 />
                 <span>Sent</span>
+              </Label>
+              <Label className="flex items-center gap-2">
+                <Checkbox
+                  checked={filters.hasAttachments}
+                  onCheckedChange={(checked) => setFilters({ ...filters, hasAttachments: !!checked })}
+                />
+                <span>Has attachments</span>
               </Label>
             </div>
           </div>
@@ -155,7 +162,12 @@ export const BoardNavbar = ({
   currentUserId: string;
   children?: React.ReactNode;
 }) => {
-  const [filters, setFilters] = useState<BoardFilters>({ unread: false, sent: false, gmailAccountIds: [] });
+  const [filters, setFilters] = useState<BoardFilters>({
+    unread: false,
+    sent: false,
+    hasAttachments: false,
+    gmailAccountIds: [],
+  });
   // Load filters from localStorage
   useEffect(() => {
     const savedFiltersJson = !isSsr() && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`);

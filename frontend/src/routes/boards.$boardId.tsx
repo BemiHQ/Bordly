@@ -13,7 +13,7 @@ import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
-import { Archive, Mail, MailCheck, Mails, Send } from 'lucide-react';
+import { Archive, Mail, MailCheck, Mails, Paperclip, Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BoardNavbar } from '@/components/board-navbar';
@@ -186,9 +186,10 @@ const BoardCardContent = ({
         {boardCard.subject}
       </div>
       <div className="text-xs text-muted-foreground truncate">{boardCard.snippet}</div>
-      {(boardCard.hasSent || boardCard.emailMessageCount > 1) && (
+      {(boardCard.hasSent || boardCard.hasAttachments || boardCard.emailMessageCount > 1) && (
         <div className="flex items-center gap-3 mt-1 text-2xs text-muted-foreground">
           {boardCard.hasSent && <Send className="size-3" />}
+          {boardCard.hasAttachments && <Paperclip className="size-3" />}
           {boardCard.emailMessageCount > 1 && (
             <div className="flex items-center gap-1">
               <Mails className="size-3.5" />
@@ -407,11 +408,12 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
             .sort((a, b) => b.lastEventAt.getTime() - a.lastEventAt.getTime());
 
           const filteredBoardCards = boardCards?.filter((card) => {
-            const hasUnreadOrSentFilter = filters.unread || filters.sent;
-            if (hasUnreadOrSentFilter) {
+            const hasActiveFilters = filters.unread || filters.sent || filters.hasAttachments;
+            if (hasActiveFilters) {
               const matchesUnread = filters.unread && card.unreadEmailMessageIds;
               const matchesSent = filters.sent && card.hasSent;
-              if (!matchesUnread && !matchesSent) return false;
+              const matchesHasAttachments = filters.hasAttachments && card.hasAttachments;
+              if (!matchesUnread && !matchesSent && !matchesHasAttachments) return false;
             }
 
             if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
