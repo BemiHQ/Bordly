@@ -15,11 +15,9 @@ import { GoogleApi, LABEL } from '@/utils/google-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
-import { sleep } from '@/utils/time';
 
 const CREATE_EMAIL_MESSAGES_BATCH_LIMIT = 50;
 const MAX_INITIAL_BOARD_COUNT = 5;
-const CREATE_NEW_EMAIL_MESSAGES_INTERVAL_MS = 20 * 1_000; // 20 seconds
 
 const CATEGORIES = {
   ENGINEERING: 'Engineering',
@@ -43,13 +41,10 @@ Only output one of the above categories without any explanation.`,
 };
 
 export class EmailMessageService {
-  static async loopCreateNewEmailMessages() {
-    while (true) {
-      const gmailAccounts = await GmailAccountService.findAllAccountsWithBoards({ populate: ['board.boardColumns'] });
-      for (const gmailAccount of gmailAccounts) {
-        await EmailMessageService.syncEmailMessagesForGmailAccount(gmailAccount);
-      }
-      await sleep(CREATE_NEW_EMAIL_MESSAGES_INTERVAL_MS);
+  static async createNewEmailMessages() {
+    const gmailAccounts = await GmailAccountService.findAllAccountsWithBoards({ populate: ['board.boardColumns'] });
+    for (const gmailAccount of gmailAccounts) {
+      await EmailMessageService.syncEmailMessagesForGmailAccount(gmailAccount);
     }
   }
 
@@ -66,6 +61,7 @@ export class EmailMessageService {
     if (messages.length === 0) return;
 
     // Create EmailMessages and Attachments
+    let lastExternalHistoryId: string | undefined;
     const emailMessagesDescByThreadId: Record<string, EmailMessage[]> = {};
     const domainNames: string[] = [];
     for (const message of messages) {
@@ -77,6 +73,9 @@ export class EmailMessageService {
 
       (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
       domainNames.push(emailMessage.domain.name);
+      if (!lastExternalHistoryId && messageData.historyId) {
+        lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message
+      }
     }
 
     // Categorize email threads
@@ -145,6 +144,11 @@ export class EmailMessageService {
         });
         orm.em.persist(boardCard);
       }
+    }
+
+    if (lastExternalHistoryId) {
+      gmailAccount.setExternalHistoryId(lastExternalHistoryId);
+      orm.em.persist(gmailAccount);
     }
 
     await orm.em.flush();
@@ -224,6 +228,10 @@ export class EmailMessageService {
       externalEmailMessageIdsToDelete.length === 0 &&
       labelChanges.length === 0
     ) {
+      if (lastExternalHistoryId && lastExternalHistoryId !== gmailAccount.externalHistoryId) {
+        gmailAccount.setExternalHistoryId(lastExternalHistoryId);
+        await orm.em.persist(gmailAccount).flush();
+      }
       return;
     }
 
@@ -260,6 +268,7 @@ export class EmailMessageService {
     const boardColumnsAsc = gmailAccount.board.boardColumns.getItems().sort((a, b) => a.position - b.position);
 
     // Handle add: create EmailMessages & Attachments
+    console.log('[GMAIL] Processing additions...');
     const domainNames: string[] = [];
     for (const externalMessageId of externalEmailMessageIdsToAdd) {
       const emailMessageToCreate = affectedEmailMessageByExternalId[externalMessageId];
@@ -278,7 +287,7 @@ export class EmailMessageService {
       domainNames.push(emailMessage.domain.name);
 
       if (!lastExternalHistoryId && messageData.historyId) {
-        lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId if not set from the first DESC message
+        lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message if not set from history
       }
     }
     // Load domains
@@ -329,6 +338,7 @@ export class EmailMessageService {
     }
 
     // Handle delete: delete EmailMessages, update/delete BoardCards
+    console.log('[GMAIL] Processing deletions...');
     for (const externalMessageId of externalEmailMessageIdsToDelete) {
       const emailMessageToDelete = affectedEmailMessageByExternalId[externalMessageId];
       if (!emailMessageToDelete) continue; // Already deleted
@@ -355,6 +365,7 @@ export class EmailMessageService {
     }
 
     // Handle label changes: update EmailMessages, update BoardCards
+    console.log('[GMAIL] Processing label changes...');
     for (const labelChange of labelChanges) {
       const { externalMessageId } = labelChange;
       const emailMessage = affectedEmailMessageByExternalId[externalMessageId];
@@ -384,8 +395,10 @@ export class EmailMessageService {
       boardCardByThreadId[threadId] = boardCard;
     }
 
-    gmailAccount.setExternalHistoryId(lastExternalHistoryId!);
-    orm.em.persist(gmailAccount);
+    if (lastExternalHistoryId) {
+      gmailAccount.setExternalHistoryId(lastExternalHistoryId);
+      orm.em.persist(gmailAccount);
+    }
 
     await orm.em.flush();
   }
@@ -400,13 +413,14 @@ export class EmailMessageService {
     const externalEmailMessageIdsToAdd: string[] = [];
     const externalEmailMessageIdsToDelete: string[] = [];
     const labelChanges: { externalMessageId: string; added?: string[]; removed?: string[] }[] = [];
+    let lastExternalHistoryId = gmailAccount.externalHistoryId;
     if (gmailAccount.externalHistoryId) {
       console.log(`[GMAIL] Fetching ${gmailAccount.email} history since ${gmailAccount.externalHistoryId}...`);
       let pageToken: string | undefined;
       do {
         const historyResponse = await gmail.users.history.list({
           userId: 'me',
-          startHistoryId: gmailAccount.externalHistoryId,
+          startHistoryId: lastExternalHistoryId,
           historyTypes: ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved'],
           pageToken,
         });
@@ -434,7 +448,7 @@ export class EmailMessageService {
         }
         pageToken = historyResponse.data.nextPageToken || undefined;
         if (historyResponse.data.historyId) {
-          gmailAccount.setExternalHistoryId(historyResponse.data.historyId); // Increasing historyId when paginating
+          lastExternalHistoryId = historyResponse.data.historyId;
         }
       } while (pageToken);
     } else {
@@ -450,7 +464,7 @@ export class EmailMessageService {
     }
 
     return {
-      lastExternalHistoryId: gmailAccount.externalHistoryId,
+      lastExternalHistoryId,
       externalEmailMessageIdsToAdd: unique(externalEmailMessageIdsToAdd),
       externalEmailMessageIdsToDelete: unique(externalEmailMessageIdsToDelete),
       labelChanges,

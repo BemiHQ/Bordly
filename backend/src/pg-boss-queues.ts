@@ -7,12 +7,10 @@ import { pgBossInstance } from '@/utils/pg-boss';
 
 export const QUEUES = {
   CREATE_INITIAL_EMAIL_MESSAGES: 'create-initial-email-messages',
-  SCHEDULED_CREATE_NEW_EMAIL_MESSAGES: 'scheduled-create-new-email-messages',
 } as const;
 
 interface QueueDataMap {
   [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: { gmailAccountId: string };
-  [QUEUES.SCHEDULED_CREATE_NEW_EMAIL_MESSAGES]: {};
 }
 
 const CONFIG_BY_QUEUE = {
@@ -22,29 +20,6 @@ const CONFIG_BY_QUEUE = {
     handler: async (job) => {
       const { gmailAccountId } = job.data;
       await EmailMessageService.createInitialBoardEmailMessages(gmailAccountId);
-    },
-  },
-  [QUEUES.SCHEDULED_CREATE_NEW_EMAIL_MESSAGES]: {
-    options: { retryLimit: 5, retryDelay: 5 },
-    schedule: '* * * * *', // every minute
-    handler: async () => {
-      const LOCK_KEY = 12345; // arbitrary unique key
-
-      const boss = await pgBossInstance();
-      const result = await boss.getDb().executeSql('SELECT pg_try_advisory_lock($1) AS acquired', [LOCK_KEY]);
-
-      if (!result.rows[0].acquired) {
-        console.log(
-          `[PG-BOSS] Skipping job: another instance is processing ${QUEUES.SCHEDULED_CREATE_NEW_EMAIL_MESSAGES} queue`,
-        );
-        return;
-      }
-
-      try {
-        await EmailMessageService.loopCreateNewEmailMessages();
-      } finally {
-        await boss.getDb().executeSql('SELECT pg_advisory_unlock($1)', [LOCK_KEY]);
-      }
     },
   },
 } as {
@@ -57,6 +32,14 @@ const CONFIG_BY_QUEUE = {
 
 export const listenToQueues = async () => {
   const boss = await pgBossInstance();
+
+  // One-off queue migration
+  const queueName = 'scheduled-create-new-email-messages';
+  const queue = await boss.getQueue(queueName);
+  if (queue) {
+    console.log(`[PG-BOSS] Deleting queue "${queueName}"`);
+    await boss.deleteQueue(queueName);
+  }
 
   console.log('[PG-BOSS] Creating queues...');
   for (const queueName of Object.values(QUEUES)) {

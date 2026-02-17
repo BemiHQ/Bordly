@@ -24,7 +24,10 @@ up-backend:
 	devbox run --env-file backend/.env "cd backend && pnpm run dev"
 
 up-frontend:
-	devbox run "cd frontend && pnpm run dev"
+	devbox run --env-file frontend/.env "cd frontend && pnpm run dev"
+
+up-fetch-emails:
+	devbox run --env-file backend/.env "cd backend && pnpm run fetch-emails"
 
 up-services:
 	devbox services start nginx postgresql

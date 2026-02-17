@@ -44,7 +44,7 @@ const createTrpcClient = () =>
     links: [
       httpBatchStreamLink({
         transformer: superjson,
-        url: ENV.VITE_API_ENDPOINT_SSR && isSsr() ? API_ENDPOINTS.TRPC_SSR : API_ENDPOINTS.TRPC,
+        url: isSsr() && ENV.SSR_API_ENDPOINT ? API_ENDPOINTS.TRPC_SSR : API_ENDPOINTS.TRPC,
         async fetch(url, options) {
           let cookie: string | null = null;
           if (isSsr()) {
@@ -94,6 +94,7 @@ export const getRouter = () => {
     defaultPreload: 'intent',
     context: { trpc, queryClient },
     defaultPendingComponent: () => null,
+    defaultNotFoundComponent: () => <div>404 - Not Found</div>,
     Wrap: function WrapComponent({ children }) {
       return (
         <QueryClientProvider client={queryClient}>

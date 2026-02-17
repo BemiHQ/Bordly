@@ -14,6 +14,7 @@
     "start": "node dist/server.js",
     "mikro-orm": "NODE_OPTIONS='--import tsx' mikro-orm",
     "migrate:prod": "node dist/scripts/migrate-prod.js",
+    "fetch-emails": "tsx src/scripts/fetch-emails.ts",
     "repl": "tsx src/scripts/repl.ts"
   },
   "dependencies": {

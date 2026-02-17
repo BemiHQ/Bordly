@@ -1,7 +1,9 @@
 import { createRootRouteWithContext, HeadContent, Scripts } from '@tanstack/react-router';
 import { Toaster } from '@/components/ui/sonner';
 import type { RouteContext } from '@/hooks/use-route-context';
+import appCssInline from '@/styles.css?inline';
 import appCss from '@/styles.css?url';
+import { isSsr } from '@/utils/ssr';
 
 export const Route = createRootRouteWithContext<RouteContext>()({
   head: () => ({
@@ -22,9 +24,13 @@ export const Route = createRootRouteWithContext<RouteContext>()({
     ],
   }),
 
+  notFoundComponent: () => <div>404 - Not Found</div>,
+
   shellComponent: ({ children }: { children: React.ReactNode }) => (
     <html lang="en">
       <head>
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: it's safe */}
+        {isSsr() && <style dangerouslySetInnerHTML={{ __html: appCssInline }} />}
         <HeadContent />
       </head>
       <body>

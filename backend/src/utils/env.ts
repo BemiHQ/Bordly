@@ -1,27 +1,35 @@
+const requireEnv = (name: string): string => {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Required environment variable ${name} is not set`);
+  }
+  return value;
+};
+
 export const ENV = {
-  DB_DATABASE: process.env.DB_DATABASE as string,
-  DB_USERNAME: process.env.DB_USERNAME as string,
-  DB_PASSWORD: process.env.DB_PASSWORD as string,
-  DB_HOSTNAME: process.env.DB_HOSTNAME as string,
-  DB_PORT: parseInt(process.env.DB_PORT as string, 10),
-  DB_SSL: process.env.DB_SSL === 'true',
+  DB_DATABASE: requireEnv('DB_DATABASE'),
+  DB_USERNAME: requireEnv('DB_USERNAME'),
+  DB_PASSWORD: requireEnv('DB_PASSWORD'),
+  DB_HOSTNAME: requireEnv('DB_HOSTNAME'),
+  DB_PORT: parseInt(requireEnv('DB_PORT'), 10),
 
-  ENCRYPTION_KEY: process.env.ENCRYPTION_KEY as string,
-  COOKIE_SECRET: process.env.COOKIE_SECRET as string,
+  ENCRYPTION_KEY: requireEnv('ENCRYPTION_KEY'),
+  COOKIE_SECRET: requireEnv('COOKIE_SECRET'),
 
-  ROOT_DOMAIN: process.env.ROOT_DOMAIN as string,
-  APP_ENDPOINT: process.env.APP_ENDPOINT as string,
+  ROOT_DOMAIN: requireEnv('ROOT_DOMAIN'),
+  APP_ENDPOINT: requireEnv('APP_ENDPOINT'),
 
-  GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID as string,
-  GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET as string,
-  GOOGLE_OAUTH_CALLBACK_URL: process.env.GOOGLE_OAUTH_CALLBACK_URL as string,
+  GOOGLE_OAUTH_CLIENT_ID: requireEnv('GOOGLE_OAUTH_CLIENT_ID'),
+  GOOGLE_OAUTH_CLIENT_SECRET: requireEnv('GOOGLE_OAUTH_CLIENT_SECRET'),
+  GOOGLE_OAUTH_CALLBACK_URL: requireEnv('GOOGLE_OAUTH_CALLBACK_URL'),
 
-  LLM_FAST_MODEL: process.env.LLM_FAST_MODEL as string,
-  LLM_THINKING_MODEL: process.env.LLM_THINKING_MODEL as string,
+  LLM_FAST_MODEL: requireEnv('LLM_FAST_MODEL'),
+  LLM_THINKING_MODEL: requireEnv('LLM_THINKING_MODEL'),
 
   // Optional
 
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
+  DB_SSL: process.env.DB_SSL === 'true',
 
   AWS_REGION: process.env.AWS_REGION,
   AWS_SES_ACCESS_KEY_ID: process.env.AWS_SES_ACCESS_KEY_ID,
