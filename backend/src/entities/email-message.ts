@@ -7,7 +7,13 @@ export const LABELS = {
   SPAM: 'SPAM',
   TRASH: 'TRASH',
   SENT: 'SENT',
+  UNREAD: 'UNREAD',
 };
+
+export interface Participant {
+  name: string | null;
+  email: string;
+}
 
 @Entity({ tableName: 'email_messages' })
 @Unique({ properties: ['gmailAccount', 'externalId'] })
@@ -27,16 +33,21 @@ export class EmailMessage extends BaseEntity {
   @Property()
   externalCreatedAt: Date;
 
+  @Property({ type: 'jsonb' })
+  from: Participant;
+  @Property({ type: 'jsonb', nullable: true })
+  to?: Participant[];
+  @Property({ type: 'jsonb', nullable: true })
+  replyTo?: Participant;
+  @Property({ type: 'jsonb', nullable: true })
+  cc?: Participant[];
+  @Property({ type: 'jsonb', nullable: true })
+  bcc?: Participant[];
+
   @Property()
-  from: string;
-  @Property({ nullable: true })
-  to?: string[];
-  @Property({ nullable: true })
-  replyTo?: string;
-  @Property({ nullable: true })
-  cc?: string[];
-  @Property({ nullable: true })
-  bcc?: string[];
+  read: boolean;
+  @Property()
+  sent: boolean;
   @Property()
   labels: string[];
 
@@ -56,6 +67,8 @@ export class EmailMessage extends BaseEntity {
     externalCreatedAt,
     from,
     subject,
+    read,
+    sent,
     labels,
     snippet,
     to,
@@ -69,14 +82,16 @@ export class EmailMessage extends BaseEntity {
     externalId: string;
     externalThreadId: string;
     externalCreatedAt: Date;
-    from: string;
+    from: Participant;
     subject: string;
     snippet: string;
+    read: boolean;
+    sent: boolean;
     labels: string[];
-    to?: string[];
-    replyTo?: string;
-    cc?: string[];
-    bcc?: string[];
+    to?: Participant[];
+    replyTo?: Participant;
+    cc?: Participant[];
+    bcc?: Participant[];
     bodyText?: string;
     bodyHtml?: string;
   }) {
@@ -87,6 +102,8 @@ export class EmailMessage extends BaseEntity {
     this.externalCreatedAt = externalCreatedAt;
     this.from = from;
     this.subject = subject;
+    this.read = read;
+    this.sent = sent;
     this.labels = labels;
     this.snippet = snippet;
     this.to = to;
@@ -107,7 +124,8 @@ export class EmailMessage extends BaseEntity {
       to: this.to,
       cc: this.cc,
       bcc: this.bcc,
-      isSent: this.labels.includes(LABELS.SENT),
+      read: this.read,
+      sent: this.sent,
     };
   }
 

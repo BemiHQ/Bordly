@@ -609,50 +609,66 @@
         },
         "from": {
           "name": "from",
-          "type": "varchar(255)",
+          "type": "jsonb",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "length": 255,
-          "mappedType": "string"
+          "mappedType": "json"
         },
         "to": {
           "name": "to",
-          "type": "text[]",
+          "type": "jsonb",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": true,
-          "mappedType": "array"
+          "mappedType": "json"
         },
         "reply_to": {
           "name": "reply_to",
-          "type": "varchar(255)",
+          "type": "jsonb",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": true,
-          "length": 255,
-          "mappedType": "string"
+          "mappedType": "json"
         },
         "cc": {
           "name": "cc",
-          "type": "text[]",
+          "type": "jsonb",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": true,
-          "mappedType": "array"
+          "mappedType": "json"
         },
         "bcc": {
           "name": "bcc",
-          "type": "text[]",
+          "type": "jsonb",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": true,
-          "mappedType": "array"
+          "mappedType": "json"
+        },
+        "read": {
+          "name": "read",
+          "type": "boolean",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "boolean"
+        },
+        "sent": {
+          "name": "sent",
+          "type": "boolean",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "boolean"
         },
         "labels": {
           "name": "labels",

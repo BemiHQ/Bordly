@@ -1,10 +1,11 @@
 import type { Agent } from '@mastra/core/agent';
+import * as cheerio from 'cheerio';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 
 import { Attachment } from '@/entities/attachment';
 import { BoardCard } from '@/entities/board-card';
 import { BoardColumn, SPAM_POSITION, TRASH_POSITION } from '@/entities/board-column';
-import { EmailMessage, LABELS } from '@/entities/email-message';
+import { EmailMessage, LABELS, type Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { AgentService } from '@/services/agent.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
@@ -86,7 +87,6 @@ export class EmailMessageService {
 
       console.log(`[GMAIL] Fetching ${gmailAccount.email} email ${message.id}...`);
       const messageDetails = await gmail.users.messages.get({ userId: 'me', id: message.id, format: 'full' });
-
       const { emailMessage, attachments } = EmailMessageService.parseEmailMessage({
         gmailAccount,
         messageData: messageDetails.data,
@@ -195,15 +195,15 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
     gmailAccount: GmailAccount;
     messageData: gmail_v1.Schema$Message;
   }) {
+    const labels = messageData.labelIds || [];
     const headers = messageData.payload?.headers || [];
-
-    const to = gmailHeaderValue(headers, 'to')
+    const toEmails = gmailHeaderValue(headers, 'to')
       ?.split(',')
       .map((e) => e.trim());
-    const cc = gmailHeaderValue(headers, 'cc')
+    const ccEmails = gmailHeaderValue(headers, 'cc')
       ?.split(',')
       .map((e) => e.trim());
-    const bcc = gmailHeaderValue(headers, 'bcc')
+    const bccEmails = gmailHeaderValue(headers, 'bcc')
       ?.split(',')
       .map((e) => e.trim());
     const { bodyText, bodyHtml } = gmailBody(messageData.payload);
@@ -213,14 +213,16 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
       externalId: messageData.id as string,
       externalThreadId: messageData.threadId as string,
       externalCreatedAt: new Date(parseInt(messageData.internalDate as string, 10)),
-      from: gmailHeaderValue(headers, 'from') as string,
+      from: EmailMessageService.parseParticipant(gmailHeaderValue(headers, 'from'))!,
       subject: gmailHeaderValue(headers, 'subject') as string,
-      snippet: messageData.snippet as string,
-      labels: messageData.labelIds as string[],
-      to,
-      replyTo: gmailHeaderValue(headers, 'reply-to'),
-      cc,
-      bcc,
+      snippet: cheerio.load(messageData.snippet!).text(),
+      read: !labels.includes(LABELS.UNREAD),
+      sent: labels.includes(LABELS.SENT),
+      labels,
+      to: toEmails?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p),
+      replyTo: EmailMessageService.parseParticipant(gmailHeaderValue(headers, 'reply-to')),
+      cc: ccEmails?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p),
+      bcc: bccEmails?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p),
       bodyText,
       bodyHtml,
     });
@@ -240,5 +242,31 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
     }
 
     return { emailMessage, attachments };
+  }
+
+  private static parseParticipant(emailAddress?: string) {
+    if (!emailAddress) return;
+
+    const participant = { name: null, email: '' } as Participant;
+
+    const formattedEmail = emailAddress.replaceAll('"', '').trim();
+
+    const match = formattedEmail.match(/^(.*?)(<([^>]+)>)?$/); // Matches 'Name <email>' or just 'email'
+    if (match) {
+      const namePart = match[1]!.trim();
+      const emailPart = match[3] ? match[3].trim() : namePart;
+      participant.email = emailPart;
+      if (namePart && namePart !== emailPart) {
+        participant.name = namePart; // If name part is different from email, use it as name
+      }
+    } else {
+      participant.email = formattedEmail;
+    }
+
+    if (participant.email.toLowerCase().startsWith('undisclosed-recipients')) {
+      return;
+    }
+
+    return participant;
   }
 }

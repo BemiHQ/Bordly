@@ -8,8 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
-import { unique } from '@/utils/lists';
-import { emailParticipantDomain, extractUuid, humanizedEmailParticipant, renderHtml } from '@/utils/strings';
+import { extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
 
 const MAX_BOARD_COLUMN_POSITION = 1_000; // System Spam and Trash
@@ -35,7 +34,9 @@ export const Route = createFileRoute('/boards/$boardId')({
     }
 
     const board = await context.queryClient.ensureQueryData(
-      context.trpc.board.getBoard.queryOptions({ boardId: extractUuid(params.boardId) }),
+      context.trpc.board.getBoard.queryOptions({
+        boardId: extractUuid(params.boardId),
+      }),
     );
 
     return { currentUser, board };
@@ -88,36 +89,39 @@ const BoardCard = ({
   const snippet = emailMessages[emailMessages.length - 1]?.snippet || 'Empty';
   const participants = emailMessages
     .flatMap((msg) =>
-      msg.isSent
+      msg.sent
         ? [...(msg.to || []), ...(msg.cc || []), ...(msg.bcc || [])]
         : [msg.from, ...(msg.to || []), ...(msg.cc || [])],
     )
-    .filter((p) => !gmailAccounts.some((account) => p.includes(account.email)))
-    .map((p) => ({ domain: emailParticipantDomain(p), humanizedEmail: humanizedEmailParticipant(p) }))
-    .filter((p) => p.humanizedEmail);
-  const humanizedEmails = unique(participants.map((p) => p.humanizedEmail));
+    .filter((p) => !gmailAccounts.some((account) => p.email === account.email));
 
   return (
     <Card className="cursor-pointer p-3 transition-shadow hover:bg-background rounded-lg shadow-xs flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
         <Avatar size="xs">
           <AvatarImage
-            src={`https://${participants[0].domain || 'example.com'}/favicon.ico`}
-            alt={humanizedEmails[0] || ''}
+            src={`https://${participants[0].email.split('@')[1]}/favicon.ico`}
+            alt={participants[0].name || participants[0].email}
           />
-          <AvatarFallback hashForBgColor={humanizedEmails[0] || ''}>
-            {humanizedEmails[0]?.charAt(0).toUpperCase() || '-'}
+          <AvatarFallback hashForBgColor={participants[0].email}>
+            {(participants[0].name || participants[0].email).charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div className="text-sm truncate">
-          <span className="font-semibold">{humanizedEmails[0] || 'Unknown'}</span>
+          <span className="font-semibold">{participants[0].name || participants[0].email}</span>
           {participants.length > 1 && (
-            <span className="text-muted-foreground">, {humanizedEmails.slice(1).join(', ')}</span>
+            <span className="text-muted-foreground">
+              ,{' '}
+              {participants
+                .slice(1)
+                .map((p) => p.name || p.email)
+                .join(', ')}
+            </span>
           )}
         </div>
       </div>
       <div className="text-xs truncate">{title}</div>
-      <div className="text-xs text-muted-foreground truncate">{renderHtml(snippet)}</div>
+      <div className="text-xs text-muted-foreground truncate">{snippet}</div>
     </Card>
   );
 };
@@ -127,7 +131,9 @@ function Home() {
   const context = Route.useRouteContext();
   const params = Route.useParams();
   const { data: boardCardsData } = useQuery(
-    context.trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
+    context.trpc.boardCard.getBoardCards.queryOptions({
+      boardId: extractUuid(params.boardId),
+    }),
   );
 
   return (

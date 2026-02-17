@@ -1,3 +1,4 @@
+import * as cheerio from 'cheerio';
 import { type Auth, google } from 'googleapis';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 
@@ -63,6 +64,11 @@ export const gmailBody = (payload?: gmail_v1.Schema$MessagePart) => {
       }
     };
     extractBody(payload.parts);
+  }
+
+  if (bodyHtml && !bodyText) {
+    const $ = cheerio.load(bodyHtml);
+    bodyText = $.text();
   }
 
   return { bodyText, bodyHtml };

@@ -1,6 +1,6 @@
 import { Migration } from '@mikro-orm/migrations';
 
-export class Migration20260128203535_squash_migrations extends Migration {
+export class Migration20260129145211_squash_migrations extends Migration {
   override async up(): Promise<void> {
     this.addSql(`create extension if not exists "uuid-ossp";`);
     this.addSql(
@@ -37,7 +37,7 @@ export class Migration20260128203535_squash_migrations extends Migration {
     this.addSql(`alter table "gmail_accounts" add constraint "gmail_accounts_google_id_unique" unique ("google_id");`);
 
     this.addSql(
-      `create table "email_messages" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "gmail_account_id" uuid not null, "external_id" varchar(255) not null, "external_thread_id" varchar(255) not null, "external_created_at" timestamptz not null, "from" varchar(255) not null, "to" text[] null, "reply_to" varchar(255) null, "cc" text[] null, "bcc" text[] null, "labels" text[] not null, "subject" varchar(255) not null, "snippet" varchar(255) not null, "body_text" text null, "body_html" text null, constraint "email_messages_pkey" primary key ("id"));`,
+      `create table "email_messages" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "gmail_account_id" uuid not null, "external_id" varchar(255) not null, "external_thread_id" varchar(255) not null, "external_created_at" timestamptz not null, "from" jsonb not null, "to" jsonb null, "reply_to" jsonb null, "cc" jsonb null, "bcc" jsonb null, "read" boolean not null, "sent" boolean not null, "labels" text[] not null, "subject" varchar(255) not null, "snippet" varchar(255) not null, "body_text" text null, "body_html" text null, constraint "email_messages_pkey" primary key ("id"));`,
     );
     this.addSql(`create index "email_messages_external_created_at_index" on "email_messages" ("external_created_at");`);
     this.addSql(`create index "email_messages_external_thread_id_index" on "email_messages" ("external_thread_id");`);
