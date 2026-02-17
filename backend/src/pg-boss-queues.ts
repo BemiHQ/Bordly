@@ -1,16 +1,21 @@
 import { RequestContext } from '@mikro-orm/postgresql';
 import type { Job, Queue } from 'pg-boss';
+import { EmailAddressService } from '@/services/email-address.service';
 import { EmailMessageService } from '@/services/email-message.service';
 import { reportError } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
 import { pgBossInstance } from '@/utils/pg-boss';
 
+const SCHEDULE_TZ = 'America/Los_Angeles';
+
 export const QUEUES = {
   CREATE_INITIAL_EMAIL_MESSAGES: 'create-initial-email-messages',
+  SYNC_EMAIL_ADDRESSES: 'sync-email-addresses',
 } as const;
 
 interface QueueDataMap {
   [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: { gmailAccountId: string };
+  [QUEUES.SYNC_EMAIL_ADDRESSES]: {};
 }
 
 const CONFIG_BY_QUEUE = {
@@ -20,6 +25,13 @@ const CONFIG_BY_QUEUE = {
     handler: async (job) => {
       const { gmailAccountId } = job.data;
       await EmailMessageService.createInitialBoardEmailMessages(gmailAccountId);
+    },
+  },
+  [QUEUES.SYNC_EMAIL_ADDRESSES]: {
+    options: { retryLimit: 3, retryDelay: 60, retryBackoff: true },
+    schedule: '0 0 * * *',
+    handler: async () => {
+      await EmailAddressService.syncEmailAddresses();
     },
   },
 } as {
@@ -48,7 +60,7 @@ export const listenToQueues = async () => {
     const schedule = CONFIG_BY_QUEUE[queueName].schedule;
     if (schedule) {
       console.log(`[PG-BOSS] Scheduling recurring job for "${queueName}" with "${schedule}"`);
-      await boss.schedule(queueName, schedule);
+      await boss.schedule(queueName, schedule, null, { tz: SCHEDULE_TZ });
     }
   }
 

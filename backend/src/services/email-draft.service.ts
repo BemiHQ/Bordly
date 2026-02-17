@@ -1,4 +1,3 @@
-import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
 import { EmailDraft, type Participant } from '@/entities/email-draft';
 import type { User } from '@/entities/user';

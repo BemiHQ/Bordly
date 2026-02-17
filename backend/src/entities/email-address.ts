@@ -49,6 +49,24 @@ export class EmailAddress extends BaseEntity {
     this.validate();
   }
 
+  update({
+    isPrimary,
+    isDefault,
+    name,
+    replyTo,
+  }: {
+    isPrimary: boolean;
+    isDefault: boolean;
+    name?: string;
+    replyTo?: string;
+  }) {
+    this.isPrimary = isPrimary;
+    this.isDefault = isDefault;
+    this.name = name;
+    this.replyTo = replyTo;
+    this.validate();
+  }
+
   toJson() {
     return {
       id: this.id,
