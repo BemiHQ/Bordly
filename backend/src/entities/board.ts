@@ -1,10 +1,13 @@
 import { Collection, Entity, ManyToMany, OneToMany, Property } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
+import type { BoardCard } from '@/entities/board-card';
+import type { BoardColumn } from '@/entities/board-column';
+import type { BoardInvite } from '@/entities/board-invite';
 import type { BoardMember } from '@/entities/board-member';
+import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
-import type { BoardInvite } from './board-invite';
-import type { GmailAccount } from './gmail-account';
+import { slugify } from '@/utils/strings';
 
 @Entity({ tableName: 'boards' })
 export class Board extends BaseEntity {
@@ -12,6 +15,10 @@ export class Board extends BaseEntity {
   gmailAccounts = new Collection<GmailAccount>(this);
   @OneToMany({ mappedBy: (boardMember: BoardMember) => boardMember.board })
   boardMembers = new Collection<BoardMember>(this);
+  @OneToMany({ mappedBy: (boardColumn: BoardColumn) => boardColumn.board })
+  boardColumns = new Collection<BoardColumn>(this);
+  @OneToMany({ mappedBy: (boardCard: BoardCard) => boardCard.board })
+  boardCards = new Collection<BoardCard>(this);
   @OneToMany({ mappedBy: (boardInvite: BoardInvite) => boardInvite.board })
   boardInvites = new Collection<BoardInvite>(this);
   @ManyToMany({ mappedBy: (user: User) => user.boards })
@@ -19,21 +26,26 @@ export class Board extends BaseEntity {
 
   @Property()
   name: string;
+  @Property()
+  slug: string;
 
   constructor({ name }: { name: string }) {
     super();
     this.name = name;
+    this.slug = slugify(name);
     this.validate();
   }
 
   toJson() {
     return {
       id: this.id,
+      slug: this.slug,
       name: this.name,
     };
   }
 
   private validate() {
     if (!this.name) throw new Error('Name is required');
+    if (!this.slug) throw new Error('Slug is required');
   }
 }

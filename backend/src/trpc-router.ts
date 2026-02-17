@@ -2,8 +2,8 @@ import type { TRPCRouterRecord } from '@trpc/server';
 import { z } from 'zod';
 
 import { BoardService } from '@/services/board.service';
+import { BoardInviteService } from '@/services/board-invite.service';
 import { createTRPCRouter, publicProcedure } from '@/utils/trpc';
-import { BoardInviteService } from './services/board-invite.service';
 
 const userRouter = {
   getCurrentUser: publicProcedure.query(({ ctx }) => {

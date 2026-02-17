@@ -53,6 +53,6 @@ export class Attachment extends BaseEntity {
     if (!this.externalId) throw new Error('External ID is required');
     if (!this.filename) throw new Error('Filename is required');
     if (!this.mimeType) throw new Error('MIME type is required');
-    if (this.size < 0) throw new Error('Size must be a non-negative number');
+    if (!this.size || this.size < 0) throw new Error('Size must be a non-negative number');
   }
 }
