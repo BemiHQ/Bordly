@@ -580,6 +580,7 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
         filename: attachmentData.filename,
         mimeType: attachmentData.mimeType,
         size: attachmentData.size,
+        contentId: attachmentData.contentId,
       });
       attachments.push(attachment);
     }

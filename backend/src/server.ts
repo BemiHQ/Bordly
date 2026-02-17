@@ -40,12 +40,12 @@ fastify.register(cors, { origin: ENV.APP_ENDPOINT, credentials: true });
 fastify.register(secureSession, {
   key: Buffer.from(ENV.COOKIE_SECRET, 'base64'),
   cookieName: SESSION_COOKIE_NAME,
+  expiry: 30 * 24 * 60 * 60, // 30 days in seconds
   cookie: {
     secure: true,
     httpOnly: true,
     sameSite: 'lax',
     domain: `.${ENV.ROOT_DOMAIN}`,
-    maxAge: 30 * 24 * 60 * 60, // 30 days in seconds
     path: '/',
   },
 });

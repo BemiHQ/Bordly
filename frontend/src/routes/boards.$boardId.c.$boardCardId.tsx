@@ -241,7 +241,8 @@ const EmailMessageBody = ({
           const proxyUrl = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;
           if (attachment.filename) {
             sanitized = sanitized.replaceAll(`src="cid:${attachment.filename}"`, `src="${proxyUrl}"`);
-          } else if (attachment.contentId) {
+          }
+          if (attachment.contentId) {
             sanitized = sanitized.replaceAll(`src="cid:${attachment.contentId}"`, `src="${proxyUrl}"`);
           }
         }
@@ -625,23 +626,7 @@ function BoardCardComponent() {
         >
           <DialogHeader className="pl-6 pr-13 flex flex-row items-start justify-between mt-[-6px]">
             <DialogTitle className="leading-6">{boardCard?.subject}</DialogTitle>
-            <div className="flex items-center gap-3 mr-2 mt-[-4px]">
-              <Tooltip delayDuration={1_000}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => {
-                      optimisticallyMarkAsUnread({ boardId, boardCardId });
-                      navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
-                    }}
-                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
-                  >
-                    <Mail className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Mark as unread</TooltipContent>
-              </Tooltip>
+            <div className="flex items-center gap-2.5 mr-1.5 mt-[-4px]">
               <Tooltip delayDuration={1_000}>
                 <TooltipTrigger asChild>
                   <Button
@@ -689,6 +674,22 @@ function BoardCardComponent() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Delete</TooltipContent>
+              </Tooltip>
+              <Tooltip delayDuration={1_000}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      optimisticallyMarkAsUnread({ boardId, boardCardId });
+                      navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+                    }}
+                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                  >
+                    <Mail className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Mark as unread</TooltipContent>
               </Tooltip>
             </div>
           </DialogHeader>
