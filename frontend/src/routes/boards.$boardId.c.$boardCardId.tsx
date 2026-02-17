@@ -105,6 +105,44 @@ const parseTrailingBlockquotes = (container: Element): Element[] => {
   return trailingElements;
 };
 
+// Parse trailing backquoted text (lines starting with >) from plain text emails
+const parseTrailingBackquotes = (text: string): { mainText: string; backquotesText: string } => {
+  const lines = text.split('\n');
+  let splitIndex = lines.length;
+  let foundQuotedLine = false;
+
+  // Scan backwards to find where quoted content starts
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue; // Skip empty lines
+
+    // Check if line is quoted (starts with >)
+    if (/^>/.test(trimmedLine)) {
+      foundQuotedLine = true;
+      splitIndex = i;
+      continue;
+    }
+
+    // Check if this is an "On ... wrote:" line
+    if (foundQuotedLine && /^On\s+.+\s+wrote:\s*$/i.test(trimmedLine)) {
+      splitIndex = i;
+      continue;
+    }
+
+    if (foundQuotedLine) break; // Stop when we hit actual content
+  }
+
+  // If we found quoted content, split the text
+  if (splitIndex < lines.length) {
+    const mainText = lines.slice(0, splitIndex).join('\n').trimEnd();
+    const backquotesText = lines.slice(splitIndex).join('\n');
+    return { mainText, backquotesText };
+  }
+
+  return { mainText: text, backquotesText: '' };
+};
+
 const setIframeContent = (
   iframe: HTMLIFrameElement,
   { styles, body }: { styles: string; body: string },
@@ -132,11 +170,26 @@ const setIframeContent = (
   return resizeObserver;
 };
 
+const ToggleQuotesButton = ({ onClick }: { onClick: () => void }) => {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onClick}
+      className="self-start my-2 h-3 px-1.5 text-muted-foreground hover:text-muted-foreground bg-border hover:bg-ring"
+    >
+      <Ellipsis className="size-4" />
+    </Button>
+  );
+};
+
 const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
   const [cleanedHtml, setCleanedHtml] = useState('');
   const [emailStyles, setEmailStyles] = useState('');
   const [trailingBlockquotesHtml, setTrailingBlockquotesHtml] = useState('');
   const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
+  const [mainText, setMainText] = useState('');
+  const [backquotesText, setBackquotesText] = useState('');
   const bodyIframeRef = useRef<HTMLIFrameElement>(null);
   const backquotesIframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -194,6 +247,16 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
     return () => resizeObserver.disconnect();
   }, [trailingBlockquotesHtml, blockquotesExpanded, emailStyles]);
 
+  useEffect(() => {
+    if (!emailMessage.bodyText || emailMessage.bodyHtml) return;
+
+    const { mainText: parsedMainText, backquotesText: parsedBackquotesText } = parseTrailingBackquotes(
+      emailMessage.bodyText,
+    );
+    setMainText(parsedMainText);
+    setBackquotesText(parsedBackquotesText);
+  }, [emailMessage.bodyText, emailMessage.bodyHtml]);
+
   if (emailMessage.bodyHtml) {
     return (
       <div className="flex flex-col">
@@ -205,14 +268,7 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
         />
         {trailingBlockquotesHtml && (
           <>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setBlockquotesExpanded(!blockquotesExpanded)}
-              className="self-start my-2 h-3 px-1.5 text-muted-foreground hover:text-muted-foreground bg-border hover:bg-ring"
-            >
-              <Ellipsis className="size-4" />
-            </Button>
+            <ToggleQuotesButton onClick={() => setBlockquotesExpanded(!blockquotesExpanded)} />
             {blockquotesExpanded && (
               <iframe
                 ref={backquotesIframeRef}
@@ -227,7 +283,17 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
     );
   }
 
-  return <div className="text-sm whitespace-pre-wrap">{emailMessage.bodyText}</div>;
+  return (
+    <div className="flex flex-col">
+      <div className="text-sm whitespace-pre-wrap">{mainText}</div>
+      {backquotesText && (
+        <>
+          <ToggleQuotesButton onClick={() => setBlockquotesExpanded(!blockquotesExpanded)} />
+          {blockquotesExpanded && <div className="text-sm whitespace-pre-wrap">{backquotesText}</div>}
+        </>
+      )}
+    </div>
+  );
 };
 
 const EmailMessageCard = ({ emailMessage }: { emailMessage: EmailMessage }) => {
