@@ -7,7 +7,7 @@ import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
 import { GoogleApi } from '@/utils/google-api';
 import { QUERY_PARAMS } from '@/utils/shared';
-import { APP_ENDPOINTS } from '@/utils/urls';
+import { APP_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.profile',
@@ -16,7 +16,7 @@ const GOOGLE_SCOPES = [
 ];
 
 export const authRoutes = async (fastify: FastifyInstance) => {
-  fastify.get('/auth/google', async (request, reply) => {
+  fastify.get(ROUTES.AUTH_GOOGLE, async (request, reply) => {
     const { boardId } = request.query as { boardId?: string };
     const authUrl = GoogleApi.newOauth2Client().generateAuthUrl({
       access_type: 'offline',
@@ -27,7 +27,7 @@ export const authRoutes = async (fastify: FastifyInstance) => {
     reply.redirect(authUrl);
   });
 
-  fastify.get('/auth/google/callback', async (request, reply) => {
+  fastify.get(ROUTES.AUTH_GOOGLE_CALLBACK, async (request, reply) => {
     const { code, state } = request.query as { code?: string; state?: string };
     if (!code) {
       return reply.status(400).send({ error: 'Missing authorization code' });
@@ -78,7 +78,7 @@ export const authRoutes = async (fastify: FastifyInstance) => {
     }
   });
 
-  fastify.get('/auth/log-out', async (request, reply) => {
+  fastify.get(ROUTES.AUTH_LOG_OUT, async (request, reply) => {
     request.session.delete();
     return reply.redirect(ENV.APP_ENDPOINT);
   });

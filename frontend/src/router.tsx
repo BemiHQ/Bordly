@@ -6,14 +6,13 @@ import { createServerFn } from '@tanstack/react-start';
 import { getRequest } from '@tanstack/react-start/server';
 import { createTRPCClient, httpBatchStreamLink, loggerLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
-
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import superjson from 'superjson';
-
 import { routeTree } from '@/routeTree.gen';
 import { TRPCProvider } from '@/trpc';
 import { ENV } from '@/utils/env';
 import { isSsr } from '@/utils/ssr';
+import { API_ENDPOINTS } from '@/utils/urls';
 
 Sentry.init({
   dsn: ENV.VITE_SENTRY_DSN,
@@ -45,7 +44,7 @@ const createTrpcClient = () =>
     links: [
       httpBatchStreamLink({
         transformer: superjson,
-        url: `${ENV.VITE_API_ENDPOINT}/trpc`,
+        url: API_ENDPOINTS.TRPC,
         async fetch(url, options) {
           let cookie: string | null = null;
           if (isSsr()) {

@@ -11,6 +11,7 @@ import { ENV } from '@/utils/env';
 import { setupFastifyErrorHandler } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
 import { closePgBoss } from '@/utils/pg-boss';
+import { ROUTES } from '@/utils/urls';
 
 const SESSION_COOKIE_NAME = 'sId';
 
@@ -18,14 +19,14 @@ const fastify = Fastify({ logger: false });
 setupFastifyErrorHandler(fastify);
 
 fastify.addHook('onRequest', (request, _reply, done) => {
-  if (!request.url.startsWith('/trpc/') && request.url !== '/internal/health') {
+  if (!request.url.startsWith(ROUTES.TRPC) && request.url !== ROUTES.INTERNAL_HEALTH) {
     console.log(`[HTTP] ${request.method} ${request.url}`);
   }
   RequestContext.create(orm.em, done);
 });
 
 fastify.addHook('onResponse', (request, reply, done) => {
-  if (!request.url.startsWith('/trpc/') && request.url !== '/internal/health') {
+  if (!request.url.startsWith(ROUTES.TRPC) && request.url !== ROUTES.INTERNAL_HEALTH) {
     console.log(
       `[HTTP] ${request.method} ${request.url} [status=${reply.statusCode}, duration=${reply.elapsedTime.toFixed(2)}ms]`,
     );
@@ -46,7 +47,7 @@ fastify.register(secureSession, {
     path: '/',
   },
 });
-fastify.register(fastifyTRPCPlugin, { prefix: '/trpc', trpcOptions: { router: trpcRouter, createContext } });
+fastify.register(fastifyTRPCPlugin, { prefix: ROUTES.TRPC, trpcOptions: { router: trpcRouter, createContext } });
 
 fastify.register(internalRoutes);
 fastify.register(authRoutes);

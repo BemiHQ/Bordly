@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Spinner } from '@/components/ui/spinner';
 import { useBoardFilters } from '@/hooks/use-board-filters';
 import { useRouteContext } from '@/hooks/use-route-context';
-import { ROUTES } from '@/utils/urls';
+import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
 type Board = BoardData['board'];
@@ -136,7 +136,7 @@ export const EmailAccountsDialog = ({
           ))}
           <div className="w-fit mt-3">
             <Button variant="contrast" className="w-full" size="sm" asChild>
-              <a href={`${import.meta.env.VITE_API_ENDPOINT}/auth/google?boardId=${board.id}`}>Add new account</a>
+              <a href={`${API_ENDPOINTS.AUTH_GOOGLE}?boardId=${board.id}`}>Add new account</a>
             </Button>
           </div>
         </div>

@@ -2,8 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 
 import { Button } from '@/components/ui/button';
 import { H1 } from '@/components/ui/h1';
-import { ENV } from '@/utils/env';
-import { ROUTES } from '@/utils/urls';
+import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/auth')({
   component: Auth,
@@ -29,7 +28,7 @@ function Auth() {
       <H1>Welcome to Bordly</H1>
 
       <Button size="lg" variant="contrast" asChild>
-        <a href={`${ENV.VITE_API_ENDPOINT}/auth/google`}>Continue with Google</a>
+        <a href={API_ENDPOINTS.AUTH_GOOGLE}>Continue with Google</a>
       </Button>
     </div>
   );

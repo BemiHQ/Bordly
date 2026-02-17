@@ -43,7 +43,7 @@ const publicProcedure = t.procedure.use(loggingMiddleware);
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-const ROUTES = {
+const TRPC_ROUTES = {
   user: {
     getCurrentUser: publicProcedure.query(({ ctx }) => {
       if (!ctx.user) return { currentUser: null };
@@ -221,5 +221,5 @@ const ROUTES = {
   } satisfies TRPCRouterRecord,
 };
 
-export const trpcRouter = createTRPCRouter(ROUTES);
+export const trpcRouter = createTRPCRouter(TRPC_ROUTES);
 export type TRPCRouter = typeof trpcRouter;
