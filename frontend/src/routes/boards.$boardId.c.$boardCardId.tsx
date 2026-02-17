@@ -2,8 +2,9 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
+import { BoardCardState } from 'bordly-backend/utils/shared';
 import DOMPurify from 'dompurify';
-import { ChevronDownIcon, Download, Ellipsis, Paperclip } from 'lucide-react';
+import { Archive, ChevronDownIcon, Download, Ellipsis, Mail, MailCheck, Paperclip } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,10 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import emailIframeStyles from '@/email-iframe.css?inline';
+import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
+import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { RouteProvider } from '@/hooks/use-route-context';
 import { cn, extractUuid, formatBytes, pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
@@ -20,6 +24,7 @@ import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
 type EmailMessage = EmailMessagesData['emailMessages'][number];
 type Attachment = EmailMessage['attachments'][number];
+type BoardCard = EmailMessagesData['boardCard'];
 
 export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
   component: BoardCardComponent,
@@ -503,6 +508,50 @@ function BoardCardComponent() {
   const { data: emailMessagesData, isLoading } = useQuery({
     ...context.trpc.emailMessage.getEmailMessages.queryOptions({ boardId, boardCardId }),
   });
+  const boardCard = emailMessagesData?.boardCard;
+  const emailMessages = emailMessagesData?.emailMessages;
+
+  const boardCardsQueryKey = context.trpc.boardCard.getBoardCards.queryKey({ boardId });
+  const optimisticallyMarkAsUnread = useOptimisticMutation({
+    queryClient: context.queryClient,
+    queryKey: boardCardsQueryKey,
+    onExecute: ({ boardCardId }) => {
+      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCards: oldData.boardCards.map((c) =>
+            c.id === boardCardId ? { ...c, unreadEmailMessageIds: ['temp-id'] } : c,
+          ),
+        };
+      });
+    },
+    onSuccess: ({ boardCard }: { boardCard: BoardCard }) => {
+      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCards: oldData.boardCards.map((card) => (card.id === boardCard.id ? boardCard : card)),
+        };
+      });
+    },
+    errorToast: 'Failed to mark the card as unread. Please try again.',
+    mutation: useMutation(context.trpc.boardCard.markAsUnread.mutationOptions()),
+  });
+
+  const optimisticallyArchive = useOptimisticMutationWithUndo({
+    queryClient: context.queryClient,
+    queryKey: boardCardsQueryKey,
+    onExecute: ({ boardCardId }) => {
+      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
+        if (!oldData) return oldData;
+        return { ...oldData, boardCards: oldData.boardCards.filter((card) => card.id !== boardCardId) };
+      });
+    },
+    successToast: 'Card archived',
+    errorToast: 'Failed to archive the card. Please try again.',
+    delayedMutation: useMutation(context.trpc.boardCard.setState.mutationOptions()),
+  });
 
   const markAsReadMutation = useMutation(
     context.trpc.boardCard.markAsRead.mutationOptions({
@@ -517,24 +566,59 @@ function BoardCardComponent() {
       },
     }),
   );
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: : ignore markAsReadMutation to avoid infinite loop
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ignore markAsReadMutation to avoid infinite loop
   useEffect(() => {
-    if (emailMessagesData?.boardCard.unreadEmailMessageIds?.length) {
+    if (boardCard?.unreadEmailMessageIds?.length) {
       markAsReadMutation.mutate({ boardId, boardCardId });
     }
-  }, [emailMessagesData?.boardCard.unreadEmailMessageIds, boardId, boardCardId]);
-
-  const handleOpenChange = (open: boolean) => {
-    if (!open) navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
-  };
+  }, [boardCard?.unreadEmailMessageIds, boardId, boardCardId]);
 
   return (
     <RouteProvider value={context}>
-      <Dialog open={true} onOpenChange={handleOpenChange}>
-        <DialogContent className="min-w-5xl h-[90vh] flex flex-col bg-secondary px-0 pb-0" aria-describedby={undefined}>
-          <DialogHeader className="px-6">
-            <DialogTitle>{emailMessagesData?.boardCard.subject}</DialogTitle>
+      <Dialog
+        open={true}
+        onOpenChange={(open: boolean) => {
+          if (!open) navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+        }}
+      >
+        <DialogContent
+          className="min-w-5xl gap-2.5 h-[90vh] flex flex-col bg-secondary px-0 pb-0"
+          aria-describedby={undefined}
+        >
+          <DialogHeader className="pl-6 pr-13 flex flex-row items-center justify-between mt-[-6px]">
+            <DialogTitle className="leading-6">{boardCard?.subject}</DialogTitle>
+            <div className="flex items-center gap-3 mr-2 mt-[-4px]">
+              <Tooltip delayDuration={1_000}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
+                      navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+                    }}
+                    className="py-2 px-2.5 flex text-muted-foreground cursor-pointer hover:bg-border"
+                  >
+                    <Archive className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Archive</TooltipContent>
+              </Tooltip>
+              <Tooltip delayDuration={1_000}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      optimisticallyMarkAsUnread({ boardId, boardCardId });
+                      navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+                    }}
+                    className="py-2 px-2.5 flex text-muted-foreground cursor-pointer hover:bg-border"
+                  >
+                    <Mail className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Mark as unread</TooltipContent>
+              </Tooltip>
+            </div>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -543,9 +627,9 @@ function BoardCardComponent() {
                 <Spinner />
               </div>
             )}
-            {emailMessagesData && (
+            {emailMessages && (
               <div className="flex flex-col gap-4 px-6 pb-6">
-                {emailMessagesData.emailMessages.map((emailMessage) => (
+                {emailMessages.map((emailMessage) => (
                   <EmailMessageCard
                     key={emailMessage.id}
                     emailMessage={emailMessage}

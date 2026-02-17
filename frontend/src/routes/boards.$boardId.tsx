@@ -215,18 +215,6 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
 
   const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId: board.id });
 
-  const updateBoardCardCache = ({ boardCard }: { boardCard: BoardCard }) => {
-    queryClient.setQueryData(
-      trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }),
-      (oldData: BoardCardsData | undefined) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          boardCards: oldData.boardCards.map((card) => (card.id === boardCard.id ? boardCard : card)),
-        };
-      },
-    );
-  };
   const optimisticallyMarkAsRead = useOptimisticMutation({
     queryClient,
     queryKey: boardCardsQueryKey,
@@ -241,7 +229,6 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
         };
       });
     },
-    onSuccess: updateBoardCardCache,
     errorToast: 'Failed to mark the card as read. Please try again.',
     mutation: useMutation(trpc.boardCard.markAsRead.mutationOptions()),
   });
@@ -260,7 +247,18 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
         };
       });
     },
-    onSuccess: updateBoardCardCache,
+    onSuccess: ({ boardCard }: { boardCard: BoardCard }) => {
+      queryClient.setQueryData(
+        trpc.boardCard.getBoardCards.queryKey({ boardId: board.id }),
+        (oldData: BoardCardsData | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            boardCards: oldData.boardCards.map((card) => (card.id === boardCard.id ? boardCard : card)),
+          };
+        },
+      );
+    },
     errorToast: 'Failed to mark the card as unread. Please try again.',
     mutation: useMutation(trpc.boardCard.markAsUnread.mutationOptions()),
   });

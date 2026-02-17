@@ -38,6 +38,7 @@ export const DialogContent = ({
   className,
   children,
   showCloseButton = true,
+  onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
@@ -51,13 +52,14 @@ export const DialogContent = ({
           'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg',
           className,
         )}
+        onOpenAutoFocus={onOpenAutoFocus ?? ((e) => e.preventDefault())}
         {...props}
       >
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="cursor-pointer data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-5.5 right-5 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5"
+            className="cursor-pointer text-muted-foreground hover:text-primary absolute top-5.5 right-5 rounded-xs focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5"
           >
             <XIcon />
             <span className="sr-only">Close</span>
@@ -106,7 +108,7 @@ export const DialogTitle = ({ className, ...props }: React.ComponentProps<typeof
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn('text-base leading-none font-semibold truncate mr-6', className)}
+      className={cn('text-base leading-none font-semibold mr-6', className)}
       {...props}
     />
   );
