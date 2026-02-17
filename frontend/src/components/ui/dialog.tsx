@@ -36,11 +36,13 @@ export const DialogOverlay = ({ className, ...props }: React.ComponentProps<type
 
 export const DialogContent = ({
   className,
+  closeClassName,
   children,
   showCloseButton = true,
   onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  closeClassName?: string;
   showCloseButton?: boolean;
 }) => {
   return (
@@ -57,13 +59,18 @@ export const DialogContent = ({
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            className="cursor-pointer text-muted-foreground hover:text-primary absolute top-5.5 right-5 rounded-xs focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5"
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
+          <Button variant="ghost" size="icon-sm" asChild>
+            <DialogPrimitive.Close
+              data-slot="dialog-close"
+              className={cn(
+                'pl-1.5 pr-1.5 pb-0 pt-0 cursor-pointer text-muted-foreground hover:text-primary hover:bg-secondary absolute top-4 right-4',
+                closeClassName,
+              )}
+            >
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          </Button>
         )}
       </DialogPrimitive.Content>
     </DialogPortal>

@@ -584,6 +584,7 @@ function BoardCardComponent() {
         <DialogContent
           className="min-w-5xl gap-2.5 h-[90vh] flex flex-col bg-secondary px-0 pb-0"
           aria-describedby={undefined}
+          closeClassName="hover:bg-border top-3.5"
         >
           <DialogHeader className="pl-6 pr-13 flex flex-row items-center justify-between mt-[-6px]">
             <DialogTitle className="leading-6">{boardCard?.subject}</DialogTitle>
@@ -592,11 +593,12 @@ function BoardCardComponent() {
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
+                    size="icon-sm"
                     onClick={() => {
                       optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
                       navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
                     }}
-                    className="py-2 px-2.5 flex text-muted-foreground cursor-pointer hover:bg-border"
+                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
                   >
                     <Archive className="size-4" />
                   </Button>
@@ -607,11 +609,12 @@ function BoardCardComponent() {
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
+                    size="icon-sm"
                     onClick={() => {
                       optimisticallyMarkAsUnread({ boardId, boardCardId });
                       navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
                     }}
-                    className="py-2 px-2.5 flex text-muted-foreground cursor-pointer hover:bg-border"
+                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
                   >
                     <Mail className="size-4" />
                   </Button>
