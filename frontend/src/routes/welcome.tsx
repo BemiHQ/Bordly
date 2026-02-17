@@ -33,7 +33,7 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
   const { currentUser } = Route.useLoaderData();
   const [boardName, setBoardName] = useState(`${currentUser.name.split(' ')[0]}'s Board`);
   const createBoardMutation = useMutation(
-    trpc.board.createBoard.mutationOptions({
+    trpc.board.createFirstBoard.mutationOptions({
       onSuccess: async (data) => {
         queryClient.removeQueries({ queryKey: trpc.user.getCurrentUser.queryKey(), exact: true });
         setBoardId(data.id);

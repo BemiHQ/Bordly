@@ -2,6 +2,7 @@ import { Board } from '@/entities/board';
 import { BoardMember } from '@/entities/board-member';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
+import { EmailService } from '@/services/email.service';
 import { orm } from '@/utils/orm';
 
 export class BoardService {
@@ -9,7 +10,7 @@ export class BoardService {
     return orm.em.findOneOrFail(Board, { id: boardId, boardMembers: { user } });
   }
 
-  static async createForUser({ name, user }: { name: string; user: User }) {
+  static async createFirstBoard({ name, user }: { name: string; user: User }) {
     const board = new Board({ name });
     const boardMember = new BoardMember({ board, user });
 
@@ -22,6 +23,9 @@ export class BoardService {
 
     await orm.em.persist([board, boardMember, gmailAccount]).flush();
     user.boards.add(board);
+
+    // Create initial emails asynchronously
+    EmailService.createInitialEmails({ gmailAccount });
 
     return board;
   }

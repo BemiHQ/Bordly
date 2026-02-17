@@ -1,16 +1,10 @@
 import type { FastifyInstance } from 'fastify';
-import { type Auth, google } from 'googleapis';
 
 import type { User } from '@/entities/user';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
-
-const OAUTH2_CLIENT: Auth.OAuth2Client = new google.auth.OAuth2(
-  ENV.GOOGLE_OAUTH_CLIENT_ID,
-  ENV.GOOGLE_OAUTH_CLIENT_SECRET,
-  ENV.GOOGLE_OAUTH_CALLBACK_URL,
-);
+import { newOauth2, newOauth2Client } from '@/utils/google-api';
 
 const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.profile',
@@ -20,7 +14,11 @@ const GOOGLE_SCOPES = [
 
 export const authRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/auth/google', async (_request, reply) => {
-    const authUrl = OAUTH2_CLIENT.generateAuthUrl({ access_type: 'offline', scope: GOOGLE_SCOPES, prompt: 'consent' });
+    const authUrl = newOauth2Client().generateAuthUrl({
+      access_type: 'offline',
+      scope: GOOGLE_SCOPES,
+      prompt: 'consent',
+    });
     reply.redirect(authUrl);
   });
 
@@ -31,11 +29,10 @@ export const authRoutes = async (fastify: FastifyInstance) => {
     }
 
     try {
-      const { tokens } = await OAUTH2_CLIENT.getToken(code);
-      OAUTH2_CLIENT.setCredentials(tokens);
-
-      const oauth2 = google.oauth2({ version: 'v2', auth: OAUTH2_CLIENT });
-      const userInfo = await oauth2.userinfo.get();
+      const oauth2Client = newOauth2Client();
+      const { tokens } = await oauth2Client.getToken(code);
+      oauth2Client.setCredentials(tokens);
+      const userInfo = await newOauth2(oauth2Client).userinfo.get();
 
       const gmailAccount = await GmailAccountService.tryFindByGoogleId(userInfo.data.id, { populate: ['user'] });
       let user = gmailAccount?.user as User;

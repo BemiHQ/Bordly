@@ -4,8 +4,10 @@ init:
 		sed -i "s/#port = 5432/port = 5433/g" ./.devbox/virtenv/postgresql/data/postgresql.conf
 
 create:
-	devbox run "createdb -p 5433 bordly_dev && createuser -p 5433 --superuser postgres" && \
-		make migrate
+	devbox run "createdb -p 5433 bordly_dev && createuser -p 5433 --superuser postgres" &&  make migrate
+
+reset:
+	devbox run "dropdb -p 5433 bordly_dev && createdb -p 5433 bordly_dev" && make migrate
 
 sh:
 	devbox --env-file backend/.env shell
@@ -32,10 +34,10 @@ ps:
 	devbox services ls
 
 check:
-	devbox run "pnpm run check && cd backend && pnpm run build && rm -rf dist && cd ../frontend && pnpm run build && rm -rf dist"
+	devbox run "pnpm run check"
 
 build:
-	devbox run "cd backend && pnpm run build && cd ../frontend && pnpm run build"
+	devbox run "cd backend && pnpm run build && rm -rf dist && cd ../frontend && pnpm run build && rm -rf dist"
 
 migrate:
 	devbox run --env-file backend/.env "cd backend && pnpm mikro-orm migration:up"

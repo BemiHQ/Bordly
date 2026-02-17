@@ -13,9 +13,9 @@ const userRouter = {
 } satisfies TRPCRouterRecord;
 
 const boardRouter = {
-  createBoard: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input, ctx }) => {
+  createFirstBoard: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input, ctx }) => {
     if (!ctx.user) throw new Error('Not authenticated');
-    const board = await BoardService.createForUser({ name: input.name, user: ctx.user });
+    const board = await BoardService.createFirstBoard({ name: input.name, user: ctx.user });
     return board.toJson();
   }),
 } satisfies TRPCRouterRecord;

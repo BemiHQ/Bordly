@@ -30,7 +30,7 @@ export class UserService {
     accessTokenExpiresAt?: Date;
   }) {
     const user = new User({ email, name, photoUrl });
-    const gmailAccount = new GmailAccount({ user, googleId, accessToken, refreshToken, accessTokenExpiresAt });
+    const gmailAccount = new GmailAccount({ user, email, googleId, accessToken, refreshToken, accessTokenExpiresAt });
     orm.em.persist([user, gmailAccount]);
 
     // Automatically accept any pending board invites
