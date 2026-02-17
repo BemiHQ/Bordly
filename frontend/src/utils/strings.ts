@@ -10,7 +10,7 @@ export const extractUuid = (friendlyId: string) => {
   return parts.slice(-5).join('-');
 };
 
-export const humanizeEmail = (email: string) => {
+export const humanizedEmailParticipant = (email: string) => {
   // Remove quotes
   let result = email.replaceAll('"', '');
 
@@ -24,4 +24,15 @@ export const humanizeEmail = (email: string) => {
   if (result.startsWith('undisclosed-recipients')) return null;
 
   return result.trim();
+};
+
+export const emailParticipantDomain = (email: string) => {
+  const match = email.match(/@([^>\s]+)/);
+  if (match) return match[1].toLowerCase();
+  return null;
+};
+
+export const renderHtml = (html: string) => {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return doc.body.textContent || '';
 };

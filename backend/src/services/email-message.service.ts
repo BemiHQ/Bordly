@@ -47,10 +47,14 @@ export class EmailMessageService {
     threadIds: string[];
   }) {
     if (threadIds.length === 0) return [];
-    const emailMessages = await orm.em.find(EmailMessage, {
-      gmailAccount: { $in: gmailAccounts.map((account) => account) },
-      externalThreadId: { $in: threadIds },
-    });
+    const emailMessages = await orm.em.find(
+      EmailMessage,
+      {
+        gmailAccount: { $in: gmailAccounts.map((account) => account) },
+        externalThreadId: { $in: threadIds },
+      },
+      { orderBy: { externalCreatedAt: 'ASC' } },
+    );
 
     const emailMessagesByThreadId: Record<string, EmailMessage[]> = {};
     for (const emailMessage of emailMessages) {

@@ -54,9 +54,24 @@ const ROUTES = {
   board: {
     getBoard: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       if (!ctx.user) throw new Error('Not authenticated');
+      const board = await BoardService.findByIdForUser(input.boardId, { user: ctx.user, populate: ['boardColumns'] });
+      return {
+        board: board.toJson(),
+        boardColumns: board.boardColumns.getItems().map((col) => col.toJson()),
+      };
+    }),
+    createFirstBoard: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input, ctx }) => {
+      if (!ctx.user) throw new Error('Not authenticated');
+      const board = await BoardService.createFirstBoard({ name: input.name, user: ctx.user });
+      return board.toJson();
+    }),
+  } satisfies TRPCRouterRecord,
+  boardCard: {
+    getBoardCards: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
+      if (!ctx.user) throw new Error('Not authenticated');
       const board = await BoardService.findByIdForUser(input.boardId, {
         user: ctx.user,
-        populate: ['gmailAccounts', 'boardColumns', 'boardCards'],
+        populate: ['boardCards', 'gmailAccounts'],
       });
       const emailMessagesByThreadId = await EmailMessageService.findMessagesByThreadId({
         gmailAccounts: board.gmailAccounts.getItems(),
@@ -64,10 +79,8 @@ const ROUTES = {
       });
 
       return {
-        board: board.toJson(),
-        gmailAccounts: board.gmailAccounts.getItems().map((acc) => acc.toJson()),
-        boardColumns: board.boardColumns.getItems().map((col) => col.toJson()),
         boardCards: board.boardCards.getItems().map((card) => card.toJson()),
+        gmailAccounts: board.gmailAccounts.getItems().map((acc) => acc.toJson()),
         emailMessagesByThreadId: Object.fromEntries(
           Object.entries(emailMessagesByThreadId).map(([threadId, emailMessages]) => [
             threadId,
@@ -75,11 +88,6 @@ const ROUTES = {
           ]),
         ),
       };
-    }),
-    createFirstBoard: publicProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ input, ctx }) => {
-      if (!ctx.user) throw new Error('Not authenticated');
-      const board = await BoardService.createFirstBoard({ name: input.name, user: ctx.user });
-      return board.toJson();
     }),
   } satisfies TRPCRouterRecord,
   boardInvite: {

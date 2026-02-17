@@ -1,6 +1,9 @@
 import { Link } from '@tanstack/react-router';
+import type { inferRouterOutputs } from '@trpc/server';
+import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { LogOutIcon } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
+import { Avatar, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,27 +13,21 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
-export const Navbar = ({ currentUser }: { currentUser: { name: string; photoUrl: string } }) => {
-  const initals = currentUser.name
-    .split(' ')
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase();
+type CurrentUser = NonNullable<inferRouterOutputs<TRPCRouter>['user']['getCurrentUser']>;
 
+export const Navbar = ({ currentUser }: { currentUser: CurrentUser }) => {
   return (
     <nav className="border-b px-6 py-3 bg-secondary border-border">
-      <div className="flex items-center justify-between h-5">
+      <div className="flex items-center justify-between h-4">
         <Link to={ROUTES.HOME} className="flex items-center gap-2">
           <img src="/images/logo.png" alt="Bordly Logo" className="w-5 h-5" />
           <span className="font-semibold text-sm">Bordly</span>
         </Link>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger className="outline-none">
             <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar size="sm">
                 <AvatarImage src={currentUser.photoUrl} alt={currentUser.name} />
-                <AvatarFallback>{initals}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
