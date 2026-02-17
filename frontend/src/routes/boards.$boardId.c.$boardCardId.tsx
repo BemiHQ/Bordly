@@ -169,7 +169,8 @@ const setIframeContent = (
   });
 
   const resizeObserver = new ResizeObserver(() => {
-    iframe.style.height = `${iframeDoc.documentElement.scrollHeight}px`;
+    const height = Math.ceil(iframeDoc.documentElement.getBoundingClientRect().height);
+    iframe.style.height = `${height}px`;
   });
   resizeObserver.observe(iframeDoc.body);
 
@@ -182,7 +183,7 @@ const ToggleQuotesButton = ({ onClick }: { onClick: () => void }) => {
       variant="ghost"
       size="sm"
       onClick={onClick}
-      className="self-start my-2 h-3 px-1.5 text-muted-foreground hover:text-muted-foreground bg-border hover:bg-ring"
+      className="self-start my-4 h-3 px-1.5 text-muted-foreground hover:text-muted-foreground bg-border hover:bg-ring"
     >
       <Ellipsis className="size-4" />
     </Button>
@@ -269,7 +270,7 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
         <iframe
           ref={bodyIframeRef}
           title="Email content"
-          sandbox="allow-same-origin"
+          sandbox="allow-same-origin allow-popups"
           className="w-full border-0 block"
         />
         {trailingBlockquotesHtml && (
@@ -279,7 +280,7 @@ const EmailMessageBody = ({ emailMessage }: { emailMessage: EmailMessage }) => {
               <iframe
                 ref={backquotesIframeRef}
                 title="Email quotes"
-                sandbox="allow-same-origin"
+                sandbox="allow-same-origin allow-popups"
                 className="w-full border-0 block"
               />
             )}
