@@ -17,14 +17,6 @@ export class Domain extends BaseEntity {
     this.validate();
   }
 
-  toJson() {
-    return {
-      id: this.id,
-      name: this.name,
-      iconUrl: this.iconUrl,
-    };
-  }
-
   private validate() {
     if (!this.name) throw new Error('Name is required');
   }

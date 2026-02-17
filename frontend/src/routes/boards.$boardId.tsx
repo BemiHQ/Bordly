@@ -79,10 +79,12 @@ const BoardColumn = ({ boardColumn, children }: { boardColumn: BoardColumn; chil
 const BoardCard = ({
   boardCard: _boardCard,
   gmailAccounts,
+  domainIconUrlByName,
   emailMessages,
 }: {
   boardCard: BoardCard;
   gmailAccounts: GmailAccount[];
+  domainIconUrlByName: Record<string, string>;
   emailMessages: EmailMessage[];
 }) => {
   const title = emailMessages.find((msg) => msg.subject)?.subject || 'No subject';
@@ -101,7 +103,7 @@ const BoardCard = ({
       <div className="flex items-center gap-2">
         <Avatar size="xs">
           <AvatarImage
-            src={`https://${participants[0].email.split('@')[1]}/favicon.ico`}
+            src={domainIconUrlByName[participants[0].email.split('@')[1]]}
             alt={participants[0].name || participants[0].email}
           />
           <AvatarFallback hashForBgColor={participants[0].email}>
@@ -156,6 +158,7 @@ function Home() {
                     key={boardCard.id}
                     boardCard={boardCard}
                     gmailAccounts={boardCardsData.gmailAccounts}
+                    domainIconUrlByName={boardCardsData.domainIconUrlByName}
                     emailMessages={boardCardsData.emailMessagesByThreadId[boardCard.externalThreadId]}
                   />
                 ))}

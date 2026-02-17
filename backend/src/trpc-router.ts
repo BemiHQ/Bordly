@@ -9,6 +9,7 @@ import { BoardService } from '@/services/board.service';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { UserService } from '@/services/user.service';
 import { unique } from '@/utils/lists';
+import { DomainService } from './services/domain.service';
 import { EmailMessageService } from './services/email-message.service';
 
 export const createContext = async ({ req }: CreateFastifyContextOptions) => {
@@ -73,14 +74,15 @@ const ROUTES = {
         user: ctx.user,
         populate: ['boardCards', 'gmailAccounts'],
       });
-      const emailMessagesByThreadId = await EmailMessageService.findMessagesByThreadId({
+      const { emailMessagesByThreadId, domainNames } = await EmailMessageService.findMessagesByThreadId({
         gmailAccounts: board.gmailAccounts.getItems(),
         threadIds: unique(board.boardCards.getItems().map((card) => card.externalThreadId)),
       });
-
+      const domainIconUrlByName = await DomainService.findDomainIconUrlByName(domainNames);
       return {
         boardCards: board.boardCards.getItems().map((card) => card.toJson()),
         gmailAccounts: board.gmailAccounts.getItems().map((acc) => acc.toJson()),
+        domainIconUrlByName,
         emailMessagesByThreadId: Object.fromEntries(
           Object.entries(emailMessagesByThreadId).map(([threadId, emailMessages]) => [
             threadId,

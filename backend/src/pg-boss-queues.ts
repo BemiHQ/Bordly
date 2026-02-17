@@ -1,18 +1,15 @@
 import { RequestContext } from '@mikro-orm/postgresql';
 import type { Job } from 'pg-boss';
-import { DomainService } from '@/services/domain.service';
 import { EmailMessageService } from '@/services/email-message.service';
 import { orm } from '@/utils/orm';
 import { pgBossInstance } from '@/utils/pg-boss';
 
 export const QUEUES = {
   CREATE_INITIAL_EMAIL_MESSAGES: 'create-initial-email-messages',
-  SET_DOMAIN_ICONS: 'set-domain-icons',
 } as const;
 
 interface QueueDataMap {
   [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: { gmailAccountId: string };
-  [QUEUES.SET_DOMAIN_ICONS]: { domainNames: string[] };
 }
 
 const JOB_HANDLER_BY_QUEUE = {
@@ -20,11 +17,9 @@ const JOB_HANDLER_BY_QUEUE = {
     const { gmailAccountId } = job.data;
     await EmailMessageService.createInitialEmailMessages(gmailAccountId);
   },
-  [QUEUES.SET_DOMAIN_ICONS]: async (job) => {
-    const { domainNames } = job.data;
-    await DomainService.setIcons(domainNames);
-  },
-} as { [Q in keyof QueueDataMap]: (job: Job<QueueDataMap[Q]>) => Promise<void> };
+} as {
+  [Q in keyof QueueDataMap]: (job: Job<QueueDataMap[Q]>) => Promise<void>;
+};
 
 export const listenToQueues = async () => {
   const boss = await pgBossInstance();
@@ -34,7 +29,10 @@ export const listenToQueues = async () => {
   }
 
   for (const queueName of Object.values(QUEUES)) {
-    await process(queueName, JOB_HANDLER_BY_QUEUE[queueName]);
+    await process(
+      queueName,
+      JOB_HANDLER_BY_QUEUE[queueName] as (job: Job<QueueDataMap[typeof queueName]>) => Promise<void>,
+    );
   }
 };
 

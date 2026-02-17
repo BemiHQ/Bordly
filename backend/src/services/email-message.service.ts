@@ -8,8 +8,10 @@ import { BoardColumn, SPAM_POSITION, TRASH_POSITION } from '@/entities/board-col
 import { EmailMessage, LABELS, type Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { AgentService } from '@/services/agent.service';
+import { DomainService } from '@/services/domain.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { gmailAttachmentsData, gmailBody, gmailHeaderValue, newGmail } from '@/utils/google-api';
+import { unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 
 const CREATE_INITIAL_EMAILS_LIMIT = 50;
@@ -49,7 +51,7 @@ export class EmailMessageService {
     gmailAccounts: GmailAccount[];
     threadIds: string[];
   }) {
-    if (threadIds.length === 0) return [];
+    if (threadIds.length === 0) return { emailMessagesByThreadId: {}, domainNames: [] };
     const emailMessages = await orm.em.find(
       EmailMessage,
       {
@@ -63,7 +65,10 @@ export class EmailMessageService {
     for (const emailMessage of emailMessages) {
       (emailMessagesByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
     }
-    return emailMessagesByThreadId;
+
+    const domainNames = EmailMessageService.domainNames(emailMessages);
+
+    return { emailMessagesByThreadId, domainNames };
   }
 
   static async createInitialEmailMessages(gmailAccountId: string) {
@@ -153,7 +158,28 @@ export class EmailMessageService {
       }
     }
 
+    const domainNames = unique(
+      Object.values(emailMessagesByThreadId)
+        .flatMap((emailMessages) => EmailMessageService.domainNames(emailMessages))
+        .filter((domainName): domainName is string => !!domainName),
+    );
+    await DomainService.setIcons(domainNames);
     await orm.em.flush();
+  }
+
+  // -------------------------------------------------------------------------------------------------------------------
+
+  private static domainNames(emailMessages: EmailMessage[]) {
+    const result = emailMessages.flatMap((emailMessage) => {
+      const fromDomain = emailMessage.from.email.split('@')[1];
+      const toDomains = emailMessage.to?.map((p) => p.email.split('@')[1]) || [];
+      const replyToDomain = emailMessage.replyTo?.email.split('@')[1];
+      const ccDomains = emailMessage.cc?.map((p) => p.email.split('@')[1]) || [];
+      const bccDomains = emailMessage.bcc?.map((p) => p.email.split('@')[1]) || [];
+      return [fromDomain, ...toDomains, replyToDomain, ...ccDomains, ...bccDomains];
+    });
+
+    return unique(result.filter((domainName): domainName is string => !!domainName));
   }
 
   private static async categorizeEmailThread({

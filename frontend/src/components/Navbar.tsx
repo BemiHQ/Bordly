@@ -24,7 +24,7 @@ export const Navbar = ({ currentUser }: { currentUser: CurrentUser }) => {
           <span className="font-semibold text-sm">Bordly</span>
         </Link>
         <DropdownMenu>
-          <DropdownMenuTrigger className="outline-none">
+          <DropdownMenuTrigger className="outline-none" asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar size="sm">
                 <AvatarImage src={currentUser.photoUrl} alt={currentUser.name} />
