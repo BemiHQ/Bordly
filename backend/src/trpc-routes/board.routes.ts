@@ -15,7 +15,7 @@ export const BOARD_ROUTES = {
       return {
         board: board.toJson(),
         boardColumnsAsc: [...board.boardColumns].sort((a, b) => a.position - b.position).map((col) => col.toJson()),
-        gmailAccounts: board.boardAccounts.map((ba) => ba.loadedGmailAccount.toJson()),
+        boardAccounts: board.boardAccounts.map((boardAccount) => boardAccount.toJson()),
         boardMembers: boardMembers.map((member) => member.toJson()),
       };
     }),

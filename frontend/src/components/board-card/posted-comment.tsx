@@ -116,7 +116,7 @@ export const PostedComment = ({
                 }
               }}
               placeholder="Chat with @Bordly and your team..."
-              className="text-sm bg-primary-foreground"
+              className="text-sm bg-primary-foreground font-sans py-1.5"
               rows={1}
               autoResize
               autoFocus

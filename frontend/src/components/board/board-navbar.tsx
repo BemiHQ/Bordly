@@ -18,13 +18,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { type BoardFilters, BoardFiltersProvider, useBoardFilters } from '@/hooks/use-board-filters';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useRouteContext } from '@/hooks/use-route-context';
-import { type Board, type BoardMember, type GmailAccount, renameBoardData } from '@/query-helpers/board';
+import { type Board, type BoardAccount, type BoardMember, renameBoardData } from '@/query-helpers/board';
 import { isSsr } from '@/utils/ssr';
 import { cn } from '@/utils/strings';
 
 export const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
 
-const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
+const FilterButton = ({ boardAccounts }: { boardAccounts: BoardAccount[] }) => {
   const { filters, setFilters } = useBoardFilters();
   const hasActiveFilters =
     filters.unread || filters.hasAttachments || filters.draft || filters.assigned || filters.gmailAccountIds.length > 0;
@@ -89,17 +89,17 @@ const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
               </Label>
             </div>
           </div>
-          {gmailAccounts.length > 0 && (
+          {boardAccounts.length > 0 && (
             <div className="flex flex-col gap-2">
               <div className="text-2xs font-medium text-muted-foreground">Email accounts</div>
               <div className="flex flex-col gap-2.5">
-                {gmailAccounts.map((account) => (
+                {boardAccounts.map((account) => (
                   <Label key={account.id} className="flex gap-2">
                     <Checkbox
-                      checked={filters.gmailAccountIds.includes(account.id)}
-                      onCheckedChange={() => toggleEmailAccount(account.id)}
+                      checked={filters.gmailAccountIds.includes(account.gmailAccount.id)}
+                      onCheckedChange={() => toggleEmailAccount(account.gmailAccount.id)}
                     />
-                    <span>{account.email}</span>
+                    <span>{account.gmailAccount.email}</span>
                   </Label>
                 ))}
               </div>
@@ -114,11 +114,11 @@ const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
 const MenuButton = ({
   board,
   boardMembers,
-  gmailAccounts,
+  boardAccounts,
 }: {
   board: Board;
   boardMembers: BoardMember[];
-  gmailAccounts: GmailAccount[];
+  boardAccounts: BoardAccount[];
 }) => {
   const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
   const [membersDialogOpen, setMembersDialogOpen] = useState(false);
@@ -144,7 +144,7 @@ const MenuButton = ({
       </DropdownMenu>
       <EmailAccountsDialog
         board={board}
-        gmailAccounts={gmailAccounts}
+        boardAccounts={boardAccounts}
         open={accountsDialogOpen}
         onOpenChange={setAccountsDialogOpen}
       />
@@ -161,12 +161,12 @@ const MenuButton = ({
 export const BoardNavbar = ({
   board,
   boardMembers,
-  gmailAccounts,
+  boardAccounts,
   children,
 }: {
   board: Board;
   boardMembers: BoardMember[];
-  gmailAccounts: GmailAccount[];
+  boardAccounts: BoardAccount[];
   children?: React.ReactNode;
 }) => {
   const [filters, setFilters] = useState<BoardFilters>({
@@ -243,8 +243,8 @@ export const BoardNavbar = ({
           </h1>
         )}
         <div className="flex items-center gap-2">
-          <FilterButton gmailAccounts={gmailAccounts} />
-          <MenuButton board={board} boardMembers={boardMembers} gmailAccounts={gmailAccounts} />
+          <FilterButton boardAccounts={boardAccounts} />
+          <MenuButton board={board} boardMembers={boardMembers} boardAccounts={boardAccounts} />
         </div>
       </div>
       {children}

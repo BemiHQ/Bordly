@@ -17,4 +17,22 @@ export class BoardAccountService {
   ) {
     return orm.em.findOneOrFail(BoardAccount, { id }, { populate });
   }
+
+  static async edit<Hint extends string = never>(
+    board: Board,
+    {
+      boardAccountId,
+      receivingEmails,
+      populate,
+    }: { boardAccountId: string; receivingEmails?: string[]; populate?: Populate<BoardAccount, Hint> },
+  ) {
+    const boardAccount = await BoardAccountService.findById(boardAccountId, { populate });
+    if (boardAccount.board.id !== board.id) throw new Error('Board account does not belong to this board');
+
+    boardAccount.setReceivingEmails(receivingEmails);
+    orm.em.persist(boardAccount);
+
+    await orm.em.flush();
+    return boardAccount;
+  }
 }

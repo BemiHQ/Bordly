@@ -6,7 +6,7 @@ import type { TrpcProxy } from '@/trpc';
 export type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
 export type Board = BoardData['board'];
 export type BoardColumn = BoardData['boardColumnsAsc'][number];
-export type GmailAccount = BoardData['gmailAccounts'][number];
+export type BoardAccount = BoardData['boardAccounts'][number];
 export type BoardMember = BoardData['boardMembers'][number];
 
 export type User = BoardMember['user'];
@@ -20,20 +20,38 @@ export const solo = (boardMembers: BoardMember[]) => {
   return boardMembers.filter((m) => !m.isAgent).length === 1;
 };
 
-export const removeGmailAccountData = ({
+export const setReceivingEmailsToBoardAccountData = ({
   trpc,
   queryClient,
-  params: { boardId, gmailAccountId },
+  params: { boardId, boardAccountId, receivingEmails },
 }: {
   trpc: TrpcProxy;
   queryClient: QueryClient;
-  params: { boardId: string; gmailAccountId: string };
+  params: { boardId: string; boardAccountId: string; receivingEmails?: string[] };
 }) => {
   queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
     if (!oldData) return oldData;
     return {
       ...oldData,
-      gmailAccounts: oldData.gmailAccounts.filter((a) => a.id !== gmailAccountId),
+      boardAccounts: oldData.boardAccounts.map((a) => (a.id === boardAccountId ? { ...a, receivingEmails } : a)),
+    } satisfies typeof oldData;
+  });
+};
+
+export const removeBoardAccountData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardAccountId },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardAccountId: string };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardAccounts: oldData.boardAccounts.filter((a) => a.id !== boardAccountId),
     } satisfies typeof oldData;
   });
 };

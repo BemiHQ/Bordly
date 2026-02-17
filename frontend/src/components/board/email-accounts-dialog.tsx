@@ -8,19 +8,25 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import { useBoardFilters } from '@/hooks/use-board-filters';
 import { useRouteContext } from '@/hooks/use-route-context';
-import { type Board, type GmailAccount, removeGmailAccountData } from '@/query-helpers/board';
+import {
+  type Board,
+  type BoardAccount,
+  removeBoardAccountData,
+  setReceivingEmailsToBoardAccountData,
+} from '@/query-helpers/board';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 const RemoveAccountPopover = ({
   board,
-  gmailAccount,
+  boardAccount,
   isLastAccount,
   children,
 }: {
   board: Board;
-  gmailAccount: GmailAccount;
+  boardAccount: BoardAccount;
   isLastAccount: boolean;
   children: React.ReactNode;
 }) => {
@@ -28,6 +34,7 @@ const RemoveAccountPopover = ({
   const { setFilters } = useBoardFilters();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { gmailAccount } = boardAccount;
 
   const deleteAccountMutation = useMutation(
     trpc.board.deleteGmailAccount.mutationOptions({
@@ -41,7 +48,7 @@ const RemoveAccountPopover = ({
             ...prev,
             gmailAccountIds: prev.gmailAccountIds.filter((id) => id !== gmailAccount.id),
           }));
-          removeGmailAccountData({ trpc, queryClient, params: { boardId: board.id, gmailAccountId: gmailAccount.id } });
+          removeBoardAccountData({ trpc, queryClient, params: { boardId: board.id, boardAccountId: boardAccount.id } });
           toast.success('Email account removed successfully', { position: 'top-center' });
         }
         setOpen(false);
@@ -85,14 +92,97 @@ const RemoveAccountPopover = ({
   );
 };
 
+const EditReceivingEmailsPopover = ({
+  board,
+  boardAccount,
+  children,
+}: {
+  board: Board;
+  boardAccount: BoardAccount;
+  children: React.ReactNode;
+}) => {
+  const { queryClient, trpc } = useRouteContext();
+  const [open, setOpen] = useState(false);
+  const [receivingEmails, setReceivingEmails] = useState(
+    boardAccount.receivingEmails ? boardAccount.receivingEmails.join(', ') : '',
+  );
+
+  let emailsToSubmit: string[] | undefined = receivingEmails
+    .split(',')
+    .map((email) => email.trim())
+    .filter((email) => email);
+
+  if (emailsToSubmit.length === 0) {
+    emailsToSubmit = undefined;
+  }
+
+  const editBoardAccountMutation = useMutation(
+    trpc.boardAccount.edit.mutationOptions({
+      onSuccess: () => {
+        setReceivingEmailsToBoardAccountData({
+          trpc,
+          queryClient,
+          params: { boardId: board.id, boardAccountId: boardAccount.id, receivingEmails: emailsToSubmit },
+        });
+        setOpen(false);
+      },
+      onError: () => toast.error('Failed to update receiving emails. Please try again.', { position: 'top-center' }),
+    }),
+  );
+
+  const handleSave = () => {
+    editBoardAccountMutation.mutate({
+      boardId: board.id,
+      boardAccountId: boardAccount.id,
+      receivingEmails: emailsToSubmit,
+    });
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent align="start" className="w-80">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <h4 className="font-semibold text-sm">Edit receiving emails</h4>
+            <p className="text-xs text-muted-foreground">
+              {boardAccount.receivingEmails
+                ? 'Specify email addresses to sync. Leave empty to sync all emails.'
+                : 'Currently syncing all emails. Add specific addresses to filter instead.'}
+            </p>
+          </div>
+
+          <Textarea
+            placeholder="team@example.com, support@example.com"
+            className="min-h-20 text-xs"
+            value={receivingEmails}
+            onChange={(e) => setReceivingEmails(e.target.value)}
+          />
+
+          <Button variant="default" size="sm" onClick={handleSave} disabled={editBoardAccountMutation.isPending}>
+            {editBoardAccountMutation.isPending ? (
+              <>
+                <Spinner data-icon="inline-start" />
+                Saving...
+              </>
+            ) : (
+              'Save'
+            )}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 export const EmailAccountsDialog = ({
   board,
-  gmailAccounts,
+  boardAccounts,
   open,
   onOpenChange,
 }: {
   board: Board;
-  gmailAccounts: GmailAccount[];
+  boardAccounts: BoardAccount[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) => {
@@ -107,17 +197,24 @@ export const EmailAccountsDialog = ({
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2 pt-1 pb-2">
-          {gmailAccounts.map((account) => (
+          {boardAccounts.map((account) => (
             <Item key={account.id} variant="outline" className="py-2">
               <ItemMedia variant="image">
-                <img src="/domain-icons/gmail.com.ico" alt={account.name} className="size-9 pb-0.5" />
+                <img src="/domain-icons/gmail.com.ico" alt={account.gmailAccount.name} className="size-9 pb-0.5" />
               </ItemMedia>
-              <ItemContent className="gap-0">
-                <ItemTitle>{account.name}</ItemTitle>
-                <ItemDescription className="text-2xs">{account.email}</ItemDescription>
+              <ItemContent className="gap-0.5">
+                <ItemTitle>{account.gmailAccount.email}</ItemTitle>
+                <ItemDescription className="text-2xs">
+                  {account.receivingEmails ? account.receivingEmails.join(', ') : 'All emails'}
+                </ItemDescription>
               </ItemContent>
-              <ItemActions>
-                <RemoveAccountPopover board={board} gmailAccount={account} isLastAccount={gmailAccounts.length === 1}>
+              <ItemActions className="gap-2">
+                <EditReceivingEmailsPopover board={board} boardAccount={account}>
+                  <Button variant="outline" size="sm">
+                    Edit
+                  </Button>
+                </EditReceivingEmailsPopover>
+                <RemoveAccountPopover board={board} boardAccount={account} isLastAccount={boardAccounts.length === 1}>
                   <Button variant="outline" size="sm">
                     Remove
                   </Button>

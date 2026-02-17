@@ -310,7 +310,7 @@ function BoardComponent() {
           <BoardNavbar
             board={boardData.board}
             boardMembers={boardData.boardMembers}
-            gmailAccounts={boardData.gmailAccounts}
+            boardAccounts={boardData.boardAccounts}
           >
             {boardCardsData && <BoardContent boardData={boardData} boardCardsData={boardCardsData} />}
           </BoardNavbar>

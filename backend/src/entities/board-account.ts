@@ -37,9 +37,16 @@ export class BoardAccount extends BaseEntity {
     return !this.receivingEmails;
   }
 
+  setReceivingEmails(emails?: string[]) {
+    this.receivingEmails = emails?.map((email) => email.toLowerCase());
+    this.validate();
+  }
+
   toJson() {
     return {
       id: this.id,
+      receivingEmails: this.receivingEmails,
+      gmailAccount: this.loadedGmailAccount.toJson(),
     };
   }
 

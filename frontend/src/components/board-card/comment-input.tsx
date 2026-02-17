@@ -61,7 +61,7 @@ export const CommentInput = ({
             }
           }}
           placeholder="Chat with @Bordly and your team..."
-          className="bg-transparent pr-10"
+          className="bg-transparent pr-10 font-sans py-1.5"
           rows={1}
           autoResize
         />
