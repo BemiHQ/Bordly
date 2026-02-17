@@ -21,6 +21,8 @@ export class Attachment extends BaseEntity {
   mimeType: string;
   @Property()
   size: number;
+  @Property()
+  contentId?: string;
 
   constructor({
     gmailAccount,
@@ -29,6 +31,7 @@ export class Attachment extends BaseEntity {
     filename,
     mimeType,
     size,
+    contentId,
   }: {
     gmailAccount: GmailAccount;
     emailMessage: EmailMessage;
@@ -36,6 +39,7 @@ export class Attachment extends BaseEntity {
     filename: string;
     mimeType: string;
     size: number;
+    contentId?: string;
   }) {
     super();
     this.gmailAccount = gmailAccount;
@@ -44,6 +48,7 @@ export class Attachment extends BaseEntity {
     this.filename = filename;
     this.mimeType = mimeType;
     this.size = size;
+    this.contentId = contentId;
     this.validate();
   }
 
@@ -53,6 +58,7 @@ export class Attachment extends BaseEntity {
       mimeType: this.mimeType,
       filename: this.filename,
       size: this.size,
+      contentId: this.contentId,
     };
   }
 
@@ -60,7 +66,7 @@ export class Attachment extends BaseEntity {
     if (!this.gmailAccount) throw new Error('Gmail Account is required');
     if (!this.emailMessage) throw new Error('Email Message is required');
     if (!this.externalId) throw new Error('External ID is required');
-    if (!this.filename) throw new Error('Filename is required');
+    if (this.filename === undefined || this.filename === null) throw new Error('Filename is required');
     if (!this.mimeType) throw new Error('MIME type is required');
     if (this.size === undefined || this.size === null || this.size < 0)
       throw new Error('Size must be a non-negative number');

@@ -50,7 +50,7 @@ check: format
 		rm -rf ../backend/dist"
 
 migrate:
-	devbox run --env-file backend/.env "cd backend && pnpm mikro-orm migration:up"
+	devbox run --env-file backend/.env "cd backend && pnpm run migrate"
 
 rollback:
 	devbox run --env-file backend/.env "cd backend && pnpm mikro-orm migration:down"

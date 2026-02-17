@@ -897,6 +897,15 @@
           "nullable": false,
           "mappedType": "boolean"
         },
+        "has_attachments": {
+          "name": "has_attachments",
+          "type": "boolean",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "boolean"
+        },
         "email_message_count": {
           "name": "email_message_count",
           "type": "int",
@@ -1087,6 +1096,16 @@
           "primary": false,
           "nullable": false,
           "mappedType": "integer"
+        },
+        "content_id": {
+          "name": "content_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 255,
+          "mappedType": "string"
         }
       },
       "name": "attachements",

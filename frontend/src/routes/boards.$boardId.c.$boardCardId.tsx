@@ -232,9 +232,13 @@ const EmailMessageBody = ({
 
       // Replace cid: references with proxy URLs for inline images
       for (const attachment of emailMessage.attachments) {
-        if (attachment.mimeType.startsWith('image/')) {
+        if (attachment.mimeType.startsWith('image/') && (attachment.filename || attachment.contentId)) {
           const proxyUrl = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;
-          sanitized = sanitized.replaceAll(`src="cid:${attachment.filename}"`, `src="${proxyUrl}"`);
+          if (attachment.filename) {
+            sanitized = sanitized.replaceAll(`src="cid:${attachment.filename}"`, `src="${proxyUrl}"`);
+          } else if (attachment.contentId) {
+            sanitized = sanitized.replaceAll(`src="cid:${attachment.contentId}"`, `src="${proxyUrl}"`);
+          }
         }
       }
 

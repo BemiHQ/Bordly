@@ -238,27 +238,30 @@ export class EmailMessageService {
 
     // Pull all necessary data at once:
     // - Affected Email Messages
-    const affectedEmailMessages = await orm.em.find(EmailMessage, {
-      gmailAccount,
-      externalId: {
-        $in: [
-          ...externalEmailMessageIdsToAdd,
-          ...externalEmailMessageIdsToDelete,
-          ...labelChanges.map((lc) => lc.externalMessageId),
-        ],
-      },
-    });
-    const affectedEmailMessageByExternalId = mapBy(affectedEmailMessages, (msg) => msg.externalId);
+    const affectedEmailMessageIds = unique([
+      ...externalEmailMessageIdsToAdd,
+      ...externalEmailMessageIdsToDelete,
+      ...labelChanges.map((lc) => lc.externalMessageId),
+    ]);
+    const affectedEmailMessages = await orm.em.find(
+      EmailMessage,
+      { gmailAccount, externalId: { $in: affectedEmailMessageIds } },
+      { populate: ['attachments'] },
+    );
+    const affectedEmailMessageByExternalId = mapBy(affectedEmailMessages, (msg) => msg.externalId) as Record<
+      string,
+      EmailMessage
+    >;
     // - All email messages in affected threads
     const externalThreadIds = unique(affectedEmailMessages.map((msg) => msg.externalThreadId));
     const emailMessagesDescByThreadId = groupBy(
       await orm.em.find(
         EmailMessage,
         { gmailAccount, externalThreadId: { $in: externalThreadIds } },
-        { orderBy: { externalCreatedAt: 'DESC' } },
+        { orderBy: { externalCreatedAt: 'DESC' }, populate: ['attachments'] },
       ),
       (msg) => msg.externalThreadId,
-    );
+    ) as Record<string, EmailMessage[]>;
     // - Board cards
     const boardCardByThreadId = await BoardCardService.findAndBuildBoardCardByThreadId({
       gmailAccount,
@@ -584,6 +587,7 @@ ${emailMessageContents.join('\n\n---\n\n')}`,
       attachments.push(attachment);
     }
 
+    emailMessage.attachments.set(attachments);
     return { emailMessage, attachments };
   }
 

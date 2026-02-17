@@ -82,16 +82,21 @@ export class GoogleApi {
   static gmailAttachmentsData(payload?: gmail_v1.Schema$MessagePart) {
     if (!payload || !payload.parts) return [];
 
-    const attachments: { externalId: string; filename: string; mimeType: string; size: number }[] = [];
+    const attachments: { externalId: string; filename: string; mimeType: string; size: number; contentId?: string }[] =
+      [];
 
     const extractAttachments = (parts: gmail_v1.Schema$MessagePart[]): void => {
       for (const part of parts) {
         if (part.filename && part.mimeType && part.body) {
+          const contentIdHeader = GoogleApi.gmailHeaderValue(part.headers || [], 'Content-ID');
+          const contentId = contentIdHeader ? contentIdHeader.replace(/^<|>$/g, '') : undefined;
+
           attachments.push({
             externalId: part.body.attachmentId as string,
             filename: part.filename,
             mimeType: part.mimeType,
             size: part.body.size as number,
+            contentId,
           });
         }
         if (part.parts) {
