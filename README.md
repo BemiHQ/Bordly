@@ -27,6 +27,7 @@ cd devbox.d/nginx && mkcert app.bordly.dev && mkcert api.bordly.dev
 make init
 make up-services
 make install
+make create
 make up
 ```
 

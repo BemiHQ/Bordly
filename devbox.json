@@ -2,7 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
   "packages": [
     "nodejs@latest",
-    "nginx@latest"
+    "nginx@latest",
+    "postgresql@latest"
   ],
   "shell": {
     "init_hook": [

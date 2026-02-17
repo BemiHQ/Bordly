@@ -1,5 +1,10 @@
 init:
-	devbox install
+	devbox install && \
+	devbox run initdb && \
+		sed -i "s/#port = 5432/port = 5433/g" ./.devbox/virtenv/postgresql/data/postgresql.conf
+
+create:
+	devbox run "createdb -p 5433 bordly_dev && createuser -p 5433 --superuser postgres"
 
 sh:
 	devbox shell
@@ -17,7 +22,7 @@ up-frontend:
 	devbox run "cd frontend && pnpm run dev"
 
 up-services:
-	devbox services start nginx
+	devbox services start nginx postgresql
 
 down-services:
 	devbox services stop

@@ -41,7 +41,11 @@ export async function authRoutes(fastify: FastifyInstance) {
           name: userInfo.data.name,
           picture: userInfo.data.picture,
         },
-        tokens,
+        tokens: {
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expiry_date: tokens.expiry_date,
+        },
       };
     } catch (error) {
       fastify.log.error(error);
