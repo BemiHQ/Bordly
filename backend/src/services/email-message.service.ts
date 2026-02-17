@@ -213,12 +213,16 @@ export class EmailMessageService {
 
   static async findEmailMessagesByBoardCard<Hint extends string = never>(
     boardCard: BoardCard,
-    { populate, orderBy }: { populate?: Populate<EmailMessage, Hint>; orderBy?: OrderDefinition<EmailMessage> } = {},
+    {
+      populate,
+      orderBy,
+      limit,
+    }: { populate?: Populate<EmailMessage, Hint>; orderBy?: OrderDefinition<EmailMessage>; limit?: number } = {},
   ) {
     return orm.em.find(
       EmailMessage,
       { gmailAccount: boardCard.gmailAccount, externalThreadId: boardCard.externalThreadId },
-      { populate, orderBy },
+      { populate, orderBy, limit },
     );
   }
 

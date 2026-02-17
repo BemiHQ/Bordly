@@ -66,7 +66,7 @@ export class EmailDraftService {
       }
       boardCard.addParticipantUserId(user.id);
     }
-    boardCard.setLastEventAt(new Date());
+    boardCard.setLastEventAt(boardCard.emailDraft.createdAt);
     orm.em.persist([boardCard.emailDraft, boardCard]);
 
     const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;

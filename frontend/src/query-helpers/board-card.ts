@@ -174,6 +174,42 @@ export const replaceFakeCommentData = ({
   });
 };
 
+export const updateCommentData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardCardId, commentId, text },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardCardId: string; commentId: string; text: string };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      commentsAsc: oldData.commentsAsc.map((c) => (c.id === commentId ? { ...c, text, editedAt: new Date() } : c)),
+    } satisfies typeof oldData;
+  });
+};
+
+export const deleteCommentData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardCardId, commentId },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardCardId: string; commentId: string };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      commentsAsc: oldData.commentsAsc.filter((c) => c.id !== commentId),
+    } satisfies typeof oldData;
+  });
+};
+
 export const replaceBoardCardData = ({
   trpc,
   queryClient,

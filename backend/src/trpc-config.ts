@@ -5,6 +5,7 @@ import superjson from 'superjson';
 import { BoardService } from '@/services/board.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
+import { reportError } from '@/utils/error-tracking';
 import { sleep } from '@/utils/time';
 
 const DEVELOPMENT_MAX_DELAY_MS = 1_000;
@@ -23,6 +24,7 @@ const errorHandlerMiddleware = t.middleware(async ({ next }) => {
 
   if (!result.ok && result.error.cause) {
     const error = result.error.cause;
+    reportError(error);
 
     if (error instanceof NotFoundError) {
       throw new TRPCError({ code: 'NOT_FOUND' });

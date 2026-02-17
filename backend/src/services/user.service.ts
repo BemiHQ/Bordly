@@ -15,7 +15,7 @@ export class UserService {
   }
 
   static async bordlyUser() {
-    return orm.em.findOneOrFail(User, { email: BORDLY_USER_ID });
+    return orm.em.findOneOrFail(User, { id: BORDLY_USER_ID });
   }
 
   static async createWithGmailAccount({

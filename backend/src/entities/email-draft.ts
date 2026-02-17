@@ -64,6 +64,7 @@ export class EmailDraft extends BaseEntity {
     this.bcc = bcc;
     this.subject = subject;
     this.bodyHtml = bodyHtml;
+    this.createdAt = new Date();
     this.validate();
   }
 

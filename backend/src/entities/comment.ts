@@ -42,6 +42,12 @@ export class Comment extends BaseEntity {
     this.validate();
   }
 
+  update({ text }: { text: string }) {
+    this.text = text;
+    this.editedAt = new Date();
+    this.validate();
+  }
+
   toJson() {
     return {
       id: this.id,

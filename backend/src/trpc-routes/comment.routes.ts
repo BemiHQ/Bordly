@@ -34,25 +34,37 @@ export const COMMENT_ROUTES = {
       .input(
         z.object({
           boardId: z.uuid(),
+          boardCardId: z.uuid(),
           commentId: z.uuid(),
           text: z.string().min(1),
         }),
       )
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardMember({ ctx, input });
-        const comment = await CommentService.edit(board, {
+        const boardCard = await BoardCardService.findById(board, {
+          boardCardId: input.boardCardId,
+          populate: BOARD_CARD_POPULATE,
+        });
+        const comment = await CommentService.edit(boardCard, {
           commentId: input.commentId,
           text: input.text,
           populate: POPULATE,
         });
-        return { comment: comment.toJson() };
+        return {
+          comment: comment.toJson(),
+          boardCard: boardCardToJson(boardCard, ctx),
+        };
       }),
     delete: publicProcedure
-      .input(z.object({ boardId: z.uuid(), commentId: z.uuid() }))
+      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid(), commentId: z.uuid() }))
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardMember({ ctx, input });
-        await CommentService.delete(board, { commentId: input.commentId });
-        return { success: true };
+        const boardCard = await BoardCardService.findById(board, {
+          boardCardId: input.boardCardId,
+          populate: BOARD_CARD_POPULATE,
+        });
+        await CommentService.delete(boardCard, { commentId: input.commentId });
+        return { boardCard: boardCardToJson(boardCard, ctx) };
       }),
   } satisfies TRPCRouterRecord,
 };
