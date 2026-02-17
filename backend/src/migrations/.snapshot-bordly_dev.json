@@ -1100,6 +1100,116 @@
           "length": 6,
           "mappedType": "datetime"
         },
+        "board_id": {
+          "name": "board_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "uuid"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "uuid"
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "enumItems": ["ADMIN", "MEMBER", "AGENT"],
+          "mappedType": "enum"
+        }
+      },
+      "name": "board_members",
+      "schema": "public",
+      "indexes": [
+        {
+          "keyName": "board_members_user_id_index",
+          "columnNames": ["user_id"],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false
+        },
+        {
+          "keyName": "board_members_board_id_user_id_unique",
+          "columnNames": ["board_id", "user_id"],
+          "composite": true,
+          "constraint": true,
+          "primary": false,
+          "unique": true
+        },
+        {
+          "keyName": "board_members_pkey",
+          "columnNames": ["id"],
+          "composite": false,
+          "constraint": true,
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "board_members_board_id_foreign": {
+          "constraintName": "board_members_board_id_foreign",
+          "columnNames": ["board_id"],
+          "localTableName": "public.board_members",
+          "referencedColumnNames": ["id"],
+          "referencedTableName": "public.boards",
+          "updateRule": "cascade"
+        },
+        "board_members_user_id_foreign": {
+          "constraintName": "board_members_user_id_foreign",
+          "columnNames": ["user_id"],
+          "localTableName": "public.board_members",
+          "referencedColumnNames": ["id"],
+          "referencedTableName": "public.users",
+          "updateRule": "cascade"
+        }
+      },
+      "nativeEnums": {}
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "default": "uuid_generate_v4()",
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 6,
+          "mappedType": "datetime"
+        },
         "gmail_account_id": {
           "name": "gmail_account_id",
           "type": "uuid",
@@ -1125,6 +1235,15 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
+          "mappedType": "uuid"
+        },
+        "assigned_board_member_id": {
+          "name": "assigned_board_member_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
           "mappedType": "uuid"
         },
         "external_thread_id": {
@@ -1175,6 +1294,15 @@
           "primary": false,
           "nullable": false,
           "mappedType": "json"
+        },
+        "participant_user_ids": {
+          "name": "participant_user_ids",
+          "type": "text[]",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "array"
         },
         "last_event_at": {
           "name": "last_event_at",
@@ -1227,6 +1355,14 @@
       "name": "board_cards",
       "schema": "public",
       "indexes": [
+        {
+          "keyName": "board_cards_assigned_board_member_id_index",
+          "columnNames": ["assigned_board_member_id"],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false
+        },
         {
           "keyName": "board_cards_last_event_at_index",
           "columnNames": ["last_event_at"],
@@ -1284,6 +1420,15 @@
           "localTableName": "public.board_cards",
           "referencedColumnNames": ["id"],
           "referencedTableName": "public.domains",
+          "updateRule": "cascade"
+        },
+        "board_cards_assigned_board_member_id_foreign": {
+          "constraintName": "board_cards_assigned_board_member_id_foreign",
+          "columnNames": ["assigned_board_member_id"],
+          "localTableName": "public.board_cards",
+          "referencedColumnNames": ["id"],
+          "referencedTableName": "public.board_members",
+          "deleteRule": "set null",
           "updateRule": "cascade"
         }
       },
@@ -1717,116 +1862,6 @@
           "nullable": false,
           "mappedType": "uuid"
         },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "uuid"
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "enumItems": ["ADMIN", "MEMBER"],
-          "mappedType": "enum"
-        }
-      },
-      "name": "board_members",
-      "schema": "public",
-      "indexes": [
-        {
-          "keyName": "board_members_user_id_index",
-          "columnNames": ["user_id"],
-          "composite": false,
-          "constraint": false,
-          "primary": false,
-          "unique": false
-        },
-        {
-          "keyName": "board_members_board_id_user_id_unique",
-          "columnNames": ["board_id", "user_id"],
-          "composite": true,
-          "constraint": true,
-          "primary": false,
-          "unique": true
-        },
-        {
-          "keyName": "board_members_pkey",
-          "columnNames": ["id"],
-          "composite": false,
-          "constraint": true,
-          "primary": true,
-          "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {
-        "board_members_board_id_foreign": {
-          "constraintName": "board_members_board_id_foreign",
-          "columnNames": ["board_id"],
-          "localTableName": "public.board_members",
-          "referencedColumnNames": ["id"],
-          "referencedTableName": "public.boards",
-          "updateRule": "cascade"
-        },
-        "board_members_user_id_foreign": {
-          "constraintName": "board_members_user_id_foreign",
-          "columnNames": ["user_id"],
-          "localTableName": "public.board_members",
-          "referencedColumnNames": ["id"],
-          "referencedTableName": "public.users",
-          "updateRule": "cascade"
-        }
-      },
-      "nativeEnums": {}
-    },
-    {
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "default": "uuid_generate_v4()",
-          "mappedType": "uuid"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamptz",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 6,
-          "mappedType": "datetime"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamptz",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 6,
-          "mappedType": "datetime"
-        },
-        "board_id": {
-          "name": "board_id",
-          "type": "uuid",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "uuid"
-        },
         "invited_by_id": {
           "name": "invited_by_id",
           "type": "uuid",
@@ -1863,7 +1898,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "enumItems": ["ADMIN", "MEMBER"],
+          "enumItems": ["ADMIN", "MEMBER", "AGENT"],
           "mappedType": "enum"
         }
       },

@@ -1,6 +1,6 @@
 import type { Populate } from '@mikro-orm/postgresql';
 import { GmailAccount } from '@/entities/gmail-account';
-import { User } from '@/entities/user';
+import { BORDLY_USER_ID, User } from '@/entities/user';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { EmailAddressService } from '@/services/email-address.service';
 import { orm } from '@/utils/orm';
@@ -12,6 +12,10 @@ export class UserService {
   ) {
     if (!id) return null;
     return orm.em.findOne(User, { id }, { populate });
+  }
+
+  static async bordlyUser() {
+    return orm.em.findOneOrFail(User, { email: BORDLY_USER_ID });
   }
 
   static async createWithGmailAccount({

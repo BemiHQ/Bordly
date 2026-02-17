@@ -6,6 +6,8 @@ import type { BoardMember } from '@/entities/board-member';
 import type { Comment } from '@/entities/comment';
 import type { GmailAccount } from '@/entities/gmail-account';
 
+export const BORDLY_USER_ID = '00000000-0000-0000-0000-000000000000';
+
 @Entity({ tableName: 'users' })
 @Unique({ properties: ['email'] })
 export class User extends BaseEntity {
@@ -44,6 +46,10 @@ export class User extends BaseEntity {
     this.validate();
   }
 
+  get isBordly() {
+    return this.id === BORDLY_USER_ID;
+  }
+
   touchLastSessionAt() {
     this.lastSessionAt = new Date();
   }
@@ -52,7 +58,7 @@ export class User extends BaseEntity {
     return {
       id: this.id,
       name: this.name,
-      email: this.email,
+      email: this.isBordly ? '' : this.email,
       photoUrl: this.photoUrl,
     };
   }

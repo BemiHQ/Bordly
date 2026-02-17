@@ -16,4 +16,5 @@ export enum BoardCardState {
 export enum BoardMemberRole {
   ADMIN = 'ADMIN',
   MEMBER = 'MEMBER',
+  AGENT = 'AGENT',
 }

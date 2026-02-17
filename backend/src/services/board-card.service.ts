@@ -3,6 +3,7 @@ import type { Board } from '@/entities/board';
 import { BoardCard, State } from '@/entities/board-card';
 import { BoardCardReadPosition } from '@/entities/board-card-read-position';
 import type { BoardColumn } from '@/entities/board-column';
+import { Role } from '@/entities/board-member';
 import { Domain } from '@/entities/domain';
 import type { EmailMessage, Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
@@ -189,6 +190,8 @@ export class BoardCardService {
       lastReadAt = msAgoFrom(lastEventAt);
     }
     for (const boardMember of gmailAccount.board.boardMembers) {
+      if (boardMember.role === Role.AGENT) continue;
+
       boardCard.boardCardReadPositions.add(
         new BoardCardReadPosition({ boardCard, user: boardMember.user, lastReadAt }),
       );

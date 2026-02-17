@@ -11,6 +11,7 @@ import {
 } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardColumn } from '@/entities/board-column';
+import type { BoardMember } from '@/entities/board-member';
 import type { Comment } from '@/entities/comment';
 import type { Domain } from '@/entities/domain';
 import type { EmailDraft } from '@/entities/email-draft';
@@ -25,12 +26,14 @@ export interface BoardCard {
   loadedGmailAccount: GmailAccount;
   loadedBoardColumn: BoardColumn;
   loadedDomain: Domain;
+  loadedAssignedBoardMember?: BoardMember;
 }
 
 @Entity({ tableName: 'board_cards' })
 @Unique({ properties: ['boardColumn', 'pinnedPosition'] })
 @Index({ properties: ['gmailAccount'] })
 @Index({ properties: ['lastEventAt'] })
+@Index({ properties: ['assignedBoardMember'] })
 export class BoardCard extends BaseEntity {
   @ManyToOne()
   gmailAccount: GmailAccount;
@@ -38,6 +41,8 @@ export class BoardCard extends BaseEntity {
   boardColumn: BoardColumn;
   @ManyToOne()
   domain: Domain;
+  @ManyToOne()
+  assignedBoardMember?: BoardMember;
 
   @OneToOne({ mappedBy: (emailDraft: EmailDraft) => emailDraft.boardCard, nullable: true })
   emailDraft?: EmailDraft;
@@ -57,6 +62,8 @@ export class BoardCard extends BaseEntity {
   snippet: string;
   @Property({ type: 'jsonb' })
   externalParticipantsAsc: Participant[];
+  @Property()
+  participantUserIds?: string[];
   @Property()
   lastEventAt: Date;
 
@@ -203,5 +210,6 @@ export class BoardCard extends BaseEntity {
       throw new Error('MovedToTrashAt is required when state is TRASH');
     if (this.state !== State.TRASH && this.movedToTrashAt)
       throw new Error('MovedToTrashAt must be null unless state is TRASH');
+    if (this.participantUserIds?.length === 0) throw new Error('ParticipantUserIds cannot be empty array');
   }
 }

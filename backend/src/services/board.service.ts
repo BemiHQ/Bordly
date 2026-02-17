@@ -4,6 +4,7 @@ import { BoardMember, Role } from '@/entities/board-member';
 import type { User } from '@/entities/user';
 import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { GmailAccountService } from '@/services/gmail-account.service';
+import { UserService } from '@/services/user.service';
 import { orm } from '@/utils/orm';
 import { ERRORS } from '@/utils/shared';
 
@@ -33,19 +34,20 @@ export class BoardService {
   }
 
   static async createFirstBoard({ name, user }: { name: string; user: User }) {
-    const board = new Board({ name });
-    const boardMember = new BoardMember({ board, user, role: Role.ADMIN });
-
     await orm.em.populate(user, ['gmailAccount']);
-
     const { gmailAccount } = user;
     if (!(await GmailAccountService.hasGmailAccess(gmailAccount))) {
       return { board: undefined, error: ERRORS.NO_GMAIL_ACCESS };
     }
 
+    const bordlyUser = await UserService.bordlyUser();
+    const board = new Board({ name });
+    const boardMember = new BoardMember({ board, user, role: Role.ADMIN });
+    const bordlyBoardMember = new BoardMember({ board, user: bordlyUser, role: Role.AGENT });
+
     gmailAccount.addToBoard(board);
     user.boardMembers.add(boardMember);
-    orm.em.persist([board, boardMember, gmailAccount]);
+    orm.em.persist([board, boardMember, bordlyBoardMember, gmailAccount]);
 
     await orm.em.flush();
     await enqueue(QUEUES.CREATE_INITIAL_EMAIL_MESSAGES, { gmailAccountId: gmailAccount.id });

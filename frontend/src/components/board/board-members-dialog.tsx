@@ -311,10 +311,12 @@ export const BoardMembersDialog = ({
                     <ItemDescription className="text-2xs">{member.user.email}</ItemDescription>
                   </ItemContent>
                   <ItemActions>
-                    {isCurrentUserAdmin && member.user.id !== currentUserId ? (
+                    {isCurrentUserAdmin && member.user.id !== currentUserId && member.role !== BoardMemberRole.AGENT ? (
                       <BoardMemberRoleSelect board={board} member={member} onRoleChange={handleRoleChange} />
                     ) : (
-                      <div className="text-xs text-muted-foreground capitalize px-3">{member.role.toLowerCase()}</div>
+                      <div className="text-xs text-muted-foreground capitalize px-3">
+                        {member.role === BoardMemberRole.AGENT ? 'AI Agent' : member.role.toLowerCase()}
+                      </div>
                     )}
                   </ItemActions>
                 </Item>
