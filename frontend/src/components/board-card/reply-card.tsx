@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Color } from '@tiptap/extension-color';
 import { FontFamily } from '@tiptap/extension-font-family';
 import { Highlight } from '@tiptap/extension-highlight';
@@ -383,7 +383,7 @@ const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) => {
         <SelectContent>
           <SelectGroup>
             {FONT_FAMILIES.map((font) => (
-              <SelectItem key={font.value} value={font.value}>
+              <SelectItem size="sm" key={font.value} value={font.value}>
                 {font.label}
               </SelectItem>
             ))}
@@ -421,7 +421,7 @@ const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) => {
         <SelectContent>
           <SelectGroup>
             {FONT_SIZES.map((size) => (
-              <SelectItem key={size} value={size}>
+              <SelectItem size="sm" key={size} value={size}>
                 {size}
               </SelectItem>
             ))}
@@ -467,7 +467,7 @@ const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) => {
                       forceRerender({});
                     }}
                     className={cn(
-                      'cursor-pointer w-6 h-6 rounded border border-border hover:scale-115 transition-transform flex items-center justify-center',
+                      'cursor-pointer w-5.5 h-5.5 rounded border border-border hover:scale-115 transition-transform flex items-center justify-center',
                       currentTextColor === color && 'scale-115',
                     )}
                     style={{ backgroundColor: color }}
@@ -498,7 +498,7 @@ const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) => {
                       forceRerender({});
                     }}
                     className={cn(
-                      'cursor-pointer w-6 h-6 rounded border border-border hover:scale-115 transition-transform flex items-center justify-center',
+                      'cursor-pointer w-5.5 h-5.5 rounded border border-border hover:scale-115 transition-transform flex items-center justify-center',
                       currentHighlightColor === color && 'scale-115',
                     )}
                     style={{ backgroundColor: color }}
@@ -587,17 +587,39 @@ export const ReplyCard = ({
   boardId,
   boardCardId,
   emailDraft,
+  emailMessagesAsc,
   onCancel,
 }: {
   boardId: string;
   boardCardId: string;
   emailDraft?: EmailDraft;
+  emailMessagesAsc: EmailMessagesData['emailMessagesAsc'];
   onCancel: () => void;
 }) => {
   const { queryClient, trpc } = useRouteContext();
-  const [fromInput, setFromInput] = useState(emailDraft?.from ? participantToInput(emailDraft.from) : '');
-  const [toInput, setToInput] = useState(participantsToInput(emailDraft?.to));
-  const [ccInput, setCcInput] = useState(participantsToInput(emailDraft?.cc));
+  const { data: emailAddressesData } = useQuery({ ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
+
+  const emailAddresses = emailAddressesData?.emailAddresses || [];
+
+  // Smart backfill from the last email message
+  const lastEmailMessage = emailMessagesAsc[emailMessagesAsc.length - 1];
+  const defaultFrom = emailDraft?.from
+    ? participantToInput(emailDraft.from)
+    : emailAddresses.find((addr) => addr.isDefault)?.email || emailAddresses[0]?.email;
+  const defaultTo = emailDraft?.to
+    ? participantsToInput(emailDraft.to)
+    : lastEmailMessage?.from
+      ? participantToInput(lastEmailMessage.from)
+      : '';
+  const defaultCc = emailDraft?.cc
+    ? participantsToInput(emailDraft.cc)
+    : lastEmailMessage?.cc
+      ? participantsToInput(lastEmailMessage.cc)
+      : '';
+
+  const [fromInput, setFromInput] = useState(defaultFrom);
+  const [toInput, setToInput] = useState(defaultTo);
+  const [ccInput, setCcInput] = useState(defaultCc);
   const [bccInput, setBccInput] = useState(participantsToInput(emailDraft?.bcc));
   const [showCcBcc, setShowCcBcc] = useState((emailDraft?.cc?.length ?? 0) > 0 || (emailDraft?.bcc?.length ?? 0) > 0);
   const [hasChanges, setHasChanges] = useState(false);
@@ -779,11 +801,30 @@ export const ReplyCard = ({
   return (
     <Card className="p-0 flex flex-col gap-0">
       <div className="px-4 py-2">
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           <div className="text-xs text-muted-foreground">From</div>
-          <Input inputSize="sm" variant="ghost" value={fromInput} onChange={handleFieldChange(setFromInput)} />
+          <Select
+            value={fromInput}
+            onValueChange={(value) => {
+              setFromInput(value);
+              setHasChanges(true);
+            }}
+          >
+            <SelectTrigger size="sm" variant="ghost">
+              <SelectValue placeholder={fromInput} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {emailAddresses.map((address: { email: string; name?: string }) => (
+                  <SelectItem size="sm" key={address.email} value={address.email}>
+                    {address.name ? `${address.name} <${address.email}>` : address.email}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-1">
           <div className="text-xs text-muted-foreground">To</div>
           <Input inputSize="sm" variant="ghost" value={toInput} onChange={handleFieldChange(setToInput)} />
           <Button
@@ -798,11 +839,11 @@ export const ReplyCard = ({
         </div>
         {showCcBcc && (
           <>
-            <div className="flex items-center">
+            <div className="flex items-center gap-1">
               <div className="text-xs text-muted-foreground">Cc</div>
               <Input inputSize="sm" variant="ghost" value={ccInput} onChange={handleFieldChange(setCcInput)} />
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center gap-1">
               <div className="text-xs text-muted-foreground">Bcc</div>
               <Input inputSize="sm" variant="ghost" value={bccInput} onChange={handleFieldChange(setBccInput)} />
             </div>

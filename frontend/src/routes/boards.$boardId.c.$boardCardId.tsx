@@ -147,6 +147,7 @@ function BoardCardComponent() {
                       boardId={boardId}
                       boardCardId={boardCardId}
                       emailDraft={boardCard.emailDraft}
+                      emailMessagesAsc={emailMessagesAsc}
                       onCancel={() => setShowReply(false)}
                     />
                   )}

@@ -1,5 +1,7 @@
+import type { Board } from '@/entities/board';
 import { EmailAddress } from '@/entities/email-address';
 import type { GmailAccount } from '@/entities/gmail-account';
+import type { User } from '@/entities/user';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { GoogleApi } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
@@ -28,5 +30,9 @@ export class EmailAddressService {
     await orm.em.flush();
 
     return emailAddresses;
+  }
+
+  static async findEmailAddresses(user: User, board: Board) {
+    return orm.em.find(EmailAddress, { gmailAccount: { $or: [{ user }, { board }] } });
   }
 }
