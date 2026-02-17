@@ -113,13 +113,27 @@ export class GmailApi {
     await gmail.users.threads.modify({ userId: 'me', id: threadId, requestBody: { addLabelIds: [LABEL.SPAM] } });
   }
 
-  static async listMessages(gmail: gmail_v1.Gmail, { limit }: { limit: number }) {
-    const listResponse = await gmail.users.messages.list({ userId: 'me', maxResults: limit, includeSpamTrash: false });
+  static async listMessages(gmail: gmail_v1.Gmail, { limit, to }: { limit: number; to?: string[] }) {
+    let q: string | undefined;
+    if (to && to.length > 0) {
+      q = to.map((email) => `to:${email}`).join(' OR ');
+    }
+    const listResponse = await gmail.users.messages.list({
+      userId: 'me',
+      maxResults: limit,
+      includeSpamTrash: false,
+      q,
+    });
     return listResponse.data.messages || [];
   }
 
   static async getMessage(gmail: gmail_v1.Gmail, messageId: string) {
     const getResponse = await gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' });
+    return getResponse.data;
+  }
+
+  static async getThread(gmail: gmail_v1.Gmail, threadId: string) {
+    const getResponse = await gmail.users.threads.get({ userId: 'me', id: threadId, format: 'full' });
     return getResponse.data;
   }
 

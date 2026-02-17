@@ -1,4 +1,4 @@
-import type { OrderDefinition, Populate } from '@mikro-orm/postgresql';
+import type { Loaded, OrderDefinition, Populate } from '@mikro-orm/postgresql';
 import { RequestContext } from '@mikro-orm/postgresql';
 import * as cheerio from 'cheerio';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
@@ -105,13 +105,18 @@ export class EmailMessageService {
 
     const gmail = await GmailAccountService.initGmail(gmailAccount);
     console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
-    const messages = await GmailApi.listMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
+    const messages = await GmailApi.listMessages(gmail, {
+      limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT,
+      to: boardAccount.receivingEmails,
+    });
     if (messages.length === 0) return;
 
     // Collect EmailMessages and Attachments
     let lastExternalHistoryId: string | undefined;
     const emailMessagesDescByThreadId: Record<string, EmailMessage[]> = {};
     const domainNames = new Set<string>();
+    const processedMessageIds = new Set<string>();
+
     for (const message of messages) {
       if (!message.id) continue;
       console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${message.id}...`);
@@ -121,9 +126,32 @@ export class EmailMessageService {
       const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
       (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
       domainNames.add(emailMessage.loadedDomain.name);
+      processedMessageIds.add(message.id);
 
       if (!lastExternalHistoryId && messageData.historyId) {
         lastExternalHistoryId = messageData.historyId; // Set lastExternalHistoryId from the first DESC message
+      }
+    }
+
+    // If receivingEmails exists, fetch complete threads for each unique externalThreadId
+    if (boardAccount.receivingEmails) {
+      const uniqueThreadIds = Object.keys(emailMessagesDescByThreadId);
+      console.log(`[GMAIL] Fetching complete threads for ${uniqueThreadIds.length} threads...`);
+
+      for (const threadId of uniqueThreadIds) {
+        console.log(`[GMAIL] Fetching all messages in thread ${threadId}...`);
+        const threadData = await GmailApi.getThread(gmail, threadId);
+
+        for (const messageData of threadData.messages || []) {
+          if (!messageData.id || processedMessageIds.has(messageData.id)) continue;
+          if (messageData.labelIds?.includes(LABEL.DRAFT)) continue; // Skip drafts
+
+          console.log(`[GMAIL] Processing ${gmailAccount.email} thread message ${messageData.id}...`);
+          const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
+          (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
+          domainNames.add(emailMessage.loadedDomain.name);
+          processedMessageIds.add(messageData.id);
+        }
       }
     }
 
@@ -329,7 +357,9 @@ export class EmailMessageService {
   // -------------------------------------------------------------------------------------------------------------------
 
   // Creates: EmailMessage, Attachment, Domain, BoardCard
-  private static async syncEmailMessagesForGmailAccount(gmailAccount: GmailAccount) {
+  private static async syncEmailMessagesForGmailAccount(
+    gmailAccount: Loaded<GmailAccount, 'boardAccounts.board.boardColumns' | 'boardAccounts.board.boardMembers'>,
+  ) {
     const gmail = await GmailAccountService.initGmail(gmailAccount);
 
     // Fetch changes via Gmail API
@@ -418,7 +448,7 @@ export class EmailMessageService {
         const threadId = emailMessage.externalThreadId;
         const boardCard = boardCardByThreadId[threadId];
 
-        if (!boardCard && !EmailMessageService.boardAccountSyncTo({ emailMessage, gmailAccount })) {
+        if (!boardCard && !EmailMessageService.boardAccountToSyncWhenNoBoardCard({ emailMessage, gmailAccount })) {
           console.log(`[GMAIL] Skipping message ${externalMessageId} - does not match sync criteria`);
           continue;
         }
@@ -472,7 +502,7 @@ export class EmailMessageService {
         orm.em.persist(rebuiltBoardCard);
         boardCardByThreadId[threadId] = rebuiltBoardCard;
       } else {
-        const boardAccount = EmailMessageService.boardAccountSyncTo({ emailMessage, gmailAccount })!;
+        const boardAccount = EmailMessageService.boardAccountToSyncWhenNoBoardCard({ emailMessage, gmailAccount })!;
         const boardColumnsAsc = boardColumnsAscByBoardId[boardAccount.board.id]!;
         const category = await EmailMessageService.categorizeEmailThread({
           categories: boardColumnsAsc.map((col) => col.name),
@@ -550,13 +580,20 @@ export class EmailMessageService {
     await orm.em.flush();
   }
 
-  private static boardAccountSyncTo({
+  private static boardAccountToSyncWhenNoBoardCard({
     emailMessage,
     gmailAccount,
   }: {
     emailMessage: EmailMessage;
-    gmailAccount: GmailAccount;
+    gmailAccount: Loaded<GmailAccount, 'boardAccounts'>;
   }) {
+    // Sent outside Bordly
+    if (emailMessage.sent) {
+      return gmailAccount.boardAccounts.find(
+        (boardAccount) => boardAccount.syncAll || boardAccount.receivingEmails!.includes(emailMessage.from.email),
+      );
+    }
+
     const recipientEmails = [...(emailMessage.to || []), ...(emailMessage.cc || []), ...(emailMessage.bcc || [])].map(
       (p) => p.email,
     );
@@ -574,7 +611,7 @@ export class EmailMessageService {
     gmailAccount,
   }: {
     gmail: gmail_v1.Gmail;
-    gmailAccount: GmailAccount;
+    gmailAccount: Loaded<GmailAccount, 'boardAccounts'>;
   }) {
     const externalEmailMessageIdsToAdd: string[] = [];
     const externalEmailMessageIdsToDelete: string[] = [];
@@ -615,7 +652,13 @@ export class EmailMessageService {
       } while (pageToken);
     } else {
       console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails...`);
-      const messages = await GmailApi.listMessages(gmail, { limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT });
+      const allReceivingEmails = unique(
+        gmailAccount.boardAccounts.filter((ba) => !!ba.receivingEmails).flatMap((ba) => ba.receivingEmails!),
+      );
+      const messages = await GmailApi.listMessages(gmail, {
+        limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT,
+        to: allReceivingEmails.length > 0 ? allReceivingEmails : undefined,
+      });
       externalEmailMessageIdsToAdd.push(...messages.map((m) => m.id).filter((id): id is string => !!id));
     }
 
