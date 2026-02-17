@@ -133,7 +133,7 @@ export class EmailMessage extends BaseEntity {
     return {
       id: this.id,
       domain: this.loadedDomain.toJson(),
-      attachments: this.gmailAttachments.getItems().map((attachment) => attachment.toJson()),
+      gmailAttachments: this.gmailAttachments.map((attachment) => attachment.toJson()),
       from: this.from,
       subject: this.subject,
       snippet: this.snippet,

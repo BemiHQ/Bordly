@@ -3,7 +3,7 @@ import { EmailAddress } from '@/entities/email-address';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { GmailAccountService } from '@/services/gmail-account.service';
-import { GmailApi } from '@/utils/gmail-api';
+import { GmailApi, VERIFICATION_STATUS_ACCEPTED } from '@/utils/gmail-api';
 import { orm } from '@/utils/orm';
 
 export class EmailAddressService {
@@ -13,7 +13,9 @@ export class EmailAddressService {
 
     const emailAddresses: EmailAddress[] = [];
     for (const sendAs of sendAsSettings) {
-      if (!sendAs.sendAsEmail) continue;
+      if (!sendAs.sendAsEmail || (!sendAs.isPrimary && sendAs.verificationStatus !== VERIFICATION_STATUS_ACCEPTED)) {
+        continue;
+      }
 
       const emailAddress = new EmailAddress({
         gmailAccount,

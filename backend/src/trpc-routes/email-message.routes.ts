@@ -13,7 +13,7 @@ export const EMAIL_MESSAGE_ROUTES = {
         const { board } = authAsBoardMember({ ctx, input });
         const boardCard = await BoardCardService.findById(board, {
           boardCardId: input.boardCardId,
-          populate: ['domain', 'boardColumn', 'emailDraft'],
+          populate: ['domain', 'boardColumn', 'emailDraft.fileAttachments'],
         });
         const emailMessagesAsc = await EmailMessageService.findEmailMessageByBoardCard(boardCard, {
           populate: ['domain', 'gmailAttachments'],

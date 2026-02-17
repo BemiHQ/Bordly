@@ -10,6 +10,8 @@ export const LABEL = {
   DRAFT: 'DRAFT',
 };
 
+export const VERIFICATION_STATUS_ACCEPTED = 'accepted';
+
 export class GmailApi {
   static newGmail(oauth2Client: Auth.OAuth2Client) {
     return google.gmail({ version: 'v1', auth: oauth2Client });
@@ -160,6 +162,7 @@ export class GmailApi {
       threadId,
       inReplyTo,
       references,
+      attachments,
     }: {
       from: string;
       to?: string[];
@@ -170,8 +173,10 @@ export class GmailApi {
       threadId?: string;
       inReplyTo?: string;
       references?: string;
+      attachments?: Array<{ filename: string; mimeType: string; data: Buffer }>;
     },
   ) {
+    const boundary = `boundary_${Date.now()}`;
     const headers = [
       `From: ${from}`,
       to && to.length > 0 ? `To: ${to.join(', ')}` : undefined,
@@ -180,13 +185,37 @@ export class GmailApi {
       `Subject: ${GmailApi.encodeHeaderValue(subject || '')}`,
       inReplyTo ? `In-Reply-To: ${inReplyTo}` : undefined,
       references ? `References: ${references}` : undefined,
-      'Content-Type: text/html; charset=utf-8',
       'MIME-Version: 1.0',
+      attachments && attachments.length > 0
+        ? `Content-Type: multipart/mixed; boundary="${boundary}"`
+        : 'Content-Type: text/html; charset=utf-8',
     ]
       .filter(Boolean)
       .join('\r\n');
 
-    const message = `${headers}\r\n\r\n${bodyHtml || ''}`;
+    let message = `${headers}\r\n\r\n`;
+
+    if (attachments && attachments.length > 0) {
+      // Add body part
+      message += `--${boundary}\r\n`;
+      message += 'Content-Type: text/html; charset=utf-8\r\n\r\n';
+      message += bodyHtml || '';
+      message += '\r\n';
+
+      // Add attachment parts
+      for (const attachment of attachments) {
+        message += `--${boundary}\r\n`;
+        message += `Content-Type: ${attachment.mimeType}\r\n`;
+        message += 'Content-Transfer-Encoding: base64\r\n';
+        message += `Content-Disposition: attachment; filename="${GmailApi.encodeHeaderValue(attachment.filename)}"\r\n\r\n`;
+        message += `${attachment.data.toString('base64')}\r\n`;
+      }
+
+      message += `--${boundary}--`;
+    } else {
+      message += bodyHtml || '';
+    }
+
     const encodedMessage = Buffer.from(message, 'utf-8')
       .toString('base64')
       .replace(/\+/g, '-')

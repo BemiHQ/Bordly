@@ -4,7 +4,8 @@ init:
 		sed -i "s/#port = 5432/port = 5433/g" ./.devbox/virtenv/postgresql/data/postgresql.conf
 
 create:
-	devbox run "createdb -p 5433 bordly_dev && createuser -p 5433 --superuser postgres" &&  make migrate
+	devbox run "createdb -p 5433 bordly_dev && createuser -p 5433 --superuser postgres" &&  make migrate && \
+		devbox run "cd backend && pnpm run dev-configure-minio"
 
 reset:
 	devbox run "dropdb -p 5433 bordly_dev && createdb -p 5433 bordly_dev"
@@ -30,7 +31,7 @@ up-fetch-emails:
 	devbox run --env-file backend/.env "cd backend && pnpm run fetch-emails"
 
 up-services:
-	devbox services start nginx postgresql
+	devbox services start nginx postgresql minio
 
 down-services:
 	devbox services stop

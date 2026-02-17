@@ -15,7 +15,7 @@ import { API_ENDPOINTS } from '@/utils/urls';
 
 type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmailMessages'];
 type EmailMessage = EmailMessagesData['emailMessagesAsc'][number];
-type Attachment = EmailMessage['attachments'][number];
+type GmailAttachment = EmailMessage['gmailAttachments'][number];
 
 // Remove trailing empty elements like <div><br></div>. This includes nested empty elements within containers
 const removeTrailingEmpty = (container: Element | Document) => {
@@ -152,7 +152,7 @@ const EmailMessageBody = ({
       // HTML body
       const { sanitizedDisplayHtml, styles: extractedStyles } = sanitizeBodyHtml({
         bodyHtml: bodyHtml || '',
-        attachments: emailMessage.attachments,
+        gmailAttachments: emailMessage.gmailAttachments,
         boardId,
         boardCardId,
       });
@@ -177,7 +177,7 @@ const EmailMessageBody = ({
       setMainText(parsedMainText);
       setBackquotesText(parsedBackquotesText);
     }
-  }, [bodyHtml, bodyText, emailMessage.attachments, boardId, boardCardId]);
+  }, [bodyHtml, bodyText, emailMessage.gmailAttachments, boardId, boardCardId]);
 
   useEmailIframe(bodyIframeRef, { html: mainHtml, styles });
   useEmailIframe(backquotesIframeRef, { html: blockquotesHtml, styles, enabled: blockquotesExpanded });
@@ -272,7 +272,7 @@ export const EmailMessageCard = ({
 
   const { iconUrl } = emailMessage.domain;
 
-  const handleDownloadAttachment = (attachment: Attachment) => {
+  const handleDownloadAttachment = (attachment: GmailAttachment) => {
     const url = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;
     window.open(url, '_blank');
   };
@@ -362,16 +362,16 @@ export const EmailMessageCard = ({
         </div>
       </div>
       <EmailMessageBody emailMessage={emailMessage} boardId={boardId} boardCardId={boardCardId} />
-      {emailMessage.attachments.length > 0 && (
+      {emailMessage.gmailAttachments.length > 0 && (
         <div className="flex flex-col gap-2.5 mt-5 pt-5 border-t">
           <div className="flex items-center gap-1.5">
             <Paperclip className="size-4 flex-shrink-0 text-muted-foreground" />
             <div className="text-sm font-medium">
-              {emailMessage.attachments.length} {pluralize('attachment', emailMessage.attachments.length)}
+              {emailMessage.gmailAttachments.length} {pluralize('attachment', emailMessage.gmailAttachments.length)}
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            {emailMessage.attachments
+            {emailMessage.gmailAttachments
               .sort((a, b) => a.filename.length - b.filename.length)
               .map((attachment) => (
                 <button

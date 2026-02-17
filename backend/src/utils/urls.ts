@@ -7,6 +7,8 @@ export const ROUTES = {
   INTERNAL_HEALTH: '/internal/health',
   PROXY_ICON: '/proxy/icon',
   PROXY_GMAIL_ATTACHMENT: '/proxy/gmail-attachment',
+  FILE_ATTACHMENT_UPLOAD: '/file-attachments/upload',
+  FILE_ATTACHMENT_DELETE: '/file-attachments/delete',
   TRPC: '/trpc',
 };
 

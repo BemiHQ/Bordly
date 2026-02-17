@@ -1,7 +1,8 @@
-import { Entity, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
+import { Collection, Entity, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCard } from '@/entities/board-card';
 import type { Participant } from '@/entities/email-message';
+import type { FileAttachment } from '@/entities/file-attachment';
 
 export type { Participant } from '@/entities/email-message';
 
@@ -14,6 +15,9 @@ export interface EmailDraft {
 export class EmailDraft extends BaseEntity {
   @OneToOne()
   boardCard: BoardCard;
+
+  @OneToMany({ mappedBy: (attachment: FileAttachment) => attachment.emailDraft })
+  fileAttachments = new Collection<FileAttachment>(this);
 
   @Property()
   generated: boolean;
@@ -101,6 +105,7 @@ export class EmailDraft extends BaseEntity {
       bcc: this.bcc,
       subject: this.subject,
       bodyHtml: this.bodyHtml,
+      fileAttachments: this.fileAttachments.map((a) => a.toJson()),
     };
   }
 

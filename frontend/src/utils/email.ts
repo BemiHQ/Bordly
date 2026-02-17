@@ -11,12 +11,12 @@ type Attachment = {
 
 export const sanitizeBodyHtml = ({
   bodyHtml,
-  attachments,
+  gmailAttachments,
   boardId,
   boardCardId,
 }: {
   bodyHtml: string;
-  attachments: Attachment[];
+  gmailAttachments: Attachment[];
   boardId: string;
   boardCardId: string;
 }) => {
@@ -31,7 +31,7 @@ export const sanitizeBodyHtml = ({
   const sanitizedHtml = doc.body.innerHTML;
 
   // Replace cid: references with proxy URLs for inline images using DOM
-  for (const attachment of attachments) {
+  for (const attachment of gmailAttachments) {
     if (!attachment.mimeType.startsWith('image/') || (!attachment.filename && !attachment.contentId)) continue;
 
     const proxyUrl = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;

@@ -3,7 +3,8 @@
   "packages": [
     "nodejs@latest",
     "nginx@latest",
-    "postgresql@latest"
+    "postgresql@latest",
+    "minio@latest"
   ],
   "shell": {
     "init_hook": [

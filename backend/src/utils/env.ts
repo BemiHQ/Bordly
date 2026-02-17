@@ -26,6 +26,11 @@ export const ENV = {
   LLM_FAST_MODEL: requireEnv('LLM_FAST_MODEL'),
   LLM_THINKING_MODEL: requireEnv('LLM_THINKING_MODEL'),
 
+  S3_REGION: requireEnv('S3_REGION'),
+  S3_BUCKET: requireEnv('S3_BUCKET'),
+  S3_ACCESS_KEY_ID: requireEnv('S3_ACCESS_KEY_ID'),
+  S3_SECRET_ACCESS_KEY: requireEnv('S3_SECRET_ACCESS_KEY'),
+
   // Optional
 
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
@@ -35,6 +40,9 @@ export const ENV = {
   AWS_REGION: process.env.AWS_REGION,
   AWS_SES_ACCESS_KEY_ID: process.env.AWS_SES_ACCESS_KEY_ID,
   AWS_SES_SECRET_ACCESS_KEY: process.env.AWS_SES_SECRET_ACCESS_KEY,
+
+  S3_ENDPOINT: process.env.S3_ENDPOINT,
+  S3_FORCE_PATH_STYLE: process.env.S3_FORCE_PATH_STYLE === 'true',
 
   SENTRY_DSN: process.env.SENTRY_DSN,
 };

@@ -8,3 +8,11 @@ processes:
       command: "cd .devbox/virtenv/postgresql && pg_ctl stop -m fast"
     availability:
       restart: "always"
+
+  minio:
+    command: "minio server temp/minio-data --console-address ':9001'"
+    is_daemon: true
+    shutdown:
+      command: "pkill minio"
+    availability:
+      restart: "always"

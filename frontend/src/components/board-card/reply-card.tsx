@@ -10,6 +10,7 @@ import StarterKit from '@tiptap/starter-kit';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { ToggleQuotesButton } from '@/components/board-card/toggle-quotes-button';
 import {
   COLORS,
@@ -28,7 +29,8 @@ import { useEmailIframe } from '@/hooks/use-email-iframe';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
 import { createQuotedHtml, formatQuoteHeader, sanitizeBodyHtml } from '@/utils/email';
-import { cn } from '@/utils/strings';
+import { cn, formatBytes } from '@/utils/strings';
+import { API_ENDPOINTS } from '@/utils/urls';
 
 const AUTO_SAVE_INTERVAL_MS = 1_000;
 
@@ -36,6 +38,7 @@ type EmailMessagesData = inferRouterOutputs<TRPCRouter>['emailMessage']['getEmai
 type EmailDraft = EmailMessagesData['boardCard']['emailDraft'];
 type Participant = NonNullable<EmailDraft>['from'];
 type EmailMessage = EmailMessagesData['emailMessagesAsc'][number];
+type FileAttachment = NonNullable<EmailDraft>['fileAttachments'][number];
 
 const participantToInput = (participant: Participant) =>
   participant.name ? `${participant.name} <${participant.email}>` : participant.email;
@@ -88,10 +91,12 @@ export const ReplyCard = ({
   const [ccInput, setCcInput] = useState(defaultCc);
   const [bccInput, setBccInput] = useState(defaultBcc);
   const [showCcBcc, setShowCcBcc] = useState(defaultCc !== '' || defaultBcc !== '');
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChanges] = useState(!emailDraft);
   const autosaveIntervalRef = useRef<number | null>(null);
   const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
   const blockquotesIframeRef = useRef<HTMLIFrameElement>(null);
+  const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<FileAttachment[]>(emailDraft?.fileAttachments || []);
 
   const { data: emailAddressesData } = useQuery({ ...trpc.emailAddress.getEmailAddresses.queryOptions({ boardId }) });
   const emailAddresses = emailAddressesData?.emailAddresses || [];
@@ -194,7 +199,12 @@ export const ReplyCard = ({
 
   const { sanitizedHtml: sanitizedQuotedHtml, sanitizedDisplayHtml: sanitizedDisplayQuotedHtml } = useMemo(() => {
     if (!quotedHtml || !lastEmailMessage) return { sanitizedHtml: '', sanitizedDisplayHtml: '' };
-    return sanitizeBodyHtml({ bodyHtml: quotedHtml, attachments: lastEmailMessage.attachments, boardId, boardCardId });
+    return sanitizeBodyHtml({
+      bodyHtml: quotedHtml,
+      gmailAttachments: lastEmailMessage.gmailAttachments,
+      boardId,
+      boardCardId,
+    });
   }, [quotedHtml, lastEmailMessage, boardId, boardCardId]);
 
   useEmailIframe(blockquotesIframeRef, {
@@ -386,8 +396,86 @@ export const ReplyCard = ({
     setHasChanges(true);
   };
 
+  const uploadAttachment = async (file: File) => {
+    setUploadingFiles((prev) => [...prev, file.name]);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(
+        `${API_ENDPOINTS.FILE_ATTACHMENT_UPLOAD}?boardId=${encodeURIComponent(boardId)}&boardCardId=${encodeURIComponent(boardCardId)}`,
+        { method: 'POST', body: formData, credentials: 'include' },
+      );
+      if (!response.ok) throw new Error('Upload failed');
+
+      const { fileAttachment } = (await response.json()) as { fileAttachment: FileAttachment };
+      setAttachments((prev) => [...prev, fileAttachment]);
+      queryClient.setQueryData(trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId }), (oldData) => {
+        if (!oldData?.boardCard.emailDraft) return oldData;
+        return {
+          ...oldData,
+          boardCard: {
+            ...oldData.boardCard,
+            emailDraft: {
+              ...oldData.boardCard.emailDraft,
+              fileAttachments: [...(oldData.boardCard.emailDraft.fileAttachments || []), fileAttachment],
+            },
+          },
+        } satisfies typeof oldData;
+      });
+    } catch (error) {
+      console.error('Failed to upload attachment:', error);
+    } finally {
+      setUploadingFiles((prev) => prev.filter((name) => name !== file.name));
+    }
+  };
+
+  const deleteAttachment = async (attachmentId: string) => {
+    try {
+      const response = await fetch(
+        `${API_ENDPOINTS.FILE_ATTACHMENT_DELETE}?boardId=${encodeURIComponent(boardId)}&boardCardId=${encodeURIComponent(boardCardId)}&attachmentId=${encodeURIComponent(attachmentId)}`,
+        { method: 'DELETE', credentials: 'include' },
+      );
+      if (!response.ok) throw new Error('Delete failed');
+
+      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+      queryClient.setQueryData(trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId }), (oldData) => {
+        if (!oldData?.boardCard.emailDraft) return oldData;
+        return {
+          ...oldData,
+          boardCard: {
+            ...oldData.boardCard,
+            emailDraft: {
+              ...oldData.boardCard.emailDraft,
+              fileAttachments: (oldData.boardCard.emailDraft.fileAttachments || []).filter(
+                (a) => a.id !== attachmentId,
+              ),
+            },
+          },
+        } satisfies typeof oldData;
+      });
+    } catch (error) {
+      console.error('Failed to delete attachment:', error);
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (acceptedFiles) => {
+      for (const file of acceptedFiles) {
+        uploadAttachment(file);
+      }
+    },
+    noClick: true,
+  });
+
   return (
-    <Card className="p-0 flex flex-col gap-0">
+    <Card className="p-0 flex flex-col gap-0" {...getRootProps()}>
+      {isDragActive && (
+        <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center z-10">
+          <div className="text-primary font-medium">Drop files here to attach</div>
+        </div>
+      )}
       <div className="px-4 py-2">
         <div className="flex items-center gap-2">
           <div className="text-xs text-muted-foreground">From</div>
@@ -466,7 +554,49 @@ export const ReplyCard = ({
           )}
         </div>
       )}
+      {(attachments.length > 0 || uploadingFiles.length > 0) && (
+        <div className="px-4 pb-2 flex flex-wrap gap-2">
+          {attachments.map((attachment) => (
+            <div
+              key={attachment.id}
+              className="flex items-center gap-2 px-2 py-1 bg-secondary rounded text-xs border border-border"
+            >
+              <span className="truncate max-w-[200px]">{attachment.filename}</span>
+              <span className="text-muted-foreground">({formatBytes(attachment.size)})</span>
+              <button
+                type="button"
+                onClick={() => deleteAttachment(attachment.id)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {uploadingFiles.map((filename) => (
+            <div
+              key={filename}
+              className="flex items-center gap-2 px-2 py-1 bg-secondary/50 rounded text-xs border border-border"
+            >
+              <Spinner data-icon="inline-start" className="w-3 h-3" />
+              <span className="truncate max-w-[200px]">{filename}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="flex justify-end gap-2.5 px-3 pb-3">
+        <input {...getInputProps()} />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+            input?.click();
+          }}
+        >
+          Attach
+        </Button>
         <Button variant="outline" size="sm" onClick={handleDiscard}>
           {emailDraft ? 'Discard' : 'Cancel'}
         </Button>
