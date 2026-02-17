@@ -163,24 +163,26 @@ code {
     @apply bg-background text-foreground;
   }
 
-  /* For Webkit browsers (Chrome, Safari, Edge) */
-  ::-webkit-scrollbar {
+  ::-webkit-scrollbar { /* For Webkit browsers (Chrome, Safari, Edge) */
     width: 4px; /* Narrow width for vertical scrollbar */
     height: 4px; /* Narrow height for horizontal scrollbar */
   }
-
   ::-webkit-scrollbar-track {
     background: color-mix(in oklch, var(--muted) 50%, transparent); /* Light gray background */
   }
-
   ::-webkit-scrollbar-thumb {
     background: color-mix(in oklch, var(--muted-foreground) 30%, transparent); /* Light gray thumb */
     border-radius: 4px; /* Optional: rounded edges */
   }
-
-  /* For Firefox */
-  * {
+  * { /* For Firefox */
     scrollbar-width: thin; /* Makes it narrow */
     scrollbar-color: color-mix(in oklch, var(--muted-foreground) 30%, transparent) color-mix(in oklch, var(--muted) 50%, transparent); /* thumb, track */
+  }
+
+  .email-body a {
+    @apply text-accent-blue;
+  }
+  .email-body blockquote {
+    @apply ml-1 border-l border-ring pl-2;
   }
 }

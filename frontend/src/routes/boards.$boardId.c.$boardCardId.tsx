@@ -144,7 +144,7 @@ const EmailMessageCard = ({ emailMessage }: { emailMessage: EmailMessage }) => {
       </div>
       {emailMessage.bodyHtml ? (
         <div
-          className="text-sm prose prose-sm max-w-none"
+          className="text-sm email-body"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: Using DOMPurify to sanitize HTML content
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(emailMessage.bodyHtml) }}
         />
