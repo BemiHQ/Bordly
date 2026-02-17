@@ -19,7 +19,7 @@ export class EmailMessage extends BaseEntity {
   @ManyToOne()
   domain: Domain;
 
-  @OneToMany({ mappedBy: (attachment: Attachment) => attachment.emailMessage })
+  @OneToMany({ mappedBy: (attachment: Attachment) => attachment.emailMessage, orphanRemoval: true })
   attachments = new Collection<Attachment>(this);
 
   @Property()
