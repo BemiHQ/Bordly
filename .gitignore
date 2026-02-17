@@ -4,3 +4,4 @@ dist/
 
 .DS_Store
 .env
+devbox.d/nginx/nginx.conf

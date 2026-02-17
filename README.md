@@ -7,3 +7,27 @@ Copy and customize `.env` files:
 ```
 cp backend/.env.example backend/.env
 ```
+
+Add to `/etc/hosts`:
+
+```
+127.0.0.1	api.bordly.dev
+127.0.0.1	app.bordly.dev
+```
+
+To regenerate SSL certificates, run:
+
+```
+cd devbox.d/nginx && mkcert app.bordly.dev && mkcert api.bordly.dev
+```
+
+## Running the application
+
+```
+make init
+make up-services
+make install
+make up
+```
+
+Open [app.bordly.dev](https://app.bordly.dev) in your browser.

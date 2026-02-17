@@ -1,0 +1,50 @@
+# The nginx.conf in this folder is automatically generated from nginx.template
+# To modify your NGINX config, edit the nginx.template file
+
+events {}
+http {
+  server {
+    listen 443 ssl;
+    server_name app.bordly.dev;
+
+    ssl_certificate app.bordly.dev.pem;
+    ssl_certificate_key app.bordly.dev-key.pem;
+
+    error_log error.log error;
+    access_log access.log;
+    client_body_temp_path temp/client_body;
+    proxy_temp_path temp/proxy;
+    fastcgi_temp_path temp/fastcgi;
+    uwsgi_temp_path temp/uwsgi;
+    scgi_temp_path temp/scgi;
+    server_tokens off;
+
+    location / {
+      proxy_pass http://localhost:3001;
+    }
+  }
+
+  server {
+    listen 443 ssl;
+    server_name api.bordly.dev;
+
+    ssl_certificate api.bordly.dev.pem;
+    ssl_certificate_key api.bordly.dev-key.pem;
+
+    error_log error.log error;
+    access_log access.log;
+    client_body_temp_path temp/client_body;
+    proxy_temp_path temp/proxy;
+    fastcgi_temp_path temp/fastcgi;
+    uwsgi_temp_path temp/uwsgi;
+    scgi_temp_path temp/scgi;
+    server_tokens off;
+
+    location / {
+      proxy_pass http://127.0.0.1:3000;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    }
+  }
+}
+

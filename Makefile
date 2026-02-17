@@ -1,3 +1,6 @@
+init:
+	devbox install
+
 sh:
 	devbox shell
 
@@ -12,6 +15,15 @@ up-backend:
 
 up-frontend:
 	devbox run "cd frontend && pnpm run dev"
+
+up-services:
+	devbox services start nginx
+
+down-services:
+	devbox services stop
+
+ps:
+	devbox services ls
 
 build:
 	devbox run "cd backend && pnpm run build && cd ../frontend && pnpm run build"
