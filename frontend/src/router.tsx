@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query';
@@ -14,13 +15,24 @@ import { TRPCProvider } from '@/trpc';
 import { ENV } from '@/utils/env';
 import { isSsr } from '@/utils/ssr';
 
+Sentry.init({
+  dsn: ENV.VITE_SENTRY_DSN,
+  enabled: !!ENV.VITE_SENTRY_DSN,
+  integrations: [],
+  tracesSampleRate: 0.0,
+  profilesSampleRate: 0.0,
+  sendDefaultPii: false,
+});
+
+const SESSION_COOKIE_NAME = 'sId';
+
 let BROWSER_QUERY_CLIENT: QueryClient | undefined;
 
 const fetchSessionCookie = createServerFn({ method: 'GET' }).handler(async () => {
   const request = getRequest();
   const cookieHeader = request.headers.get('cookie') || '';
-  const sessionIdMatch = cookieHeader.match(new RegExp(`${ENV.VITE_SESSION_COOKIE_NAME}=([^;]+)`));
-  const sessionCookie = sessionIdMatch ? `${ENV.VITE_SESSION_COOKIE_NAME}=${sessionIdMatch[1]}` : null;
+  const sessionIdMatch = cookieHeader.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`));
+  const sessionCookie = sessionIdMatch ? `${SESSION_COOKIE_NAME}=${sessionIdMatch[1]}` : null;
 
   console.log(
     `[TRPC client] fetch from "${request.url.split(request.headers.get('host') || 'unknown-host')[1]}" ${sessionCookie ? 'with' : 'without'} session cookie`,

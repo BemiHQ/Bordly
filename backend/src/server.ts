@@ -12,18 +12,20 @@ import { setupFastifyErrorHandler } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
 import { closePgBoss } from '@/utils/pg-boss';
 
+const SESSION_COOKIE_NAME = 'sId';
+
 const fastify = Fastify({ logger: false });
 setupFastifyErrorHandler(fastify);
 
 fastify.addHook('onRequest', (request, _reply, done) => {
-  if (!request.url.startsWith('/trpc/')) {
+  if (!request.url.startsWith('/trpc/') && request.url !== '/internal/health') {
     console.log(`[HTTP] ${request.method} ${request.url}`);
   }
   RequestContext.create(orm.em, done);
 });
 
 fastify.addHook('onResponse', (request, reply, done) => {
-  if (!request.url.startsWith('/trpc/')) {
+  if (!request.url.startsWith('/trpc/') && request.url !== '/internal/health') {
     console.log(
       `[HTTP] ${request.method} ${request.url} [status=${reply.statusCode}, duration=${reply.elapsedTime.toFixed(2)}ms]`,
     );
@@ -34,7 +36,7 @@ fastify.addHook('onResponse', (request, reply, done) => {
 fastify.register(cors, { origin: ENV.APP_ENDPOINT, credentials: true });
 fastify.register(secureSession, {
   key: Buffer.from(ENV.COOKIE_SECRET, 'base64'),
-  cookieName: 'sId',
+  cookieName: SESSION_COOKIE_NAME,
   cookie: {
     secure: true,
     httpOnly: true,
