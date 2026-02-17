@@ -7,9 +7,9 @@ import { ENV } from '@/utils/env';
 import { orm } from '@/utils/orm';
 
 export class BoardInviteService {
-  static findPendingInvites(
+  static findPendingInvites<Hint extends string = never>(
     email: string,
-    { populate }: { populate?: Populate<BoardInvite, 'string'> } = { populate: [] },
+    { populate }: { populate?: Populate<BoardInvite, Hint> } = { populate: [] },
   ) {
     if (!email) return null;
     return orm.em.find(BoardInvite, { email, state: State.PENDING }, { populate });

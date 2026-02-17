@@ -7,7 +7,10 @@ import { BoardInviteService } from '@/services/board-invite.service';
 import { orm } from '@/utils/orm';
 
 export class UserService {
-  static tryFindById(id: string, { populate }: { populate?: Populate<User, 'string'> } = { populate: [] }) {
+  static tryFindById<Hint extends string = never>(
+    id: string,
+    { populate }: { populate?: Populate<User, Hint> } = { populate: [] },
+  ) {
     if (!id) return null;
     return orm.em.findOne(User, { id }, { populate });
   }

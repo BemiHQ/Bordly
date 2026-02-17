@@ -12,9 +12,9 @@ import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { formattedTimeAgo } from '@/utils/dates';
 import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
+import { formattedTimeAgo } from '@/utils/time';
 import { ROUTES } from '@/utils/urls';
 
 const LOCAL_STORAGE_KEY_SHOW_UNREAD_ONLY = 'showUnreadOnly';
@@ -225,7 +225,17 @@ function Home() {
       {boardColumns.length > 0 && (
         <div className="flex overflow-x-auto p-3 gap-3">
           {boardColumns.map((boardColumn) => {
-            const boardCards = boardCardsData?.boardCards.filter((card) => card.boardColumnId === boardColumn.id);
+            const boardCards = boardCardsData?.boardCards
+              .filter((card) => card.boardColumnId === boardColumn.id)
+              .sort((a, b) => {
+                const aMessages = boardCardsData.emailMessagesByThreadId[a.externalThreadId];
+                const bMessages = boardCardsData.emailMessagesByThreadId[b.externalThreadId];
+                const aLastEmail = aMessages[aMessages.length - 1];
+                const bLastEmail = bMessages[bMessages.length - 1];
+                return (
+                  new Date(bLastEmail.externalCreatedAt).getTime() - new Date(aLastEmail.externalCreatedAt).getTime()
+                );
+              });
             return (
               <BoardColumn
                 key={boardColumn.id}

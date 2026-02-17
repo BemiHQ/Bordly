@@ -5,11 +5,55 @@ import { orm } from '@/utils/orm';
 
 const REQUEST_TIMEOUT_MS = 5_000;
 
+const SKIP_CONSUMER_DOMAINS = [
+  'gmail.com',
+  'outlook.com',
+  'yahoo.com',
+  'hotmail.com',
+  'icloud.com',
+  'protonmail.com',
+  'hey.com',
+];
+
 const CUSTOM_ROOT_DOMAIN_ICONS = {
   // CORS issues
   'getsentry.com': '/domain-icons/getsentry.com.svg',
   'instagram.com': '/domain-icons/instagram.com.png',
+  'gusto.com': '/domain-icons/gusto.com.png',
 } as Record<string, string>;
+
+const DOUBLE_DOMAIN_NAMESPACES = [
+  'co.uk',
+  'ac.uk',
+  'org.uk',
+  'gov.uk',
+  'com.br',
+  'net.br',
+  'org.br',
+  'gov.br',
+  'edu.br',
+  'art.br',
+  'vet.br',
+  'wiki.br',
+  'bet.br',
+  'com.au',
+  'edu.au',
+  'org.au',
+  'gov.au',
+  'asn.au',
+  'co.jp',
+  'ac.jp',
+  'co.in',
+  'ac.in',
+  'co.nz',
+  'ac.nz',
+  'co.za',
+  'co.ao',
+  'co.bb',
+  'co.ca',
+  'co.ck',
+  'co.cr',
+];
 
 export class DomainService {
   static async findDomainIconUrlByName(domainNames: string[]) {
@@ -24,9 +68,9 @@ export class DomainService {
   }
 
   static async setIcons(domainNames: string[]) {
-    const existingDomains = await orm.em.find(Domain, {
-      name: { $in: domainNames },
-    });
+    if (domainNames.length === 0) return;
+
+    const existingDomains = await orm.em.find(Domain, { name: { $in: domainNames } });
 
     const domainByName: Record<string, Domain> = {};
     for (const domain of existingDomains) {
@@ -34,11 +78,15 @@ export class DomainService {
     }
 
     for (const domainName of domainNames) {
-      if (domainByName[domainName]?.iconUrl) continue;
+      if (domainByName[domainName]?.iconUrl || SKIP_CONSUMER_DOMAINS.includes(domainName)) continue;
 
       let foundIconUrl: string | undefined;
 
-      const rootDomainName = domainName.split('.').slice(-2).join('.'); // e.g., sub.example.com -> example.com
+      const rootDomainName = domainName
+        .split('.')
+        .slice(DOUBLE_DOMAIN_NAMESPACES.some((ns) => domainName.endsWith(`.${ns}`)) ? -3 : -2)
+        .join('.'); // e.g., sub.example.com -> example.com, sub.example.co.uk -> example.co.uk
+
       if (CUSTOM_ROOT_DOMAIN_ICONS[rootDomainName]) {
         foundIconUrl = CUSTOM_ROOT_DOMAIN_ICONS[rootDomainName];
       } else {
@@ -55,13 +103,13 @@ export class DomainService {
             if (response.ok) {
               const html = await response.text();
               const $ = cheerio.load(html);
-
               const iconLink = $('link[rel="icon"], link[rel="shortcut icon"]').first();
               if (iconLink.length) {
                 const href = iconLink.attr('href');
                 if (href) {
-                  const finalDomainName = new URL(response.url).hostname;
-                  foundIconUrl = href.startsWith('http') ? href : new URL(href, `https://${finalDomainName}`).href; // Handle relative URLs
+                  foundIconUrl = href.startsWith('http')
+                    ? href
+                    : new URL(href, `https://${new URL(response.url).hostname}`).href; // Handle relative URLs
                 }
               }
             }
@@ -86,8 +134,9 @@ export class DomainService {
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS); // 5 seconds timeout
 
     try {
-      console.log(`Fetching URL: ${url}`);
+      console.log(`[FETCH] URL: ${url}`);
       const response = await fetch(url, { method: 'GET', redirect: 'follow', signal: controller.signal });
+      if (!response.ok) console.log(`[FETCH] ${url} returned ${response.status}`);
       return response;
     } finally {
       clearTimeout(timeout);

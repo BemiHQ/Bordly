@@ -36,7 +36,8 @@
         "recommended": false
       },
       "complexity": {
-        "noStaticOnlyClass": "off"
+        "noStaticOnlyClass": "off",
+        "noBannedTypes": "off"
       },
       "suspicious": {
         "noAssignInExpressions": "off"

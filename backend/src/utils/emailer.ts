@@ -7,7 +7,7 @@ export class Emailer {
   static send({ from, to, subject, bodyText }: { from: string; to: string[]; subject: string; bodyText: string }) {
     console.log(
       [
-        'Sending email via AWS SES:',
+        '[SES] Sending email:',
         `From: ${from}`,
         `To: ${to.join(', ')}`,
         `Subject: ${subject}`,

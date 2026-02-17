@@ -6,16 +6,23 @@ import { newOauth2Client } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
 
 export class GmailAccountService {
-  static tryFindByGoogleId(
+  static tryFindByGoogleId<Hint extends string = never>(
     googleId?: string | null,
-    { populate }: { populate?: Populate<GmailAccount, 'string'> } = { populate: [] },
+    { populate }: { populate?: Populate<GmailAccount, Hint> } = { populate: [] },
   ) {
     if (!googleId) return null;
     return orm.em.findOne(GmailAccount, { googleId }, { populate });
   }
 
-  static findById(id: string, { populate }: { populate?: Populate<GmailAccount, 'string'> } = { populate: [] }) {
+  static findById<Hint extends string = never>(
+    id: string,
+    { populate }: { populate?: Populate<GmailAccount, Hint> } = { populate: [] },
+  ) {
     return orm.em.findOneOrFail(GmailAccount, { id }, { populate });
+  }
+
+  static findAllAccounts() {
+    return orm.em.find(GmailAccount, {});
   }
 
   static async refreshAccessToken(

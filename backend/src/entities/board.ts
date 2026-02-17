@@ -33,6 +33,10 @@ export class Board extends BaseEntity {
     this.validate();
   }
 
+  get initialized() {
+    return this.boardColumns.getItems().length > 0;
+  }
+
   get userColumns() {
     return this.boardColumns.getItems().filter((col) => col.position <= MAX_USER_COLUMN_POSITION);
   }
