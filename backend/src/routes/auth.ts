@@ -1,13 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { type Auth, google } from 'googleapis';
+import { Env } from '../utils/env';
 
 const OAUTH2_CLIENT: Auth.OAuth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_OAUTH_CLIENT_ID,
-  process.env.GOOGLE_OAUTH_CLIENT_SECRET,
-  process.env.GOOGLE_OAUTH_CALLBACK_URL,
+  Env.GOOGLE_OAUTH_CLIENT_ID,
+  Env.GOOGLE_OAUTH_CLIENT_SECRET,
+  Env.GOOGLE_OAUTH_CALLBACK_URL,
 );
-
-console.log(process.env.GOOGLE_OAUTH_CLIENT_ID);
 
 const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.profile',

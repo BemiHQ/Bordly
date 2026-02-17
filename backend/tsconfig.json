@@ -2,12 +2,14 @@
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
-     "rootDir": "./src",
+    "rootDir": "./src",
     "outDir": "./dist",
+    "baseUrl": "./src",
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "target": "esnext",
     "types": [],
     // For nodejs:
@@ -40,5 +42,10 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
+
+    // MikroORM
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true
   }
 }
