@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { type BoardFilters, BoardFiltersProvider, useBoardFilters } from '@/hooks/use-board-filters';
 import { isSsr } from '@/utils/ssr';
 
-type BoardData = inferRouterOutputs<TRPCRouter>['board']['getBoard'];
+type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
 type Board = BoardData['board'];
 type GmailAccount = BoardData['gmailAccounts'][number];
 

@@ -1,6 +1,6 @@
-import type { Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
-import { BoardInvite, State } from '@/entities/board-invite';
+import { BoardInvite, Role, State } from '@/entities/board-invite';
+import { BoardMember } from '@/entities/board-member';
 import type { User } from '@/entities/user';
 import { Emailer, NO_REPLY_EMAIL } from '@/utils/emailer';
 import { ENV } from '@/utils/env';
@@ -14,19 +14,34 @@ const INVITE_EMAIL_TEMPLATE = `{{inviterName}} has invited you to collaborate on
 If you did not expect this invitation, you can safely ignore this email.`;
 
 export class BoardInviteService {
-  static findPendingInvites<Hint extends string = never>(
-    email: string,
-    { populate }: { populate?: Populate<BoardInvite, Hint> } = { populate: [] },
-  ) {
-    if (!email) return null;
-    return orm.em.find(BoardInvite, { email, state: State.PENDING }, { populate });
-  }
-
-  static findPending(board: Board) {
+  static findPendingInvites(board: Board) {
     return orm.em.find(BoardInvite, { board, state: State.PENDING });
   }
 
-  static async createBoardInvites({ board, emails, invitedBy }: { board: Board; emails: string[]; invitedBy: User }) {
+  static async acceptPendingInvites({ email, user }: { email: string; user: User }) {
+    const boardInvites = await orm.em.find(BoardInvite, { email, state: State.PENDING }, { populate: ['board'] });
+    const invitesAndMembers: { boardInvite: BoardInvite; boardMember: BoardMember }[] = [];
+
+    if (boardInvites && boardInvites.length > 0) {
+      for (const boardInvite of boardInvites) {
+        const boardMember = new BoardMember({ board: boardInvite.board, user, role: boardInvite.role });
+        boardInvite.markAsAccepted();
+        invitesAndMembers.push({ boardInvite, boardMember });
+      }
+    }
+
+    return invitesAndMembers;
+  }
+
+  static async create(board: Board, { email, role, invitedBy }: { email: string; role: Role; invitedBy: User }) {
+    const boardInvite = new BoardInvite({ board, state: State.PENDING, email, role, invitedBy });
+    orm.em.persist(boardInvite);
+    await orm.em.flush();
+    await BoardInviteService.sendInviteEmail(boardInvite);
+    return boardInvite;
+  }
+
+  static async createMemberBoardInvites(board: Board, { emails, invitedBy }: { emails: string[]; invitedBy: User }) {
     if (emails.length === 0) return [];
 
     const existingBoardInvites = await orm.em.find(BoardInvite, {
@@ -34,30 +49,50 @@ export class BoardInviteService {
       email: { $in: emails },
       state: [State.PENDING, State.ACCEPTED],
     });
-    const existingInviteEmails = existingBoardInvites.map((invite) => invite.email);
+    const existingInviteEmails = existingBoardInvites.map((boardInvite) => boardInvite.email);
 
-    const invites = emails
+    const boardInvites = emails
       .filter((email) => !existingInviteEmails.includes(email))
       .map((email) => {
-        const invite = new BoardInvite({ board, email, invitedBy });
-        orm.em.persist(invite);
-        return invite;
+        const boardInvite = new BoardInvite({ board, state: State.PENDING, email, role: Role.MEMBER, invitedBy });
+        orm.em.persist(boardInvite);
+        return boardInvite;
       });
     await orm.em.flush();
 
-    for (const invite of invites) {
-      await Emailer.send({
-        from: NO_REPLY_EMAIL,
-        to: [invite.email],
-        subject: `You are invited by ${invitedBy.name}`,
-        bodyText: renderTemplate(INVITE_EMAIL_TEMPLATE, {
-          inviterName: invitedBy.name,
-          boardName: board.name,
-          inviteLink: ENV.APP_ENDPOINT,
-        }),
-      });
+    for (const boardInvite of boardInvites) {
+      await BoardInviteService.sendInviteEmail(boardInvite);
     }
 
-    return invites;
+    return boardInvites;
+  }
+
+  static async setRole(board: Board, { boardInviteId, role }: { boardInviteId: string; role: Role }) {
+    const boardInvite = await BoardInviteService.findById(board, { boardInviteId });
+    boardInvite.setRole(role);
+    await orm.em.persist(boardInvite).flush();
+    return boardInvite;
+  }
+
+  static async delete(board: Board, { boardInviteId }: { boardInviteId: string }) {
+    const boardInvite = await BoardInviteService.findById(board, { boardInviteId });
+    await orm.em.remove(boardInvite).flush();
+  }
+
+  static async sendInviteEmail(boardInvite: BoardInvite) {
+    await Emailer.send({
+      from: NO_REPLY_EMAIL,
+      to: [boardInvite.email],
+      subject: `You are invited by ${boardInvite.invitedBy.name}`,
+      bodyText: renderTemplate(INVITE_EMAIL_TEMPLATE, {
+        inviterName: boardInvite.invitedBy.name,
+        boardName: boardInvite.board.name,
+        inviteLink: ENV.APP_ENDPOINT,
+      }),
+    });
+  }
+
+  private static async findById(board: Board, { boardInviteId }: { boardInviteId: string }) {
+    return orm.em.findOneOrFail(BoardInvite, { board, id: boardInviteId });
   }
 }

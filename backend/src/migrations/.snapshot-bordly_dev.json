@@ -1134,6 +1134,15 @@
           "length": 6,
           "mappedType": "datetime"
         },
+        "board_id": {
+          "name": "board_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "uuid"
+        },
         "user_id": {
           "name": "user_id",
           "type": "uuid",
@@ -1152,15 +1161,6 @@
           "nullable": false,
           "enumItems": ["ADMIN", "MEMBER"],
           "mappedType": "enum"
-        },
-        "board_id": {
-          "name": "board_id",
-          "type": "uuid",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "uuid"
         }
       },
       "name": "board_members",
@@ -1193,20 +1193,20 @@
       ],
       "checks": [],
       "foreignKeys": {
-        "board_members_user_id_foreign": {
-          "constraintName": "board_members_user_id_foreign",
-          "columnNames": ["user_id"],
-          "localTableName": "public.board_members",
-          "referencedColumnNames": ["id"],
-          "referencedTableName": "public.users",
-          "updateRule": "cascade"
-        },
         "board_members_board_id_foreign": {
           "constraintName": "board_members_board_id_foreign",
           "columnNames": ["board_id"],
           "localTableName": "public.board_members",
           "referencedColumnNames": ["id"],
           "referencedTableName": "public.boards",
+          "updateRule": "cascade"
+        },
+        "board_members_user_id_foreign": {
+          "constraintName": "board_members_user_id_foreign",
+          "columnNames": ["user_id"],
+          "localTableName": "public.board_members",
+          "referencedColumnNames": ["id"],
+          "referencedTableName": "public.users",
           "updateRule": "cascade"
         }
       },
@@ -1262,6 +1262,16 @@
           "nullable": false,
           "mappedType": "uuid"
         },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "enumItems": ["PENDING", "ACCEPTED", "DECLINED"],
+          "mappedType": "enum"
+        },
         "email": {
           "name": "email",
           "type": "varchar(255)",
@@ -1272,14 +1282,14 @@
           "length": 255,
           "mappedType": "string"
         },
-        "state": {
-          "name": "state",
+        "role": {
+          "name": "role",
           "type": "text",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "enumItems": ["PENDING", "ACCEPTED", "DECLINED"],
+          "enumItems": ["ADMIN", "MEMBER"],
           "mappedType": "enum"
         }
       },

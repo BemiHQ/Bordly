@@ -1,6 +1,6 @@
 import { Migration } from '@mikro-orm/migrations';
 
-export class Migration20260131132645_squash_migrations extends Migration {
+export class Migration20260202154812_squash_migrations extends Migration {
   override async up(): Promise<void> {
     this.addSql(`create extension if not exists "uuid-ossp";`);
     this.addSql(
@@ -61,7 +61,7 @@ export class Migration20260131132645_squash_migrations extends Migration {
     );
 
     this.addSql(
-      `create table "board_members" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "user_id" uuid not null, "role" text check ("role" in ('ADMIN', 'MEMBER')) not null, "board_id" uuid not null, constraint "board_members_pkey" primary key ("id"));`,
+      `create table "board_members" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid not null, "user_id" uuid not null, "role" text check ("role" in ('ADMIN', 'MEMBER')) not null, constraint "board_members_pkey" primary key ("id"));`,
     );
     this.addSql(`create index "board_members_user_id_index" on "board_members" ("user_id");`);
     this.addSql(
@@ -69,7 +69,7 @@ export class Migration20260131132645_squash_migrations extends Migration {
     );
 
     this.addSql(
-      `create table "board_invites" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid not null, "invited_by_id" uuid not null, "email" varchar(255) not null, "state" text check ("state" in ('PENDING', 'ACCEPTED', 'DECLINED')) not null, constraint "board_invites_pkey" primary key ("id"));`,
+      `create table "board_invites" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid not null, "invited_by_id" uuid not null, "state" text check ("state" in ('PENDING', 'ACCEPTED', 'DECLINED')) not null, "email" varchar(255) not null, "role" text check ("role" in ('ADMIN', 'MEMBER')) not null, constraint "board_invites_pkey" primary key ("id"));`,
     );
     this.addSql(`create index "board_invites_email_index" on "board_invites" ("email");`);
     this.addSql(
@@ -109,10 +109,10 @@ export class Migration20260131132645_squash_migrations extends Migration {
     );
 
     this.addSql(
-      `alter table "board_members" add constraint "board_members_user_id_foreign" foreign key ("user_id") references "users" ("id") on update cascade;`,
+      `alter table "board_members" add constraint "board_members_board_id_foreign" foreign key ("board_id") references "boards" ("id") on update cascade;`,
     );
     this.addSql(
-      `alter table "board_members" add constraint "board_members_board_id_foreign" foreign key ("board_id") references "boards" ("id") on update cascade;`,
+      `alter table "board_members" add constraint "board_members_user_id_foreign" foreign key ("user_id") references "users" ("id") on update cascade;`,
     );
 
     this.addSql(

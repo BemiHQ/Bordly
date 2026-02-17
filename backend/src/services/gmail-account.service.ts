@@ -40,7 +40,7 @@ export class GmailAccountService {
     await orm.em.persist([gmailAccount, boardMember]).flush();
   }
 
-  static async deleteFromBoard(gmailAccountId: string, { board }: { board: Board }) {
+  static async deleteFromBoard(board: Board, { gmailAccountId }: { gmailAccountId: string }) {
     const gmailAccount = await GmailAccountService.findById(gmailAccountId, { populate: ['user.boardMembers'] });
     if (gmailAccount.board!.id !== board.id) {
       throw new Error('Gmail account does not belong to the specified board');

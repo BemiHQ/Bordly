@@ -46,8 +46,8 @@ export class User extends BaseEntity {
     return {
       id: this.id,
       name: this.name,
+      email: this.email,
       photoUrl: this.photoUrl,
-      boards: this.boardMembers.getItems().map((bm) => bm.board.toJson()),
     };
   }
 

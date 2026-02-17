@@ -8,6 +8,7 @@ export const useOptimisticMutation = <TData, TError, TMutationParams>({
   queryKey,
   onExecute,
   onSuccess,
+  successToast,
   errorToast,
   mutation,
 }: {
@@ -15,6 +16,7 @@ export const useOptimisticMutation = <TData, TError, TMutationParams>({
   queryKey: readonly unknown[];
   onExecute: (params: TMutationParams) => void;
   onSuccess?: (data: TData) => void;
+  successToast?: string;
   errorToast: string;
   mutation: ReturnType<typeof useMutation<TData, TError, TMutationParams>>;
 }) => {
@@ -33,8 +35,12 @@ export const useOptimisticMutation = <TData, TError, TMutationParams>({
           toast.error(errorToast, { position: 'top-center' });
         },
       });
+
+      if (successToast) {
+        toast.success(successToast, { position: 'top-center' });
+      }
     },
-    [queryKey, queryClient, mutation, onExecute, onSuccess, errorToast],
+    [queryKey, queryClient, mutation, onExecute, onSuccess, successToast, errorToast],
   );
 
   return execute;

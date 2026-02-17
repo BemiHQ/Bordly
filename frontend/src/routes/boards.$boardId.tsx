@@ -37,7 +37,7 @@ const REFETCH_INTERVAL_MS = 30_000;
 
 const ARCHIVE_DROP_ZONE_ID = 'archive-zone';
 
-type BoardData = inferRouterOutputs<TRPCRouter>['board']['getBoard'];
+type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
 type Board = BoardData['board'];
 type BoardColumn = BoardData['boardColumns'][number];
 
@@ -417,7 +417,7 @@ function Home() {
   const params = Route.useParams();
 
   const { data: boardData } = useQuery({
-    ...context.trpc.board.getBoard.queryOptions({ boardId: extractUuid(params.boardId) }),
+    ...context.trpc.board.get.queryOptions({ boardId: extractUuid(params.boardId) }),
     refetchInterval: ({ state: { data } }) => (data?.boardColumns.length === 0 ? REFETCH_INTERVAL_MS : false),
     refetchIntervalInBackground: true,
   });

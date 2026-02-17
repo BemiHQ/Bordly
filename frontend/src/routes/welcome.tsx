@@ -102,7 +102,7 @@ const InviteMembers = ({
   const { trpc } = Route.useRouteContext();
   const [emails, setEmails] = useState('');
   const createInvitesMutation = useMutation(
-    trpc.boardInvite.createInvites.mutationOptions({
+    trpc.boardInvite.createMemberBoardInvites.mutationOptions({
       onSuccess: () => setFinishedInviting(true),
       onError: () => toast.error('Failed to send invites. Please try again.', { position: 'top-center' }),
     }),

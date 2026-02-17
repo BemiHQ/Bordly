@@ -1,5 +1,4 @@
 import type { Populate } from '@mikro-orm/postgresql';
-import { BoardMember, Role } from '@/entities/board-member';
 import { GmailAccount } from '@/entities/gmail-account';
 import { User } from '@/entities/user';
 import { BoardInviteService } from '@/services/board-invite.service';
@@ -43,14 +42,9 @@ export class UserService {
     });
     orm.em.persist([user, gmailAccount]);
 
-    // Automatically accept any pending board invites
-    const boardInvites = await BoardInviteService.findPendingInvites(email, { populate: ['board'] });
-    if (boardInvites && boardInvites.length > 0) {
-      for (const boardInvite of boardInvites) {
-        const boardMember = new BoardMember({ board: boardInvite.board, user, role: Role.MEMBER });
-        boardInvite.markAsAccepted();
-        orm.em.persist([boardMember, boardInvite]);
-      }
+    const invitesAndMembers = await BoardInviteService.acceptPendingInvites({ email, user });
+    for (const { boardInvite, boardMember } of invitesAndMembers) {
+      orm.em.persist([boardInvite, boardMember]);
     }
 
     await orm.em.flush();

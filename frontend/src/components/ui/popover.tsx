@@ -11,6 +11,17 @@ export const PopoverTrigger = ({ ...props }: React.ComponentProps<typeof Popover
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
 };
 
+export const PopoverNonTrigger = ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) => {
+  return (
+    <div className="relative">
+      {children}
+      <PopoverTrigger asChild={asChild}>
+        <span className="absolute inset-0 pointer-events-none" />
+      </PopoverTrigger>
+    </div>
+  );
+};
+
 export const PopoverContent = ({
   className,
   align = 'center',

@@ -43,8 +43,8 @@ export class BoardCardService {
   }
 
   static async markAsRead<Hint extends string = never>(
-    boardCardId: string,
-    { board, populate }: { board: Board; populate?: Populate<BoardCard, Hint> },
+    board: Board,
+    { boardCardId, populate }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
   ) {
     const boardCard = await BoardCardService.findById(boardCardId, { board, populate });
 
@@ -55,8 +55,8 @@ export class BoardCardService {
   }
 
   static async markAsUnread<Hint extends string = never>(
-    boardCardId: string,
-    { board, populate }: { board: Board; populate?: Populate<BoardCard, Hint> },
+    board: Board,
+    { boardCardId, populate }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
   ) {
     const boardCard = await BoardCardService.findById(boardCardId, { board, populate });
     const firstEmailMessage = await EmailMessageService.findFirstByExternalThreadId(boardCard.externalThreadId);
@@ -68,8 +68,12 @@ export class BoardCardService {
   }
 
   static async setBoardColumn<Hint extends string = never>(
-    boardCardId: string,
-    { board, boardColumnId, populate }: { board: Board; boardColumnId: string; populate?: Populate<BoardCard, Hint> },
+    board: Board,
+    {
+      boardCardId,
+      boardColumnId,
+      populate,
+    }: { boardCardId: string; boardColumnId: string; populate?: Populate<BoardCard, Hint> },
   ) {
     const boardCard = await BoardCardService.findById(boardCardId, { board, populate });
     const boardColumn = await BoardColumnService.findById(boardColumnId, { board });
@@ -81,8 +85,8 @@ export class BoardCardService {
   }
 
   static async setState<Hint extends string = never>(
-    boardCardId: string,
-    { board, status, populate }: { board: Board; status: State; populate?: Populate<BoardCard, Hint> },
+    board: Board,
+    { boardCardId, status, populate }: { boardCardId: string; status: State; populate?: Populate<BoardCard, Hint> },
   ) {
     const boardCard = await BoardCardService.findById(boardCardId, { board, populate });
 

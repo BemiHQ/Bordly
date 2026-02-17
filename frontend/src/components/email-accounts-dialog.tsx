@@ -14,7 +14,7 @@ import { useBoardFilters } from '@/hooks/use-board-filters';
 import { useRouteContext } from '@/hooks/use-route-context';
 import { ROUTES } from '@/utils/urls';
 
-type BoardData = inferRouterOutputs<TRPCRouter>['board']['getBoard'];
+type BoardData = inferRouterOutputs<TRPCRouter>['board']['get'];
 type Board = BoardData['board'];
 type GmailAccount = BoardData['gmailAccounts'][number];
 
@@ -38,7 +38,7 @@ const RemoveAccountPopover = ({
     trpc.board.deleteGmailAccount.mutationOptions({
       onSuccess: () => {
         if (isLastAccount) {
-          queryClient.removeQueries({ queryKey: trpc.board.getBoard.queryKey({ boardId: board.id }), exact: true });
+          queryClient.removeQueries({ queryKey: trpc.board.get.queryKey({ boardId: board.id }), exact: true });
           queryClient.removeQueries({ queryKey: trpc.user.getCurrentUser.queryKey(), exact: true });
           navigate({ to: ROUTES.WELCOME });
         } else {
@@ -47,13 +47,10 @@ const RemoveAccountPopover = ({
             gmailAccountIds: prev.gmailAccountIds.filter((id) => id !== gmailAccount.id),
           }));
           // Remove the deleted account from the board data in the cache
-          queryClient.setQueryData(
-            trpc.board.getBoard.queryKey({ boardId: board.id }),
-            (oldData: BoardData | undefined) => {
-              if (!oldData) return oldData;
-              return { ...oldData, gmailAccounts: oldData.gmailAccounts.filter((a) => a.id !== gmailAccount.id) };
-            },
-          );
+          queryClient.setQueryData(trpc.board.get.queryKey({ boardId: board.id }), (oldData: BoardData | undefined) => {
+            if (!oldData) return oldData;
+            return { ...oldData, gmailAccounts: oldData.gmailAccounts.filter((a) => a.id !== gmailAccount.id) };
+          });
           toast.success('Email account removed successfully', { position: 'top-center' });
         }
         setOpen(false);
