@@ -9,14 +9,14 @@ import { BoardCardState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
 import { Archive } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { BoardCardContent, BoardCardDragged, DRAG_TYPE as DRAG_TYPE_CARD } from '@/components/board-card';
+import { BoardCardContent, BoardCardDragged, DRAG_TYPE as DRAG_TYPE_CARD } from '@/components/board/board-card';
 import {
   BoardColumn,
   BoardColumnContent,
   BoardColumnDragged,
   DRAG_TYPE as DRAG_TYPE_COLUMN,
-} from '@/components/board-column';
-import { BoardNavbar } from '@/components/board-navbar';
+} from '@/components/board/board-column';
+import { BoardNavbar } from '@/components/board/board-navbar';
 import { Navbar } from '@/components/navbar';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';

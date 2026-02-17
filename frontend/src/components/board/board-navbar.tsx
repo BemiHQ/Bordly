@@ -3,8 +3,8 @@ import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { Ellipsis, Link2, ListFilter, UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { BoardMembersDialog } from '@/components/board-members-dialog';
-import { EmailAccountsDialog } from '@/components/email-accounts-dialog';
+import { BoardMembersDialog } from '@/components/board/board-members-dialog';
+import { EmailAccountsDialog } from '@/components/board/email-accounts-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {

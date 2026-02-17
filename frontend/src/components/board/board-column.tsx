@@ -10,7 +10,7 @@ import {
   BoardCardContent,
   BoardCardParentDragged,
   DRAG_TYPE as DRAG_TYPE_CARD,
-} from '@/components/board-card';
+} from '@/components/board/board-card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
