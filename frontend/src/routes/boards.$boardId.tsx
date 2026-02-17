@@ -12,6 +12,8 @@ import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { formattedTimeAgo } from '@/utils/dates';
+import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
 
@@ -71,7 +73,7 @@ const BoardNavbar = ({
     <div className="border-b bg-background px-6 py-2.5 flex items-center justify-between">
       <h1 className="font-semibold">{board.name}</h1>
       <Tooltip>
-        <TooltipTrigger>
+        <TooltipTrigger asChild>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -142,9 +144,14 @@ const BoardCard = ({
     )
     .filter((p) => !gmailAccounts.some((account) => p.email === account.email));
 
+  const lastSentAt = emailMessages.reduce((latest, message) => {
+    const messageDate = new Date(message.externalCreatedAt);
+    return messageDate > latest ? messageDate : latest;
+  }, new Date(0));
+
   return (
     <Card className="cursor-pointer p-3 transition-shadow hover:bg-background rounded-lg shadow-xs flex flex-col gap-1.5">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center">
         <Avatar size="xs">
           <AvatarImage
             src={domainIconUrlByName[participants[0].email.split('@')[1]]}
@@ -154,21 +161,24 @@ const BoardCard = ({
             {(participants[0].name || participants[0].email).charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <div className="text-sm truncate flex items-center">
-          {anyUnread && <div className="bg-blue-500 rounded-full min-w-2 min-h-2 mr-1.5" />}
-          <span className={anyUnread ? 'font-bold' : 'font-medium'}>
-            {participants[0].name || participants[0].email}
-          </span>
-          {participants.length > 1 && (
-            <span className="text-muted-foreground">
-              ,{' '}
-              {participants
-                .slice(1)
-                .map((p) => p.name || p.email)
-                .join(', ')}
+        <div className="ml-2 text-sm flex items-center min-w-0 flex-1">
+          {anyUnread && <div className="bg-blue-500 rounded-full min-w-2 min-h-2 mr-1.5 flex-shrink-0" />}
+          <div className="truncate">
+            <span className={anyUnread ? 'font-bold' : 'font-medium'}>
+              {participants[0].name || participants[0].email}
             </span>
-          )}
+            {participants.length > 1 && (
+              <span className="text-muted-foreground">
+                ,{' '}
+                {participants
+                  .slice(1)
+                  .map((p) => p.name || p.email)
+                  .join(', ')}
+              </span>
+            )}
+          </div>
         </div>
+        <div className="ml-1 text-2xs pt-0.5 text-muted-foreground flex-shrink-0">{formattedTimeAgo(lastSentAt)}</div>
       </div>
       <div className={cn('text-xs truncate', anyUnread && 'font-medium')}>{title}</div>
       <div className="text-xs text-muted-foreground truncate">{snippet}</div>
@@ -186,11 +196,13 @@ function Home() {
     context.trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
   );
   const [showUnreadOnly, setShowUnreadOnly] = useState(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_SHOW_UNREAD_ONLY);
+    const saved = !isSsr() && localStorage.getItem(LOCAL_STORAGE_KEY_SHOW_UNREAD_ONLY);
     return saved ? JSON.parse(saved) : false;
   });
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY_SHOW_UNREAD_ONLY, JSON.stringify(showUnreadOnly));
+    if (!isSsr()) {
+      localStorage.setItem(LOCAL_STORAGE_KEY_SHOW_UNREAD_ONLY, JSON.stringify(showUnreadOnly));
+    }
   }, [showUnreadOnly]);
 
   useEffect(() => {

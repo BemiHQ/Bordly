@@ -126,6 +126,7 @@ export class EmailMessage extends BaseEntity {
       bcc: this.bcc,
       read: this.read,
       sent: this.sent,
+      externalCreatedAt: this.externalCreatedAt,
     };
   }
 
