@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
@@ -428,6 +428,27 @@ function BoardCardComponent() {
   const { data: emailMessagesData, isLoading } = useQuery({
     ...context.trpc.emailMessage.getEmailMessages.queryOptions({ boardId, boardCardId }),
   });
+
+  const markAsReadMutation = useMutation(
+    context.trpc.boardCard.markAsRead.mutationOptions({
+      onSuccess: ({ boardCard }) => {
+        context.queryClient.setQueryData(context.trpc.boardCard.getBoardCards.queryKey({ boardId }), (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            boardCards: oldData.boardCards.map((card) => (card.id === boardCard.id ? boardCard : card)),
+          };
+        });
+      },
+    }),
+  );
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: : ignore markAsReadMutation to avoid infinite loop
+  useEffect(() => {
+    if (emailMessagesData?.boardCard.unreadEmailMessageIds?.length) {
+      markAsReadMutation.mutate({ boardId, boardCardId });
+    }
+  }, [emailMessagesData?.boardCard.unreadEmailMessageIds, boardId, boardCardId]);
 
   const handleOpenChange = (open: boolean) => {
     if (!open) navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
