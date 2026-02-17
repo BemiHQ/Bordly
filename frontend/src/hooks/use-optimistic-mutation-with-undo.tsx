@@ -3,6 +3,19 @@ import { useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { DEFAULT_TOASTER_DURATION_MS } from '@/components/ui/sonner';
 import type { RouteContext } from '@/hooks/use-route-context';
+import { isSsr } from '@/utils/ssr';
+
+let globalPendingCount = 0;
+
+const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+  if (globalPendingCount > 0) {
+    e.preventDefault();
+  }
+};
+
+if (!isSsr()) {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+}
 
 export const useOptimisticMutationWithUndo = <TData, TError, TMutationParams>({
   queryClient,
@@ -37,11 +50,13 @@ export const useOptimisticMutationWithUndo = <TData, TError, TMutationParams>({
             },
           });
           delete pendingMutationsRef.current[id];
+          globalPendingCount--;
         }
       }, DEFAULT_TOASTER_DURATION_MS);
 
       const id = String(timeoutId);
       pendingMutationsRef.current[id] = { params, previousData };
+      globalPendingCount++;
 
       toast.success(successToast, {
         action: {
@@ -52,6 +67,7 @@ export const useOptimisticMutationWithUndo = <TData, TError, TMutationParams>({
             if (mutation) {
               queryClient.setQueryData(queryKey, mutation.previousData);
               delete pendingMutationsRef.current[id];
+              globalPendingCount--;
             }
           },
         },
