@@ -5,11 +5,12 @@ import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState } from 'bordly-backend/utils/shared';
 import DOMPurify from 'dompurify';
 import { Archive, ChevronDownIcon, Download, Ellipsis, Mail, OctagonX, Paperclip, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -229,27 +230,33 @@ const EmailMessageBody = ({
   useEffect(() => {
     if (bodyHtml || !bodyText) {
       // HTML body
-      let sanitized = DOMPurify.sanitize(bodyHtml || '', {
+      const sanitized = DOMPurify.sanitize(bodyHtml || '', {
         WHOLE_DOCUMENT: true,
         ADD_TAGS: ['style', 'head'],
         ADD_ATTR: ['style'],
       });
 
-      // Replace cid: references with proxy URLs for inline images
-      for (const attachment of emailMessage.attachments) {
-        if (attachment.mimeType.startsWith('image/') && (attachment.filename || attachment.contentId)) {
-          const proxyUrl = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;
-          if (attachment.filename) {
-            sanitized = sanitized.replaceAll(`src="cid:${attachment.filename}"`, `src="${proxyUrl}"`);
-          }
-          if (attachment.contentId) {
-            sanitized = sanitized.replaceAll(`src="cid:${attachment.contentId}"`, `src="${proxyUrl}"`);
-          }
-        }
-      }
-
       const parser = new DOMParser();
       const doc = parser.parseFromString(sanitized, 'text/html');
+
+      // Replace cid: references with proxy URLs for inline images using DOM
+      for (const attachment of emailMessage.attachments) {
+        if (!attachment.mimeType.startsWith('image/') || (!attachment.filename && !attachment.contentId)) continue;
+
+        const proxyUrl = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&attachmentId=${attachment.id}`;
+        const images = doc.body.querySelectorAll('img');
+        images.forEach((img) => {
+          const src = img.getAttribute('src');
+          if (src) {
+            if (attachment.filename && src === `cid:${attachment.filename}`) {
+              img.setAttribute('src', proxyUrl);
+            }
+            if (attachment.contentId && src === `cid:${attachment.contentId}`) {
+              img.setAttribute('src', proxyUrl);
+            }
+          }
+        });
+      }
 
       // Extract and set trailing blockquotes
       const trailingBlockquotes = parseTrailingBlockquotes(doc.body);
@@ -506,13 +513,55 @@ function BoardCardComponent() {
   const boardId = extractUuid(params.boardId);
   const boardCardId = extractUuid(params.boardCardId);
 
+  const borderColumnSelectRef = useRef<HTMLSelectElement>(null);
+  const [borderColumnSelectOpen, setBorderColumnSelectOpen] = useState(false);
+
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
+  const scrollContainerRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) setScrollContainer(node);
+  }, []);
+
   const { data: emailMessagesData, isLoading } = useQuery({
     ...context.trpc.emailMessage.getEmailMessages.queryOptions({ boardId, boardCardId }),
   });
   const boardCard = emailMessagesData?.boardCard;
+  const boardColumn = emailMessagesData?.boardColumn;
   const emailMessagesAsc = emailMessagesData?.emailMessagesAsc;
 
+  const { data: boardData } = useQuery({
+    ...context.trpc.board.get.queryOptions({ boardId }),
+    enabled: borderColumnSelectOpen,
+  });
+  const boardColumnsAsc = boardData?.boardColumnsAsc || [];
+
+  const emailMessagesQueryKey = context.trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId });
   const boardCardsQueryKey = context.trpc.boardCard.getBoardCards.queryKey({ boardId });
+
+  const optimisticallySetBoardColumn = useOptimisticMutation({
+    queryClient: context.queryClient,
+    queryKey: emailMessagesQueryKey,
+    onExecute: ({ boardColumnId }: { boardColumnId: string }) => {
+      const newBoardColumn = boardColumnsAsc.find((col) => col.id === boardColumnId);
+      if (!newBoardColumn) return;
+
+      context.queryClient.setQueryData(emailMessagesQueryKey, (oldData) => {
+        if (!oldData) return oldData;
+        return { ...oldData, boardColumn: newBoardColumn } satisfies typeof oldData;
+      });
+
+      context.queryClient.setQueryData(boardCardsQueryKey, (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, boardColumnId } : c)),
+        } satisfies typeof oldData;
+      });
+    },
+    errorToast: 'Failed to change column. Please try again.',
+    mutation: useMutation(context.trpc.boardCard.setBoardColumn.mutationOptions()),
+  });
+
   const optimisticallyMarkAsUnread = useOptimisticMutation({
     queryClient: context.queryClient,
     queryKey: boardCardsQueryKey,
@@ -604,12 +653,37 @@ function BoardCardComponent() {
       },
     }),
   );
+
+  // Mark as read on open if there are unread messages and set document title to email subject
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignore markAsReadMutation to avoid infinite loop
   useEffect(() => {
     if (boardCard?.unreadEmailMessageIds?.length) {
       markAsReadMutation.mutate({ boardId, boardCardId });
     }
-  }, [boardCard?.unreadEmailMessageIds, boardId, boardCardId]);
+
+    if (boardCard) {
+      document.title = `${boardCard.subject} | Bordly`;
+    }
+  }, [boardCard, boardId, boardCardId]);
+
+  // Pre-open NativeSelect dropdown when borderColumnSelectOpen becomes true
+  useEffect(() => {
+    if (borderColumnSelectOpen && borderColumnSelectRef.current) {
+      borderColumnSelectRef.current?.showPicker();
+    }
+  }, [borderColumnSelectOpen]);
+
+  // Track scroll position for DialogHeader shadow
+  useEffect(() => {
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      setIsScrolled(scrollContainer.scrollTop > 0);
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [scrollContainer]);
 
   return (
     <RouteProvider value={context}>
@@ -620,99 +694,132 @@ function BoardCardComponent() {
         }}
       >
         <DialogContent
-          className="min-w-5xl gap-2.5 h-[90vh] flex flex-col bg-secondary px-0 pb-0"
+          className="min-w-5xl gap-2 h-[90vh] flex flex-col bg-secondary p-0 gap-0"
           aria-describedby={undefined}
-          closeClassName="hover:bg-border top-3.5"
+          closeClassName="hover:bg-border top-2 right-4 z-10"
         >
-          <DialogHeader className="pl-6 pr-13 flex flex-row items-start justify-between mt-[-6px]">
-            <DialogTitle className="leading-6">{boardCard?.subject}</DialogTitle>
-            <div className="flex items-center gap-2.5 mr-1.5 mt-[-4px]">
-              <Tooltip delayDuration={1_000}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => {
-                      optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
-                      navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
-                    }}
-                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
-                  >
-                    <Archive className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Archive</TooltipContent>
-              </Tooltip>
-              <Tooltip delayDuration={1_000}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => {
-                      optimisticallyMarkAsSpam({ boardId, boardCardId, state: BoardCardState.SPAM });
-                      navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
-                    }}
-                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
-                  >
-                    <OctagonX className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Report spam</TooltipContent>
-              </Tooltip>
-              <Tooltip delayDuration={1_000}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => {
-                      optimisticallyDelete({ boardId, boardCardId, state: BoardCardState.TRASH });
-                      navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
-                    }}
-                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Delete</TooltipContent>
-              </Tooltip>
-              <Tooltip delayDuration={1_000}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => {
-                      optimisticallyMarkAsUnread({ boardId, boardCardId });
-                      navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
-                    }}
-                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
-                  >
-                    <Mail className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Mark as unread</TooltipContent>
-              </Tooltip>
+          {isLoading && (
+            <div className="flex items-center justify-center h-full">
+              <Spinner />
             </div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto scrollbar-thin">
-            {isLoading && (
-              <div className="flex items-center justify-center h-full">
-                <Spinner />
+          )}
+          {!isLoading && boardCard && boardColumn && emailMessagesAsc && (
+            <>
+              <DialogHeader className={cn('px-6 pt-2 pb-1.5 z-10 transition-shadow', isScrolled && 'shadow-sm')}>
+                <div className="flex gap-8 items-center">
+                  {borderColumnSelectOpen ? (
+                    <NativeSelect
+                      ref={borderColumnSelectRef}
+                      size="sm"
+                      value={boardColumn?.id}
+                      onChange={(e) => {
+                        optimisticallySetBoardColumn({ boardId, boardCardId, boardColumnId: e.target.value });
+                        setBorderColumnSelectOpen(false);
+                      }}
+                      onBlur={() => setBorderColumnSelectOpen(false)}
+                      className="text-sm font-medium text-muted-foreground focus-visible:ring-1 w-fit !h-[32px]"
+                      autoFocus
+                    >
+                      {boardColumnsAsc.map((col) => (
+                        <NativeSelectOption key={col.id} value={col.id}>
+                          {col.name}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  ) : (
+                    <>
+                      <div
+                        className="text-sm font-medium text-muted-foreground mb-0.5 cursor-pointer"
+                        onClick={() => setBorderColumnSelectOpen(true)}
+                      >
+                        {boardColumn?.name}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => {
+                                optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
+                                navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+                              }}
+                              className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                            >
+                              <Archive className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Archive</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => {
+                                optimisticallyMarkAsSpam({ boardId, boardCardId, state: BoardCardState.SPAM });
+                                navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+                              }}
+                              className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                            >
+                              <OctagonX className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Report spam</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => {
+                                optimisticallyDelete({ boardId, boardCardId, state: BoardCardState.TRASH });
+                                navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+                              }}
+                              className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Delete</TooltipContent>
+                        </Tooltip>
+                        <div className="w-px h-4 bg-ring mx-0.5" />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => {
+                                optimisticallyMarkAsUnread({ boardId, boardCardId });
+                                navigate({ to: ROUTES.BOARD.replace('$boardId', params.boardId) });
+                              }}
+                              className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                            >
+                              <Mail className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Mark as unread</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </DialogHeader>
+              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-6 pb-6">
+                <DialogTitle className="mb-3 mt-2">{boardCard?.subject}</DialogTitle>
+                <div className="flex flex-col gap-4">
+                  {emailMessagesAsc.map((emailMessage) => (
+                    <EmailMessageCard
+                      key={emailMessage.id}
+                      emailMessage={emailMessage}
+                      boardId={boardId}
+                      boardCardId={boardCardId}
+                    />
+                  ))}
+                </div>
               </div>
-            )}
-            {emailMessagesAsc && (
-              <div className="flex flex-col gap-4 px-6 pb-6">
-                {emailMessagesAsc.map((emailMessage) => (
-                  <EmailMessageCard
-                    key={emailMessage.id}
-                    emailMessage={emailMessage}
-                    boardId={boardId}
-                    boardCardId={boardCardId}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </RouteProvider>

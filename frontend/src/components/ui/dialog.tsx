@@ -115,7 +115,7 @@ export const DialogTitle = ({ className, ...props }: React.ComponentProps<typeof
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn('text-base leading-none font-semibold mr-6', className)}
+      className={cn('text-base leading-none font-semibold', className)}
       {...props}
     />
   );

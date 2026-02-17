@@ -1,19 +1,19 @@
 import { ChevronDownIcon } from 'lucide-react';
-import type * as React from 'react';
+import * as React from 'react';
 
 import { cn } from '@/utils/strings';
 
-export const NativeSelect = ({
-  className,
-  size = 'default',
-  ...props
-}: Omit<React.ComponentProps<'select'>, 'size'> & { size?: 'sm' | 'default' }) => {
+export const NativeSelect = React.forwardRef<
+  HTMLSelectElement,
+  Omit<React.ComponentProps<'select'>, 'size'> & { size?: 'sm' | 'default' }
+>(({ className, size = 'default', ...props }, ref) => {
   return (
     <div
       className="group/native-select relative w-fit has-[select:disabled]:opacity-50"
       data-slot="native-select-wrapper"
     >
       <select
+        ref={ref}
         data-slot="native-select"
         data-size={size}
         className={cn(
@@ -31,7 +31,9 @@ export const NativeSelect = ({
       />
     </div>
   );
-};
+});
+
+NativeSelect.displayName = 'NativeSelect';
 
 export const NativeSelectOption = ({ ...props }: React.ComponentProps<'option'>) => {
   return <option data-slot="native-select-option" {...props} />;

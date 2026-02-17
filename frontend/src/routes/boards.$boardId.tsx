@@ -2,7 +2,7 @@ import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortable';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
+import { createFileRoute, Outlet, redirect, useMatches } from '@tanstack/react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
@@ -276,6 +276,7 @@ function BoardComponent() {
   const { currentUser } = Route.useLoaderData();
   const context = Route.useRouteContext();
   const params = Route.useParams();
+  const matches = useMatches();
 
   const { data: boardData } = useQuery({
     ...context.trpc.board.get.queryOptions({ boardId: extractUuid(params.boardId) }),
@@ -306,19 +307,20 @@ function BoardComponent() {
   }, []);
 
   // Dynamic page title
+  const boardName = boardData?.board.name;
+  const unreadBoardCardCount = Object.values(boardCardsData?.boardCardsDesc || []).filter(
+    (card) => !!card.unreadEmailMessageIds,
+  ).length;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: add matches.length to update on nested route changes
   useEffect(() => {
-    const unreadBoardCardCount = Object.values(boardCardsData?.boardCardsDesc || []).filter(
-      (card) => !!card.unreadEmailMessageIds,
-    ).length;
-
-    if (!boardData) {
+    if (!boardName) {
       document.title = `Bordly`;
     } else if (unreadBoardCardCount === 0) {
-      document.title = `${boardData.board.name} – Bordly`;
+      document.title = `${boardName} | Bordly`;
     } else {
-      document.title = `(${unreadBoardCardCount}) ${boardData.board.name} – Bordly`;
+      document.title = `(${unreadBoardCardCount}) ${boardName} | Bordly`;
     }
-  }, [boardData, boardCardsData]);
+  }, [boardName, unreadBoardCardCount, matches.length]);
 
   return (
     <div className="flex min-h-screen flex-col">
