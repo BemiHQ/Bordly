@@ -59,4 +59,9 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       return reply.status(500).send({ error: 'Authentication failed' });
     }
   });
+
+  fastify.get('/auth/log-out', async (request, reply) => {
+    request.session.delete();
+    return reply.redirect(ENV.APP_ENDPOINT);
+  });
 };

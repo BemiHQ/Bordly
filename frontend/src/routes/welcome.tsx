@@ -80,7 +80,7 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
                   Creating...
                 </>
               ) : (
-                'Create Board'
+                'Create board'
               )}
             </Button>
           </CardFooter>
@@ -150,7 +150,7 @@ const InviteMembers = ({
                   Sending...
                 </>
               ) : (
-                'Send Invites'
+                'Send invites'
               )}
             </Button>
           </CardFooter>
@@ -215,7 +215,7 @@ const FinalStep = () => {
 
       <Button size="lg" asChild>
         <Link to={ROUTES.HOME}>
-          Open Board
+          Open board
           <ArrowRight data-icon="inline-end" />
         </Link>
       </Button>
