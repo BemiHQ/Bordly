@@ -480,7 +480,7 @@ const EmailMessageCard = ({
                 <button
                   key={attachment.id}
                   onClick={() => handleDownloadAttachment(attachment)}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-muted rounded-lg text-xs w-fit cursor-pointer"
+                  className="flex items-center gap-2 px-3.5 py-1.5 bg-muted rounded-lg text-xs w-fit cursor-pointer"
                   type="button"
                 >
                   <Download className="size-3.5 flex-shrink-0 text-muted-foreground mb-0.5" />

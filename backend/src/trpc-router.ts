@@ -70,7 +70,7 @@ const TRPC_ROUTES = {
       await BoardService.populate(board, ['boardColumns', 'gmailAccounts']);
       return {
         board: board.toJson(),
-        boardColumns: board.boardColumns.map((col) => col.toJson()),
+        boardColumns: [...board.boardColumns].sort((a, b) => a.position - b.position).map((col) => col.toJson()),
         gmailAccounts: board.gmailAccounts.map((acc) => acc.toJson()),
       };
     }),

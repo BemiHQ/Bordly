@@ -78,7 +78,7 @@ const FilterButton = ({ gmailAccounts }: { gmailAccounts: GmailAccount[] }) => {
                   checked={filters.hasAttachments}
                   onCheckedChange={(checked) => setFilters({ ...filters, hasAttachments: !!checked })}
                 />
-                <span>Has attachments</span>
+                <span>Has attachment</span>
               </Label>
             </div>
           </div>

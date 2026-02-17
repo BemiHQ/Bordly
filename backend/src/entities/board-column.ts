@@ -40,6 +40,11 @@ export class BoardColumn extends BaseEntity {
     this.validate();
   }
 
+  setPosition(position: number) {
+    this.position = position;
+    this.validate();
+  }
+
   toJson() {
     return {
       id: this.id,
