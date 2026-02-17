@@ -4,6 +4,9 @@ import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
 
+export const SPAM_POSITION = 1_001;
+export const TRASH_POSITION = 1_002;
+
 @Entity({ tableName: 'board_columns' })
 @Unique({ properties: ['board', 'position'] })
 @Unique({ properties: ['board', 'name'] })
@@ -39,6 +42,7 @@ export class BoardColumn extends BaseEntity {
     if (!this.board) throw new Error('Board is required');
     if (!this.name) throw new Error('Name is required');
     if (!this.description) throw new Error('Description is required');
-    if (!this.position || this.position < 0) throw new Error('Position is required and must be non-negative');
+    if (this.position === undefined || this.position === null || this.position < 0)
+      throw new Error('Position is required and must be non-negative');
   }
 }

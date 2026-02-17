@@ -232,8 +232,8 @@
           "nullable": false,
           "mappedType": "uuid"
         },
-        "name": {
-          "name": "name",
+        "external_thread_id": {
+          "name": "external_thread_id",
           "type": "varchar(255)",
           "unsigned": false,
           "autoincrement": false,
@@ -242,32 +242,13 @@
           "length": 255,
           "mappedType": "string"
         },
-        "participants": {
-          "name": "participants",
-          "type": "text[]",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "array"
-        },
-        "snippet": {
-          "name": "snippet",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 255,
-          "mappedType": "string"
-        },
-        "position": {
-          "name": "position",
+        "pinned_position": {
+          "name": "pinned_position",
           "type": "int",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "mappedType": "integer"
         }
       },
@@ -283,8 +264,8 @@
           "unique": false
         },
         {
-          "keyName": "board_cards_board_column_id_position_unique",
-          "columnNames": ["board_column_id", "position"],
+          "keyName": "board_cards_board_column_id_pinned_position_unique",
+          "columnNames": ["board_column_id", "pinned_position"],
           "composite": true,
           "constraint": true,
           "primary": false,

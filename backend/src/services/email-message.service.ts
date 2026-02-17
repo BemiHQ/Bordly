@@ -1,27 +1,66 @@
+import type { Agent } from '@mastra/core/agent';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 
 import { Attachment } from '@/entities/attachment';
+import { BoardCard } from '@/entities/board-card';
+import { BoardColumn, SPAM_POSITION, TRASH_POSITION } from '@/entities/board-column';
 import { EmailMessage } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
+import { AgentService } from '@/services/agent.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { gmailAttachmentsData, gmailBody, gmailHeaderValue, newGmail } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
 
 const CREATE_INITIAL_EMAILS_LIMIT = 50;
+const MAX_INITIAL_BOARD_COUNT = 5;
+
+const LABELS = {
+  SPAM: 'SPAM',
+  TRASH: 'TRASH',
+};
+
+const CATEGORIES = {
+  CUSTOMERS: 'Customers',
+  ENGINEERING: 'Engineering',
+  FINANCE: 'Finance',
+  MEETINGS: 'Meetings',
+  PROMOTIONS: 'Promotions',
+  SOCIAL: 'Social',
+  OTHERS: 'Others',
+  // Special categories
+  SPAM: 'Spam',
+  TRASH: 'Trash',
+};
+
+const AGENT_CATEGORIZATION = {
+  name: 'Email Thread Categorization Agent',
+  instructions: `Categorize the email thread from the following categories based on its content:
+- ${Object.values(CATEGORIES)
+    .filter((category) => category !== CATEGORIES.SPAM && category !== CATEGORIES.TRASH)
+    .join('\n- ')}
+
+Only output one of the above categories without any explanation.`,
+};
 
 export class EmailMessageService {
-  static async createInitialEmailMessages({ gmailAccount: gmailAcc }: { gmailAccount: GmailAccount }) {
-    const { gmailAccount, oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAcc);
+  static async createInitialEmailMessages(gmailAccountId: string) {
+    const gmailAccount = await GmailAccountService.findById(gmailAccountId, { populate: ['board'] });
+    if (!gmailAccount.board) throw new Error('Gmail account does not have an associated board');
+
+    const { oauth2Client } = await GmailAccountService.refreshAccessToken(gmailAccount);
     const gmail = newGmail(oauth2Client);
 
-    console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails...`);
-    const listResponse = await gmail.users.messages.list({ userId: 'me', maxResults: CREATE_INITIAL_EMAILS_LIMIT }); // in desc order
+    console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
+    const listResponse = await gmail.users.messages.list({
+      userId: 'me',
+      maxResults: CREATE_INITIAL_EMAILS_LIMIT,
+      includeSpamTrash: true,
+    });
     const messages = listResponse.data.messages || [];
     if (messages.length === 0) return;
 
-    const emailsMessagesToCreate: EmailMessage[] = [];
-    const attachmentsToCreate: Attachment[] = [];
-
+    // Create EmailMessages and Attachments
+    const emailMessagesByThreadId: Record<string, EmailMessage[]> = {};
     for (const message of messages) {
       if (!message.id) continue;
 
@@ -32,11 +71,110 @@ export class EmailMessageService {
         gmailAccount,
         messageData: messageDetails.data,
       });
-      emailsMessagesToCreate.push(emailMessage);
-      attachmentsToCreate.push(...attachments);
+      orm.em.persist([emailMessage, ...attachments]);
+
+      if (!emailMessagesByThreadId[emailMessage.externalThreadId]) {
+        emailMessagesByThreadId[emailMessage.externalThreadId] = [];
+      }
+      emailMessagesByThreadId[emailMessage.externalThreadId]!.push(emailMessage);
     }
 
-    await orm.em.persist([...emailsMessagesToCreate, ...attachmentsToCreate]).flush();
+    // Categorize email threads
+    const agent = AgentService.createAgent(AGENT_CATEGORIZATION);
+    const emailThreadIdsByCategory: Record<string, string[]> = {};
+    for (const [threadId, emailMessages] of Object.entries(emailMessagesByThreadId)) {
+      const category = await EmailMessageService.categorizeEmailThread({ agent, emailMessages });
+      if (!emailThreadIdsByCategory[category]) {
+        emailThreadIdsByCategory[category] = [];
+      }
+      emailThreadIdsByCategory[category].push(threadId);
+    }
+
+    // Find top N categories by number of threads. Always append "Others" category
+    const topCategories = Object.entries(emailThreadIdsByCategory)
+      .filter(
+        ([category]) => category !== CATEGORIES.OTHERS && category !== CATEGORIES.SPAM && category !== CATEGORIES.TRASH,
+      )
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([category]) => category)
+      .slice(0, MAX_INITIAL_BOARD_COUNT - 1);
+    topCategories.push(CATEGORIES.OTHERS);
+
+    // Create BoardColumns and BoardCards
+    const boardColumnsByCategory: Record<string, BoardColumn> = {};
+    for (const [initialCategory, threadIds] of Object.entries(emailThreadIdsByCategory)) {
+      let category = initialCategory;
+
+      // Map less frequent categories to "Others"
+      if (!topCategories.includes(category) && category !== CATEGORIES.SPAM && category !== CATEGORIES.TRASH) {
+        category = CATEGORIES.OTHERS;
+      }
+
+      if (!boardColumnsByCategory[category]) {
+        let position = topCategories.indexOf(category);
+        if (position === -1) {
+          if (category === CATEGORIES.SPAM) {
+            position = SPAM_POSITION;
+          } else if (category === CATEGORIES.TRASH) {
+            position = TRASH_POSITION;
+          }
+        }
+
+        const boardColumn = new BoardColumn({
+          board: gmailAccount.board,
+          name: category,
+          description: `Emails categorized as '${category}'`,
+          position,
+        });
+        boardColumnsByCategory[category] = boardColumn;
+        orm.em.persist(boardColumn);
+      }
+
+      for (const threadId of threadIds) {
+        const boardCard = new BoardCard({
+          board: gmailAccount.board!,
+          boardColumn: boardColumnsByCategory[category]!,
+          externalThreadId: threadId,
+        });
+        orm.em.persist(boardCard);
+      }
+    }
+
+    await orm.em.flush();
+  }
+
+  private static async categorizeEmailThread({
+    agent,
+    emailMessages,
+  }: {
+    agent: Agent;
+    emailMessages: EmailMessage[];
+  }) {
+    let category = 'Others';
+    if (emailMessages.some((emailMessage) => emailMessage.labels.includes(LABELS.SPAM))) {
+      category = CATEGORIES.SPAM;
+    } else if (emailMessages.some((emailMessage) => emailMessage.labels.includes(LABELS.TRASH))) {
+      category = CATEGORIES.TRASH;
+    } else {
+      console.log(`[AGENT] Categorizing emails ${emailMessages.map((e) => e.externalId).join(', ')}...`);
+      const emailMessageContents = emailMessages.map(
+        (e) => `From: ${e.from}
+Subject: ${e.subject}
+Snippet: ${e.snippet}`,
+      );
+
+      const response = await agent.generate([
+        {
+          role: 'user',
+          content: `Categorize the following email thread:
+
+${emailMessageContents.join('\n\n---\n\n')}`,
+        },
+      ]);
+      category = response.text;
+    }
+
+    return category;
   }
 
   private static parseEmailMessage({

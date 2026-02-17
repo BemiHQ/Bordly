@@ -1,6 +1,6 @@
 import { Migration } from '@mikro-orm/migrations';
 
-export class Migration20260128141749_add_board_cards extends Migration {
+export class Migration20260128175447_add_board_cards extends Migration {
   override async up(): Promise<void> {
     this.addSql(
       `create table "board_columns" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid not null, "name" varchar(255) not null, "description" text not null, "position" int not null, constraint "board_columns_pkey" primary key ("id"));`,
@@ -13,11 +13,11 @@ export class Migration20260128141749_add_board_cards extends Migration {
     );
 
     this.addSql(
-      `create table "board_cards" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid not null, "board_column_id" uuid not null, "name" varchar(255) not null, "participants" text[] not null, "snippet" varchar(255) not null, "position" int not null, constraint "board_cards_pkey" primary key ("id"));`,
+      `create table "board_cards" ("id" uuid not null default uuid_generate_v4(), "created_at" timestamptz not null, "updated_at" timestamptz not null, "board_id" uuid not null, "board_column_id" uuid not null, "external_thread_id" varchar(255) not null, "pinned_position" int null, constraint "board_cards_pkey" primary key ("id"));`,
     );
     this.addSql(`create index "board_cards_board_id_index" on "board_cards" ("board_id");`);
     this.addSql(
-      `alter table "board_cards" add constraint "board_cards_board_column_id_position_unique" unique ("board_column_id", "position");`,
+      `alter table "board_cards" add constraint "board_cards_board_column_id_pinned_position_unique" unique ("board_column_id", "pinned_position");`,
     );
 
     this.addSql(

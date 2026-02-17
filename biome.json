@@ -32,8 +32,15 @@
     "enabled": true,
     "rules": {
       "recommended": true,
-      "a11y": { "recommended": false },
-      "complexity": { "noStaticOnlyClass": "off" }
+      "a11y": {
+        "recommended": false
+      },
+      "complexity": {
+        "noStaticOnlyClass": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
+      }
     }
   },
   "javascript": {

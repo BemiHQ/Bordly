@@ -14,8 +14,8 @@ export class GmailAccountService {
     return orm.em.findOne(GmailAccount, { googleId }, { populate });
   }
 
-  static findById(id: string) {
-    return orm.em.findOneOrFail(GmailAccount, { id });
+  static findById(id: string, { populate }: { populate?: Populate<GmailAccount, 'string'> } = { populate: [] }) {
+    return orm.em.findOneOrFail(GmailAccount, { id }, { populate });
   }
 
   static async refreshAccessToken(

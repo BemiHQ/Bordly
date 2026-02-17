@@ -1,7 +1,6 @@
 import { RequestContext } from '@mikro-orm/postgresql';
 import type { Job } from 'pg-boss';
 import { EmailMessageService } from '@/services/email-message.service';
-import { GmailAccountService } from '@/services/gmail-account.service';
 import { orm } from '@/utils/orm';
 import { pgBossInstance } from '@/utils/pg-boss';
 
@@ -16,8 +15,7 @@ interface QueueDataMap {
 const JOB_HANDLER_BY_QUEUE = {
   [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: async (job) => {
     const { gmailAccountId } = job.data;
-    const gmailAccount = await GmailAccountService.findById(gmailAccountId);
-    await EmailMessageService.createInitialEmailMessages({ gmailAccount });
+    await EmailMessageService.createInitialEmailMessages(gmailAccountId);
   },
 } as { [Q in keyof QueueDataMap]: (job: Job<QueueDataMap[Q]>) => Promise<void> };
 
@@ -25,7 +23,7 @@ export const listenToQueues = async () => {
   const boss = await pgBossInstance();
 
   for (const queueName of Object.values(QUEUES)) {
-    await boss.createQueue(queueName, { retryLimit: 5, retryBackoff: true });
+    await boss.createQueue(queueName, { retryLimit: 5, retryDelay: 5, retryBackoff: true, policy: 'singleton' });
   }
 
   for (const queueName of Object.values(QUEUES)) {
@@ -48,7 +46,12 @@ async function process<Q extends keyof QueueDataMap>(
   await boss.work(queueName, async (jobs: Job<QueueDataMap[Q]>[]) => {
     await RequestContext.create(orm.em, async () => {
       for (const job of jobs) {
-        await jobHandler(job);
+        try {
+          await jobHandler(job);
+        } catch (error) {
+          console.error(`[PG-BOSS] Error processing job ${job.id} [queue=${queueName}]:`, error);
+          throw error;
+        }
       }
     });
   });
