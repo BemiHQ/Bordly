@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
+import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query';
 import { createServerFn } from '@tanstack/react-start';
 import { getRequest } from '@tanstack/react-start/server';
 import { createTRPCClient, httpBatchStreamLink } from '@trpc/client';
@@ -11,16 +12,20 @@ import superjson from 'superjson';
 import { routeTree } from '@/routeTree.gen';
 import { TRPCProvider } from '@/trpc';
 import { ENV } from '@/utils/env';
+import { isSsr } from '@/utils/ssr';
 
 let BROWSER_QUERY_CLIENT: QueryClient | undefined;
 
 const fetchSessionCookie = createServerFn({ method: 'GET' }).handler(async () => {
   const request = getRequest();
-  const cookieHeader = request.headers.get('cookie');
-  if (!cookieHeader) return null;
-
+  const cookieHeader = request.headers.get('cookie') || '';
   const sessionIdMatch = cookieHeader.match(new RegExp(`${ENV.VITE_SESSION_COOKIE_NAME}=([^;]+)`));
-  return sessionIdMatch ? `${ENV.VITE_SESSION_COOKIE_NAME}=${sessionIdMatch[1]}` : null;
+  const sessionCookie = sessionIdMatch ? `${ENV.VITE_SESSION_COOKIE_NAME}=${sessionIdMatch[1]}` : null;
+
+  console.log(
+    `TRPC request to path "${request.url.split(request.headers.get('host') || 'unknown-host')[1]}" ${sessionCookie ? 'with' : 'without'} session cookie`,
+  );
+  return sessionCookie;
 });
 
 const createTrpcClient = () =>
@@ -30,7 +35,10 @@ const createTrpcClient = () =>
         transformer: superjson,
         url: `${ENV.VITE_API_ENDPOINT}/trpc`,
         async fetch(url, options) {
-          const cookie = await fetchSessionCookie();
+          let cookie: string | null = null;
+          if (isSsr()) {
+            cookie = await fetchSessionCookie(); // SSR: fetch the session cookie from the incoming request
+          }
           return fetch(url, {
             ...options,
             credentials: 'include',
@@ -56,7 +64,7 @@ const createQueryClient = () =>
   });
 
 const getQueryClient = () => {
-  if (typeof window === 'undefined') {
+  if (isSsr()) {
     return createQueryClient(); // Server: always make a new query client
   } else {
     if (!BROWSER_QUERY_CLIENT) BROWSER_QUERY_CLIENT = createQueryClient(); // Browser: make a new query client if we don't already have one
@@ -85,6 +93,9 @@ export const getRouter = () => {
       );
     },
   });
+
+  // Rehydrate query data on the client side from SSR
+  setupRouterSsrQueryIntegration({ router, queryClient });
 
   return router;
 };
