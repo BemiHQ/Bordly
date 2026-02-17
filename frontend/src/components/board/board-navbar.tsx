@@ -99,7 +99,7 @@ const FilterButton = ({ boardAccounts }: { boardAccounts: BoardAccount[] }) => {
                       checked={filters.gmailAccountIds.includes(account.gmailAccount.id)}
                       onCheckedChange={() => toggleEmailAccount(account.gmailAccount.id)}
                     />
-                    <span>{account.gmailAccount.email}</span>
+                    <span>{account.receivingEmails ? account.receivingEmails[0] : account.gmailAccount.email}</span>
                   </Label>
                 ))}
               </div>

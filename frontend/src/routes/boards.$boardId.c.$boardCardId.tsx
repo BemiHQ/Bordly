@@ -137,7 +137,7 @@ function BoardCardComponent() {
                   boardMembers={boardMembers}
                 />
               </DialogHeader>
-              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 mb-10 pb-4">
+              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 mb-10">
                 <DialogTitle className="mb-3 mt-2">{boardCard?.subject}</DialogTitle>
                 <div className="flex flex-col gap-4">
                   <TimelineMessages
@@ -157,7 +157,7 @@ function BoardCardComponent() {
                       onDiscard={() => setShowReply(false)}
                     />
                   )}
-                  <div ref={bottomRef} />
+                  <div ref={bottomRef} className="mt-4" />
                 </div>
               </div>
               <CommentInput

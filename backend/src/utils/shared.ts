@@ -18,3 +18,8 @@ export enum BoardMemberRole {
   MEMBER = 'MEMBER',
   AGENT = 'AGENT',
 }
+
+export enum GmailAccountState {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+}

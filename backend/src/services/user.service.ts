@@ -5,6 +5,7 @@ import { BoardInviteService } from '@/services/board-invite.service';
 import { SenderEmailAddressService } from '@/services/sender-email-address.service';
 import { reportError } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
+import { GmailAccountState } from '@/utils/shared';
 
 export class UserService {
   static tryFindById<Hint extends string = never>(
@@ -41,6 +42,7 @@ export class UserService {
     const user = new User({ email, fullName, firstName, photoUrl });
     const gmailAccount = new GmailAccount({
       user,
+      state: GmailAccountState.ACTIVE,
       name: fullName,
       email,
       externalId,

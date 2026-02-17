@@ -3,7 +3,7 @@ import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSen
 import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortable';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet, useMatches } from '@tanstack/react-router';
-import { BoardCardState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
+import { BoardCardState, GmailAccountState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
 import { Archive } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -32,7 +32,7 @@ import {
 } from '@/query-helpers/board-cards';
 import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
-import { ROUTES } from '@/utils/urls';
+import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 const REFETCH_INTERVAL_MS = 30_000;
 
@@ -264,6 +264,17 @@ function BoardComponent() {
   if (error && error.data?.code === 'NOT_FOUND') {
     navigate({ to: ROUTES.HOME });
   }
+
+  useEffect(() => {
+    if (boardData) {
+      const hasActiveGmailAccount = boardData.boardAccounts.some(
+        (a) => a.gmailAccount.state === GmailAccountState.ACTIVE,
+      );
+      if (!hasActiveGmailAccount) {
+        window.location.href = API_ENDPOINTS.AUTH_GOOGLE;
+      }
+    }
+  }, [boardData]);
 
   const { data: boardCardsData } = useQuery({
     ...trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),

@@ -1,4 +1,4 @@
-import { Collection, Entity, Index, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
+import { Collection, Entity, Enum, Index, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardAccount } from '@/entities/board-account';
 import type { BoardCard } from '@/entities/board-card';
@@ -7,6 +7,7 @@ import type { GmailAttachment } from '@/entities/gmail-attachment';
 import type { SenderEmailAddress } from '@/entities/sender-email-address';
 import type { User } from '@/entities/user';
 import { Encryption } from '@/utils/encryption';
+import { GmailAccountState } from '@/utils/shared';
 
 export interface GmailAccount {
   loadedUser: User;
@@ -31,6 +32,9 @@ export class GmailAccount extends BaseEntity {
   @OneToMany({ mappedBy: (emailAddress: SenderEmailAddress) => emailAddress.gmailAccount })
   senderEmailAddresses = new Collection<SenderEmailAddress>(this);
 
+  @Enum(() => GmailAccountState)
+  state: GmailAccountState;
+
   @Property()
   name: string;
   @Property()
@@ -48,6 +52,7 @@ export class GmailAccount extends BaseEntity {
 
   constructor({
     user,
+    state,
     name,
     email,
     externalId,
@@ -56,6 +61,7 @@ export class GmailAccount extends BaseEntity {
     accessTokenExpiresAt,
   }: {
     user: User;
+    state: GmailAccountState;
     name: string;
     email: string;
     externalId: string;
@@ -65,6 +71,7 @@ export class GmailAccount extends BaseEntity {
   }) {
     super();
     this.email = email.toLowerCase();
+    this.state = state;
     this.name = name;
     this.user = user;
     this.externalId = externalId;
@@ -103,9 +110,14 @@ export class GmailAccount extends BaseEntity {
     this.externalHistoryId = externalHistoryId;
   }
 
+  markAsInactive() {
+    this.state = GmailAccountState.INACTIVE;
+  }
+
   toJson() {
     return {
       id: this.id,
+      state: this.state,
       name: this.name,
       email: this.email,
     };
@@ -113,6 +125,7 @@ export class GmailAccount extends BaseEntity {
 
   private validate() {
     if (!this.user) throw new Error('User is required');
+    if (!this.state) throw new Error('State is required');
     if (!this.name) throw new Error('Name is required');
     if (!this.email) throw new Error('Email is required');
     if (!this.externalId) throw new Error('External ID is required');

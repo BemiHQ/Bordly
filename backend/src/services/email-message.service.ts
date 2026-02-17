@@ -6,7 +6,7 @@ import type { BoardCard } from '@/entities/board-card';
 import { BoardColumn } from '@/entities/board-column';
 import { Domain } from '@/entities/domain';
 import { EmailMessage, type Participant } from '@/entities/email-message';
-import type { GmailAccount } from '@/entities/gmail-account';
+import { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
 import { AgentService } from '@/services/agent.service';
 import { BoardCardService } from '@/services/board-card.service';
@@ -17,6 +17,7 @@ import { reportError } from '@/utils/error-tracking';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
+import { GmailAccountState } from '@/utils/shared';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
 import { BoardAccountService } from './board-account.service';
@@ -25,6 +26,8 @@ const CREATE_NEW_EMAIL_MESSAGES_READ_DB_INTERVAL_MS = 60 * 1_000; // 60 seconds
 const CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS = 5 * 1_000; // 5 seconds
 const CREATE_EMAIL_MESSAGES_BATCH_LIMIT = ENV.NODE_ENV === 'production' ? 30 : 10;
 const MAX_INITIAL_BOARD_COUNT = 5;
+const CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3;
+const CIRCUIT_BREAKER_IGNORE_DURATION_MS = 20 * 60 * 1_000; // 20 minutes
 
 const CATEGORIES = {
   ENGINEERING: 'Engineering',
@@ -50,43 +53,95 @@ Only output one of the above categories without any explanation.`,
 
 export class EmailMessageService {
   static async createNewEmailMessages() {
-    const promiseDataByGmailAccountId: Record<string, { promise: Promise<void>; abortController: AbortController }> =
-      {};
+    const promiseDataByGmailAccountId: Record<
+      string,
+      {
+        promise?: Promise<void>;
+        abortController: AbortController;
+        failureCount: number;
+        lastFailureAt?: Date;
+        ignoredUntil?: Date;
+      }
+    > = {};
 
     while (true) {
       const gmailAccounts = (
         await GmailAccountService.findAllAccountsWithBoards({
           populate: ['boardAccounts.board.boardColumns', 'boardAccounts.board.boardMembers'],
         })
-      ).filter((acc) => [...acc.boardAccounts].some((ba) => ba.loadedBoard.initialized));
-
-      const gmailAccountIds = new Set(gmailAccounts.map((acc) => acc.id));
-
-      gmailAccounts.forEach((gmailAccount, i) => {
-        if (promiseDataByGmailAccountId[gmailAccount.id]) return; // Already processing
-
-        const abortController = new AbortController();
-        const promise = RequestContext.create(orm.em, async () => {
-          await sleep((i * CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS) / (gmailAccounts.length || 1));
-
-          try {
-            while (!abortController.signal.aborted) {
-              await EmailMessageService.syncEmailMessagesForGmailAccount(gmailAccount);
-              await sleep(CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS);
-            }
-          } catch (error) {
-            reportError(error);
-          } finally {
-            console.log(`[GMAIL] Finished processing new emails for ${gmailAccount.email}.`);
-            delete promiseDataByGmailAccountId[gmailAccount.id];
-          }
-        });
-        promiseDataByGmailAccountId[gmailAccount.id] = { promise, abortController };
+      ).filter((acc) => {
+        if (acc.state === GmailAccountState.INACTIVE) return false;
+        if (![...acc.boardAccounts].some((ba) => ba.loadedBoard.initialized)) return false;
+        const promiseData = promiseDataByGmailAccountId[acc.id];
+        if (promiseData?.ignoredUntil && promiseData.ignoredUntil > new Date()) return false;
+        return true;
       });
 
+      gmailAccounts.forEach((gmailAccount, i) => {
+        const existingPromiseData = promiseDataByGmailAccountId[gmailAccount.id];
+        if (existingPromiseData?.promise) return; // Already processing
+
+        const promise = RequestContext.create(orm.em, async () => {
+          await sleep((i * CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS) / (gmailAccounts.length || 1));
+          let promiseData = promiseDataByGmailAccountId[gmailAccount.id];
+          try {
+            while (promiseData && !promiseData.abortController.signal.aborted) {
+              try {
+                await EmailMessageService.syncEmailMessagesForGmailAccount(gmailAccount);
+                if (promiseData.failureCount > 0) {
+                  promiseData.failureCount = 0;
+                  promiseData.lastFailureAt = undefined;
+                  promiseData.ignoredUntil = undefined;
+                }
+              } catch (error) {
+                reportError(error);
+                promiseData.failureCount += 1;
+                promiseData.lastFailureAt = new Date();
+                if (promiseData.failureCount >= CIRCUIT_BREAKER_FAILURE_THRESHOLD) {
+                  if (promiseData.ignoredUntil && promiseData.ignoredUntil <= new Date()) {
+                    console.log(`[GMAIL] Marking ${gmailAccount.email} as INACTIVE after repeated failures.`);
+                    const freshGmailAccount = await orm.em.findOneOrFail(GmailAccount, gmailAccount.id);
+                    freshGmailAccount.markAsInactive();
+                    await orm.em.persist(freshGmailAccount).flush();
+                  } else {
+                    const ignoreUntil = new Date(Date.now() + CIRCUIT_BREAKER_IGNORE_DURATION_MS);
+                    console.log(
+                      `[GMAIL] Ignoring ${gmailAccount.email} until ${ignoreUntil.toISOString()} after ${promiseData.failureCount} failures.`,
+                    );
+                    promiseData.ignoredUntil = ignoreUntil;
+                  }
+                } else {
+                  console.log(`[GMAIL] Error syncing ${gmailAccount.email} - ${promiseData.failureCount}`);
+                }
+                break;
+              }
+              await sleep(CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS);
+              promiseData = promiseDataByGmailAccountId[gmailAccount.id];
+            }
+          } finally {
+            console.log(`[GMAIL] Finished processing new emails for ${gmailAccount.email}`);
+            if (promiseData) {
+              promiseDataByGmailAccountId[gmailAccount.id]!.promise = undefined;
+            }
+          }
+        });
+
+        if (existingPromiseData) {
+          promiseDataByGmailAccountId[gmailAccount.id]!.promise = promise;
+        } else {
+          promiseDataByGmailAccountId[gmailAccount.id] = {
+            promise,
+            abortController: new AbortController(),
+            failureCount: 0,
+            lastFailureAt: undefined as Date | undefined,
+            ignoredUntil: undefined as Date | undefined,
+          };
+        }
+      });
+
+      const gmailAccountIds = new Set(gmailAccounts.map((acc) => acc.id));
       for (const gmailAccountId of Object.keys(promiseDataByGmailAccountId)) {
         if (gmailAccountIds.has(gmailAccountId)) continue; // Still exists
-
         console.log(`[GMAIL] Cancelling sync for account ${gmailAccountId} as it no longer exists.`);
         promiseDataByGmailAccountId[gmailAccountId]!.abortController.abort();
         delete promiseDataByGmailAccountId[gmailAccountId];

@@ -7,6 +7,7 @@ import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import type { RouteContext } from '@/hooks/use-route-context';
 import { addFakeCommentData, replaceBoardCardData, replaceFakeCommentData } from '@/query-helpers/board-card';
 import { replaceBoardCardData as replaceBoardCardDataInList } from '@/query-helpers/board-cards';
+import { cn } from '@/utils/strings';
 
 export const CommentInput = ({
   boardId,
@@ -61,12 +62,15 @@ export const CommentInput = ({
             }
           }}
           placeholder="Chat with @Bordly and your team..."
-          className="bg-transparent pr-10 font-sans py-1.5"
+          className={cn(
+            'bg-transparent pr-10 font-sans py-1.5',
+            text.trim() && 'focus-visible:ring-muted-foreground focus-visible:ring-[1px]',
+          )}
           rows={1}
           autoResize
         />
         {text.trim() && (
-          <div className="fixed right-7 bottom-6.5 z-10">
+          <div className="fixed right-7 bottom-[25px] z-10">
             <Button onClick={handleSubmit} size="icon" className="size-5.5 rounded-full">
               <ArrowDown className="size-3" />
             </Button>

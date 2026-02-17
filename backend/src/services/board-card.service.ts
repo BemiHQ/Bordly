@@ -251,18 +251,16 @@ export class BoardCardService {
         boardCardReadPosition.setLastReadAt(lastReadAt);
       }
 
-      // Update state based on Gmail status
       state = BoardCardService.stateFromEmailMessages(emailMessagesDesc);
-      if (boardCard.state === State.ARCHIVED && state === State.INBOX && firstUnreadEmailMessage) {
-        state = State.INBOX;
+      if (boardCard.state === State.ARCHIVED && state === State.INBOX && !firstUnreadEmailMessage) {
+        state = State.ARCHIVED; // If archived and no new email arrived, keep archived
       }
     } else {
       // Multi-member: do not change read positions
 
-      // Use INBOX or ARCHIVED (avoid moving back from SPAM or TRASH)
       state = boardCard.state;
-      if (state === State.ARCHIVED) {
-        state = State.INBOX;
+      if (state === State.ARCHIVED && boardCard.emailMessageCount < emailMessagesDesc.length) {
+        state = State.INBOX; // If archived but a new email arrived, move back to inbox
       }
     }
 

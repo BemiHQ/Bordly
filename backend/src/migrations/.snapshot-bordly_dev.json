@@ -405,6 +405,16 @@
           "nullable": false,
           "mappedType": "uuid"
         },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "enumItems": ["ACTIVE", "INACTIVE"],
+          "mappedType": "enum"
+        },
         "name": {
           "name": "name",
           "type": "varchar(255)",
