@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 
-import { Navbar } from '@/components/Navbar';
+import { Navbar } from '@/components/navbar';
 import { ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/')({
@@ -9,6 +9,9 @@ export const Route = createFileRoute('/')({
     const currentUser = await context.queryClient.ensureQueryData(context.trpc.user.getCurrentUser.queryOptions());
     if (!currentUser) {
       throw redirect({ to: ROUTES.AUTH });
+    }
+    if (currentUser.boards.length === 0) {
+      throw redirect({ to: ROUTES.WELCOME });
     }
     return { currentUser };
   },

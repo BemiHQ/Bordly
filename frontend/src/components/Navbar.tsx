@@ -2,14 +2,7 @@ import { Link } from '@tanstack/react-router';
 
 import { ROUTES } from '@/utils/urls';
 
-interface NavbarProps {
-  currentUser: {
-    name: string;
-    photoUrl: string;
-  };
-}
-
-export function Navbar({ currentUser }: NavbarProps) {
+export const Navbar = ({ currentUser }: { currentUser: { name: string; photoUrl: string } }) => {
   return (
     <nav className="border-b px-6 py-3 bg-secondary border-border">
       <div className="flex items-center justify-between">
@@ -23,4 +16,4 @@ export function Navbar({ currentUser }: NavbarProps) {
       </div>
     </nav>
   );
-}
+};
