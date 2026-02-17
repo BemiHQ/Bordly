@@ -1,15 +1,16 @@
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
-import { ChevronDownIcon, Download, Paperclip, Reply } from 'lucide-react';
+import { ChevronDownIcon, Paperclip, Reply } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ToggleQuotesButton } from '@/components/board-card/toggle-quotes-button';
+import { Attachment } from '@/components/editor/attachment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useEmailIframe } from '@/hooks/use-email-iframe';
 import { sanitizeBodyHtml } from '@/utils/email';
-import { formatBytes, pluralize } from '@/utils/strings';
+import { pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
 import { API_ENDPOINTS } from '@/utils/urls';
 
@@ -363,7 +364,7 @@ export const EmailMessageCard = ({
       </div>
       <EmailMessageBody emailMessage={emailMessage} boardId={boardId} boardCardId={boardCardId} />
       {emailMessage.gmailAttachments.length > 0 && (
-        <div className="flex flex-col gap-2.5 mt-5 pt-5 border-t">
+        <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
           <div className="flex items-center gap-1.5">
             <Paperclip className="size-4 flex-shrink-0 text-muted-foreground" />
             <div className="text-sm font-medium">
@@ -374,18 +375,12 @@ export const EmailMessageCard = ({
             {emailMessage.gmailAttachments
               .sort((a, b) => a.filename.length - b.filename.length)
               .map((attachment) => (
-                <button
+                <Attachment
                   key={attachment.id}
-                  onClick={() => handleDownloadAttachment(attachment)}
-                  className="flex items-center gap-2 px-3.5 py-1.5 bg-muted rounded-lg text-xs w-fit cursor-pointer"
-                  type="button"
-                >
-                  <Download className="size-3.5 flex-shrink-0 text-muted-foreground mb-0.5" />
-                  <div className="flex items-end gap-1.5">
-                    <div className="truncate text-text-secondary font-medium">{attachment.filename}</div>
-                    <div className="text-muted-foreground text-2xs">({formatBytes(attachment.size)})</div>
-                  </div>
-                </button>
+                  filename={attachment.filename}
+                  size={attachment.size}
+                  onDownload={() => handleDownloadAttachment(attachment)}
+                />
               ))}
           </div>
         </div>

@@ -110,18 +110,18 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
   const AlignIcon = currentAlign === 'center' ? AlignCenter : currentAlign === 'right' ? AlignRight : AlignLeft;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 pt-3 px-3 border-t border-border">
+    <div className="flex flex-wrap items-center gap-1.5 mt-4 px-3">
       {/* Bold */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             onClick={() => {
               editor.chain().focus().toggleBold().run();
               forceRerender({});
             }}
-            className={cn('h-7 px-2', editor.isActive('bold') && 'bg-muted')}
+            className={cn(editor.isActive('bold') && 'bg-muted')}
           >
             <Bold className="size-4" />
           </Button>
@@ -140,12 +140,12 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             onClick={() => {
               editor.chain().focus().toggleItalic().run();
               forceRerender({});
             }}
-            className={cn('h-7 px-2', editor.isActive('italic') && 'bg-muted')}
+            className={cn(editor.isActive('italic') && 'bg-muted')}
           >
             <Italic className="size-4" />
           </Button>
@@ -164,12 +164,12 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             onClick={() => {
               editor.chain().focus().toggleUnderline().run();
               forceRerender({});
             }}
-            className={cn('h-7 px-2', editor.isActive('underline') && 'bg-muted')}
+            className={cn(editor.isActive('underline') && 'bg-muted')}
           >
             <UnderlineIcon className="size-4" />
           </Button>
@@ -188,12 +188,12 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             onClick={() => {
               editor.chain().focus().toggleStrike().run();
               forceRerender({});
             }}
-            className={cn('h-7 px-2', editor.isActive('strike') && 'bg-muted')}
+            className={cn(editor.isActive('strike') && 'bg-muted')}
           >
             <Strikethrough className="size-4" />
           </Button>
@@ -215,9 +215,9 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             onClick={() => editor.chain().focus().toggleBulletList().run()}
-            className={cn('h-7 px-2', editor.isActive('bulletList') && 'bg-muted')}
+            className={cn(editor.isActive('bulletList') && 'bg-muted')}
           >
             <List className="size-4" />
           </Button>
@@ -230,9 +230,9 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            className={cn('h-7 px-2', editor.isActive('orderedList') && 'bg-muted')}
+            className={cn(editor.isActive('orderedList') && 'bg-muted')}
           >
             <ListOrdered className="size-4" />
           </Button>
@@ -256,7 +256,7 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className={cn('h-7 w-7.5 px-1', editor.isActive('link') && 'bg-muted')}>
+              <Button variant="ghost" size="icon-sm" className={cn(editor.isActive('link') && 'bg-muted')}>
                 <Link2 className="size-[17px]" />
               </Button>
             </PopoverTrigger>
@@ -317,9 +317,9 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            className={cn('h-7 w-7.5 px-1.5', editor.isActive('blockquote') && 'bg-muted')}
+            className={cn(editor.isActive('blockquote') && 'bg-muted')}
           >
             <Quote className="size-3" />
           </Button>
@@ -408,13 +408,13 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  'h-7 px-2',
+                  'pl-2 pr-1.5',
                   (currentTextColor !== COLOR_BLACK || currentHighlightColor !== COLOR_WHITE) && 'bg-muted',
                 )}
               >
                 <div className="flex items-center gap-1">
                   <Brush className="size-3.5" />
-                  <ChevronDown className="size-4 opacity-50" />
+                  <ChevronDown className="size-3.5 opacity-50" />
                 </div>
               </Button>
             </PopoverTrigger>
@@ -493,10 +493,10 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 px-2">
+              <Button variant="ghost" size="sm" className="pl-2 pr-1.5">
                 <div className="flex items-center gap-1">
                   <AlignIcon className="size-4" />
-                  <ChevronDown className="size-4 opacity-50" />
+                  <ChevronDown className="size-3.5 opacity-50" />
                 </div>
               </Button>
             </PopoverTrigger>
@@ -509,7 +509,7 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon-sm"
                   onClick={() => editor.chain().focus().setTextAlign('left').run()}
                   className={cn('h-7 px-2', editor.isActive({ textAlign: 'left' }) && 'bg-muted')}
                 >
@@ -522,7 +522,7 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon-sm"
                   onClick={() => editor.chain().focus().setTextAlign('center').run()}
                   className={cn('h-7 px-2', editor.isActive({ textAlign: 'center' }) && 'bg-muted')}
                 >
@@ -535,7 +535,7 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon-sm"
                   onClick={() => editor.chain().focus().setTextAlign('right').run()}
                   className={cn('h-7 px-2', editor.isActive({ textAlign: 'right' }) && 'bg-muted')}
                 >

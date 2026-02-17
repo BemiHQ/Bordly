@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query';
@@ -13,15 +12,7 @@ import { TRPCProvider } from '@/trpc';
 import { ENV } from '@/utils/env';
 import { isSsr } from '@/utils/ssr';
 import { API_ENDPOINTS } from '@/utils/urls';
-
-Sentry.init({
-  dsn: ENV.VITE_SENTRY_DSN,
-  enabled: !!ENV.VITE_SENTRY_DSN,
-  integrations: [],
-  tracesSampleRate: 0.0,
-  profilesSampleRate: 0.0,
-  sendDefaultPii: false,
-});
+import '@/utils/error-tracking';
 
 const SESSION_COOKIE_NAME = 'sId';
 

@@ -2,8 +2,8 @@
 
 ## Tech stack
 
-- Frontend: React, TanStack, TailwindCSS, Shadcn, Lucide React, Vite
-- Backend: Node.js, Fastify, Mastra, MikroORM, Pg Boss, PostgreSQL, AWS SES
+- Frontend: React, TanStack, TailwindCSS, Shadcn, Lucide React, Vite, Tiptap
+- Backend: Node.js, Fastify, Mastra, MikroORM, Pg Boss, PostgreSQL, AWS SES/S3
 - Common: TypeScript, tRPC
 - Development: Nginx, Biome
 
@@ -13,6 +13,7 @@ Copy and customize `.env` files:
 
 ```
 cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
 Add to `/etc/hosts`:
