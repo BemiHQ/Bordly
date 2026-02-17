@@ -10,21 +10,22 @@ import { ENV } from '@/utils/env';
 import { orm } from '@/utils/orm';
 import { createContext } from '@/utils/trpc';
 
-const fastify = Fastify({
-  logger: {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        ignore: 'time,pid,hostname',
-        singleLine: true,
-      },
-    },
-  },
+const fastify = Fastify({ logger: false });
+
+fastify.addHook('onRequest', (request, _reply, done) => {
+  if (!request.url.startsWith('/trpc/')) {
+    console.log(`[HTTP] ${request.method} ${request.url}`);
+  }
+  RequestContext.create(orm.em, done);
 });
 
-fastify.addHook('onRequest', (_request, _reply, done) => {
-  RequestContext.create(orm.em, done);
+fastify.addHook('onResponse', (request, reply, done) => {
+  if (!request.url.startsWith('/trpc/')) {
+    console.log(
+      `[HTTP] ${request.method} ${request.url} [status=${reply.statusCode}, duration=${reply.elapsedTime.toFixed(2)}ms]`,
+    );
+  }
+  done();
 });
 
 fastify.register(cors, { origin: ENV.APP_ENDPOINT, credentials: true });
@@ -47,7 +48,7 @@ fastify.register(authRoutes);
 const start = async () => {
   try {
     await fastify.listen({ port: ENV.PORT });
-    console.log(`Server listening on port ${ENV.PORT}`);
+    console.log(`[HTTP] Server listening on port ${ENV.PORT}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

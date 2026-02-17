@@ -1,7 +1,5 @@
 {
-  "namespaces": [
-    "public"
-  ],
+  "namespaces": ["public"],
   "name": "public",
   "tables": [
     {
@@ -52,9 +50,7 @@
       "indexes": [
         {
           "keyName": "boards_pkey",
-          "columnNames": [
-            "id"
-          ],
+          "columnNames": ["id"],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -142,9 +138,7 @@
       "indexes": [
         {
           "keyName": "users_email_unique",
-          "columnNames": [
-            "email"
-          ],
+          "columnNames": ["email"],
           "composite": false,
           "constraint": true,
           "primary": false,
@@ -152,9 +146,7 @@
         },
         {
           "keyName": "users_pkey",
-          "columnNames": [
-            "id"
-          ],
+          "columnNames": ["id"],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -259,9 +251,7 @@
       "indexes": [
         {
           "keyName": "gmail_accounts_user_id_index",
-          "columnNames": [
-            "user_id"
-          ],
+          "columnNames": ["user_id"],
           "composite": false,
           "constraint": false,
           "primary": false,
@@ -269,9 +259,7 @@
         },
         {
           "keyName": "gmail_accounts_google_id_unique",
-          "columnNames": [
-            "google_id"
-          ],
+          "columnNames": ["google_id"],
           "composite": false,
           "constraint": true,
           "primary": false,
@@ -279,9 +267,7 @@
         },
         {
           "keyName": "gmail_accounts_pkey",
-          "columnNames": [
-            "id"
-          ],
+          "columnNames": ["id"],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -292,26 +278,18 @@
       "foreignKeys": {
         "gmail_accounts_board_id_foreign": {
           "constraintName": "gmail_accounts_board_id_foreign",
-          "columnNames": [
-            "board_id"
-          ],
+          "columnNames": ["board_id"],
           "localTableName": "public.gmail_accounts",
-          "referencedColumnNames": [
-            "id"
-          ],
+          "referencedColumnNames": ["id"],
           "referencedTableName": "public.boards",
           "deleteRule": "set null",
           "updateRule": "cascade"
         },
         "gmail_accounts_user_id_foreign": {
           "constraintName": "gmail_accounts_user_id_foreign",
-          "columnNames": [
-            "user_id"
-          ],
+          "columnNames": ["user_id"],
           "localTableName": "public.gmail_accounts",
-          "referencedColumnNames": [
-            "id"
-          ],
+          "referencedColumnNames": ["id"],
           "referencedTableName": "public.users",
           "updateRule": "cascade"
         }
@@ -366,9 +344,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "enumItems": [
-            "ADMIN"
-          ],
+          "enumItems": ["ADMIN"],
           "mappedType": "enum"
         },
         "board_id": {
@@ -386,9 +362,7 @@
       "indexes": [
         {
           "keyName": "board_members_user_id_index",
-          "columnNames": [
-            "user_id"
-          ],
+          "columnNames": ["user_id"],
           "composite": false,
           "constraint": false,
           "primary": false,
@@ -396,10 +370,7 @@
         },
         {
           "keyName": "board_members_board_id_user_id_unique",
-          "columnNames": [
-            "board_id",
-            "user_id"
-          ],
+          "columnNames": ["board_id", "user_id"],
           "composite": true,
           "constraint": true,
           "primary": false,
@@ -407,9 +378,7 @@
         },
         {
           "keyName": "board_members_pkey",
-          "columnNames": [
-            "id"
-          ],
+          "columnNames": ["id"],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -420,25 +389,17 @@
       "foreignKeys": {
         "board_members_user_id_foreign": {
           "constraintName": "board_members_user_id_foreign",
-          "columnNames": [
-            "user_id"
-          ],
+          "columnNames": ["user_id"],
           "localTableName": "public.board_members",
-          "referencedColumnNames": [
-            "id"
-          ],
+          "referencedColumnNames": ["id"],
           "referencedTableName": "public.users",
           "updateRule": "cascade"
         },
         "board_members_board_id_foreign": {
           "constraintName": "board_members_board_id_foreign",
-          "columnNames": [
-            "board_id"
-          ],
+          "columnNames": ["board_id"],
           "localTableName": "public.board_members",
-          "referencedColumnNames": [
-            "id"
-          ],
+          "referencedColumnNames": ["id"],
           "referencedTableName": "public.boards",
           "updateRule": "cascade"
         }
@@ -512,11 +473,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "enumItems": [
-            "PENDING",
-            "ACCEPTED",
-            "DECLINED"
-          ],
+          "enumItems": ["PENDING", "ACCEPTED", "DECLINED"],
           "mappedType": "enum"
         }
       },
@@ -525,9 +482,7 @@
       "indexes": [
         {
           "keyName": "board_invites_email_index",
-          "columnNames": [
-            "email"
-          ],
+          "columnNames": ["email"],
           "composite": false,
           "constraint": false,
           "primary": false,
@@ -535,10 +490,7 @@
         },
         {
           "keyName": "board_invites_board_id_email_unique",
-          "columnNames": [
-            "board_id",
-            "email"
-          ],
+          "columnNames": ["board_id", "email"],
           "composite": true,
           "constraint": true,
           "primary": false,
@@ -546,9 +498,7 @@
         },
         {
           "keyName": "board_invites_pkey",
-          "columnNames": [
-            "id"
-          ],
+          "columnNames": ["id"],
           "composite": false,
           "constraint": true,
           "primary": true,
@@ -559,25 +509,17 @@
       "foreignKeys": {
         "board_invites_board_id_foreign": {
           "constraintName": "board_invites_board_id_foreign",
-          "columnNames": [
-            "board_id"
-          ],
+          "columnNames": ["board_id"],
           "localTableName": "public.board_invites",
-          "referencedColumnNames": [
-            "id"
-          ],
+          "referencedColumnNames": ["id"],
           "referencedTableName": "public.boards",
           "updateRule": "cascade"
         },
         "board_invites_invited_by_id_foreign": {
           "constraintName": "board_invites_invited_by_id_foreign",
-          "columnNames": [
-            "invited_by_id"
-          ],
+          "columnNames": ["invited_by_id"],
           "localTableName": "public.board_invites",
-          "referencedColumnNames": [
-            "id"
-          ],
+          "referencedColumnNames": ["id"],
           "referencedTableName": "public.users",
           "updateRule": "cascade"
         }

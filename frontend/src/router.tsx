@@ -3,7 +3,7 @@ import { createRouter } from '@tanstack/react-router';
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query';
 import { createServerFn } from '@tanstack/react-start';
 import { getRequest } from '@tanstack/react-start/server';
-import { createTRPCClient, httpBatchStreamLink } from '@trpc/client';
+import { createTRPCClient, httpBatchStreamLink, loggerLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
@@ -23,7 +23,7 @@ const fetchSessionCookie = createServerFn({ method: 'GET' }).handler(async () =>
   const sessionCookie = sessionIdMatch ? `${ENV.VITE_SESSION_COOKIE_NAME}=${sessionIdMatch[1]}` : null;
 
   console.log(
-    `TRPC request to path "${request.url.split(request.headers.get('host') || 'unknown-host')[1]}" ${sessionCookie ? 'with' : 'without'} session cookie`,
+    `[TRPC client] fetch from "${request.url.split(request.headers.get('host') || 'unknown-host')[1]}" ${sessionCookie ? 'with' : 'without'} session cookie`,
   );
   return sessionCookie;
 });
@@ -48,6 +48,9 @@ const createTrpcClient = () =>
             },
           });
         },
+      }),
+      loggerLink({
+        enabled: () => true,
       }),
     ],
   });

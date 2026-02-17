@@ -18,5 +18,24 @@ export const createContext = async ({ req }: CreateFastifyContextOptions) => {
 
 export type Context = Awaited<ReturnType<typeof createContext>>;
 const t = initTRPC.context<Context>().create({ transformer: superjson });
+
+const loggingMiddleware = t.middleware(async ({ path, type, next, ctx }) => {
+  const start = Date.now();
+  console.log(`[TRPC server] ${type} ${path} [userId=${ctx.user?.id || ''}]`);
+
+  const result = await next();
+
+  const duration = Date.now() - start;
+  if (result.ok) {
+    console.log(`[TRPC server] ${type} ${path} [userId=${ctx.user?.id || ''}, duration=${duration}ms]`);
+  } else {
+    console.error(
+      `[TRPC server] ${type} ${path} [userId=${ctx.user?.id || ''}, duration=${duration}ms]:\nERROR: ${result.error}`,
+    );
+  }
+
+  return result;
+});
+
 export const createTRPCRouter = t.router;
-export const publicProcedure = t.procedure;
+export const publicProcedure = t.procedure.use(loggingMiddleware);

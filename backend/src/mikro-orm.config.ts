@@ -1,12 +1,18 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Migrator } from '@mikro-orm/migrations';
-import { defineConfig } from '@mikro-orm/postgresql';
+import { DefaultLogger, defineConfig, type LoggerNamespace } from '@mikro-orm/postgresql';
 import { TsMorphMetadataProvider } from '@mikro-orm/reflection';
 
 import { ENV } from '@/utils/env';
 
 const CURRENT_DIR = dirname(fileURLToPath(import.meta.url));
+
+class CustomLogger extends DefaultLogger {
+  log(namespace: LoggerNamespace, message: string) {
+    console.log(`[PG] ${namespace} ${message}`);
+  }
+}
 
 export default defineConfig({
   dbName: ENV.DB_DATABASE,
@@ -20,6 +26,7 @@ export default defineConfig({
     },
   },
   debug: true,
+  loggerFactory: (options) => new CustomLogger(options),
   metadataProvider: TsMorphMetadataProvider,
   entities: [join(CURRENT_DIR, './entities/**/*.js')],
   entitiesTs: [join(CURRENT_DIR, './entities/**/*.ts')],
