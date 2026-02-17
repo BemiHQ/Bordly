@@ -4,6 +4,7 @@ import type { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify'
 import superjson from 'superjson';
 import { z } from 'zod';
 import { State } from '@/entities/board-card';
+import { Role } from '@/entities/board-member';
 import { BoardService } from '@/services/board.service';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { BoardMemberService } from '@/services/board-member.service';
@@ -124,12 +125,18 @@ const ROUTES = {
       }),
   } satisfies TRPCRouterRecord,
   boardInvite: {
-    createInvites: publicProcedure
+    getBoardInvites: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
+      if (!ctx.user) throw new Error('Not authenticated');
+      const board = BoardService.findAsMember(input.boardId, { user: ctx.user });
+      const boardInvites = await BoardInviteService.findPending(board);
+      return { boardInvites: boardInvites.map((boardInvite) => boardInvite.toJson()) };
+    }),
+    createBoardInvites: publicProcedure
       .input(z.object({ boardId: z.uuid(), emails: z.array(z.email()) }))
       .mutation(async ({ input, ctx }) => {
         if (!ctx.user) throw new Error('Not authenticated');
         const board = BoardService.findAsAdmin(input.boardId, { user: ctx.user });
-        await BoardInviteService.createInvites({ board, emails: input.emails, invitedBy: ctx.user });
+        await BoardInviteService.createBoardInvites({ board, emails: input.emails, invitedBy: ctx.user });
       }),
   } satisfies TRPCRouterRecord,
   boardMember: {
@@ -139,6 +146,25 @@ const ROUTES = {
       const boardMembers = await BoardMemberService.findMembers(board, { populate: ['user'] });
       return { boardMembers: boardMembers.map((member) => member.toJson()) };
     }),
+    setRole: publicProcedure
+      .input(z.object({ boardId: z.uuid(), userId: z.uuid(), role: z.enum(Object.values(Role)) }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsAdmin(input.boardId, { user: ctx.user });
+        const boardMember = await BoardMemberService.setRole(board, {
+          userId: input.userId,
+          role: input.role,
+          currentUser: ctx.user,
+        });
+        return { boardMember: boardMember.toJson() };
+      }),
+    delete: publicProcedure
+      .input(z.object({ boardId: z.uuid(), userId: z.uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error('Not authenticated');
+        const board = BoardService.findAsAdmin(input.boardId, { user: ctx.user });
+        await BoardMemberService.delete(board, { userId: input.userId, currentUser: ctx.user });
+      }),
   } satisfies TRPCRouterRecord,
 };
 

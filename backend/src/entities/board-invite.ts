@@ -36,6 +36,14 @@ export class BoardInvite extends BaseEntity {
     this.state = State.ACCEPTED;
   }
 
+  toJson() {
+    return {
+      id: this.id,
+      email: this.email,
+      state: this.state,
+    };
+  }
+
   private validate() {
     if (!this.board) throw new Error('Board is required');
     if (!this.invitedBy) throw new Error('InvitedBy is required');

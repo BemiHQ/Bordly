@@ -22,7 +22,11 @@ export class BoardInviteService {
     return orm.em.find(BoardInvite, { email, state: State.PENDING }, { populate });
   }
 
-  static async createInvites({ board, emails, invitedBy }: { board: Board; emails: string[]; invitedBy: User }) {
+  static findPending(board: Board) {
+    return orm.em.find(BoardInvite, { board, state: State.PENDING });
+  }
+
+  static async createBoardInvites({ board, emails, invitedBy }: { board: Board; emails: string[]; invitedBy: User }) {
     if (emails.length === 0) return [];
 
     const existingBoardInvites = await orm.em.find(BoardInvite, {

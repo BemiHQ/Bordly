@@ -464,7 +464,7 @@ function Home() {
       <Navbar currentUser={currentUser} />
       {boardData && (
         <RouteProvider value={context}>
-          <BoardNavbar board={boardData.board} gmailAccounts={boardData.gmailAccounts}>
+          <BoardNavbar board={boardData.board} gmailAccounts={boardData.gmailAccounts} currentUserId={currentUser.id}>
             {boardCardsData && <BoardContent boardData={boardData} boardCardsData={boardCardsData} />}
           </BoardNavbar>
         </RouteProvider>

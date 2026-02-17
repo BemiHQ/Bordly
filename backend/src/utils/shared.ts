@@ -8,3 +8,8 @@ export enum BoardCardState {
   SPAM = 'SPAM',
   TRASHED = 'TRASHED',
 }
+
+export enum BoardMemberRole {
+  ADMIN = 'ADMIN',
+  MEMBER = 'MEMBER',
+}
