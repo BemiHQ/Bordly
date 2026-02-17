@@ -30,7 +30,7 @@ const CATEGORIES = {
   SHOPPING: 'Shopping',
   TRAVEL: 'Travel',
   SOCIAL: 'Social',
-  OTHERS: 'Others',
+  OTHER: 'Other',
 };
 
 const AGENT_CATEGORIZATION = {
@@ -85,13 +85,13 @@ export class EmailMessageService {
       (emailThreadIdsByCategory[category] ??= []).push(threadId);
     }
 
-    // Find top N categories by number of threads. Always append "Others" category
+    // Find top N categories by number of threads. Always append "Other" category
     const topCategories = Object.entries(emailThreadIdsByCategory)
-      .filter(([category]) => category !== CATEGORIES.OTHERS)
+      .filter(([category]) => category !== CATEGORIES.OTHER)
       .sort((a, b) => b[1].length - a[1].length)
       .map(([category]) => category)
       .slice(0, MAX_INITIAL_BOARD_COUNT - 1);
-    topCategories.push(CATEGORIES.OTHERS);
+    topCategories.push(CATEGORIES.OTHER);
 
     // Collect domain names
     const domainByName = await EmailMessageService.findDomainByName(emailMessagesDescByThreadId);
@@ -101,7 +101,7 @@ export class EmailMessageService {
     for (const [initialCategory, threadIds] of Object.entries(emailThreadIdsByCategory)) {
       let category = initialCategory;
       if (!topCategories.includes(category)) {
-        category = CATEGORIES.OTHERS; // Map less frequent categories to "Others"
+        category = CATEGORIES.OTHER; // Map less frequent categories to "Other"
       }
 
       if (!boardColumnsByCategory[category]) {
@@ -477,7 +477,7 @@ export class EmailMessageService {
       instructions: renderTemplate(AGENT_CATEGORIZATION.instructionsTemplate, { categories: categories.join('\n- ') }),
     });
 
-    let category = 'Others';
+    let category = CATEGORIES.OTHER;
     if (
       !emailMessages.some(
         (emailMessage) => emailMessage.labels.includes(LABEL.SPAM) || emailMessage.labels.includes(LABEL.TRASH),

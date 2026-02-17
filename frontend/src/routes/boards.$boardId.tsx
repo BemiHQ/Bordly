@@ -85,14 +85,14 @@ const BoardColumn = ({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-2 rounded-lg bg-primary-foreground p-2 border border-border shadow-sm transition-colors',
-        isOver && 'bg-accent',
+        'bg-secondary flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-2 rounded-lg p-2 border border-border transition-colors',
+        isOver ? 'border-semi-muted' : '',
       )}
     >
       <div className="flex items-center gap-2 px-1">
         <h2 className="text-sm font-semibold">{`${boardColumn.name}`}</h2>
         {unreadBoardCardCount > 0 && (
-          <div className="pt-[1px] text-xs font-bold text-text-semi-muted">{unreadBoardCardCount}</div>
+          <div className="pt-[1px] text-xs font-bold text-semi-muted">{unreadBoardCardCount}</div>
         )}
       </div>
       <div className={cn('flex flex-col gap-2 overflow-y-auto scrollbar-thin', isOver && 'opacity-0')}>{children}</div>
@@ -136,7 +136,7 @@ const BoardCardContent = ({
                     {unread ? (
                       <Circle className="size-5 text-muted-foreground hover:text-primary" />
                     ) : (
-                      <CircleDot className="size-5 text-muted-foreground hover:text-blue-700" />
+                      <CircleDot className="size-5 text-muted-foreground hover:text-accent-blue" />
                     )}
                   </TooltipTrigger>
                   <TooltipContent side="top">{unread ? 'Mark as read' : 'Mark as unread'}</TooltipContent>
@@ -255,7 +255,7 @@ const BoardCard = ({ board, boardCard }: { board: Board; boardCard: BoardCard })
       style={isDragging ? { opacity: 0 } : undefined}
       {...attributes}
       {...listeners}
-      className="cursor-pointer p-3 transition-shadow hover:bg-background rounded-lg shadow-xs flex flex-col gap-1.5"
+      className="cursor-pointer p-3 transition-shadow rounded-lg shadow-xs flex flex-col gap-1.5"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -273,19 +273,27 @@ const ArchiveDropZone = ({ isDragging }: { isDragging: boolean }) => {
   const { setNodeRef, isOver } = useDroppable({ id: ARCHIVE_DROP_ZONE_ID });
 
   return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        'fixed top-0 left-0 right-0 h-[94px] z-50 flex items-center justify-center transition-all duration-500 border-b',
-        isDragging ? 'opacity-100' : 'opacity-0 pointer-events-none',
-        isOver ? 'bg-accent' : 'bg-primary-foreground',
-      )}
-    >
-      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-        <Archive className="size-4" />
-        <span>Drop here to archive</span>
+    <>
+      <div
+        className={cn(
+          'bg-background fixed top-0 left-0 right-0 h-[94px] z-50',
+          isDragging ? 'opacity-100' : 'opacity-0 pointer-events-none',
+        )}
+      />
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'bg-secondary fixed top-0 left-0 right-0 h-[94px] z-50 flex items-center justify-center border-y rounded-lg',
+          isDragging ? 'opacity-100' : 'opacity-0 pointer-events-none',
+          isOver ? 'border-semi-muted border' : 'border-t-border',
+        )}
+      >
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Archive className="size-4" />
+          <span>Drop here to archive</span>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
