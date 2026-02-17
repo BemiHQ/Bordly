@@ -166,9 +166,13 @@ export class BoardCardService {
   }) {
     if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
 
-    const state = BoardCardService.stateFromEmailMessages(emailMessagesDesc);
-    const unreadEmailMessageIds = emailMessagesDesc.filter((m) => m.labels.includes(LABEL.UNREAD)).map((m) => m.id);
     const lastEmailMessage = emailMessagesDesc[0]!;
+    const unreadEmailMessageIds = emailMessagesDesc.filter((m) => m.labels.includes(LABEL.UNREAD)).map((m) => m.id);
+
+    let state = BoardCardService.stateFromEmailMessages(emailMessagesDesc);
+    if (boardCard.state === State.ARCHIVED && state === State.INBOX && unreadEmailMessageIds.length > 0) {
+      state = State.INBOX;
+    }
 
     boardCard.update({
       state,

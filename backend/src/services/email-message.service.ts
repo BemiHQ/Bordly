@@ -16,7 +16,7 @@ import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { renderTemplate } from '@/utils/strings';
 
-const CREATE_EMAIL_MESSAGES_BATCH_LIMIT = 50;
+const CREATE_EMAIL_MESSAGES_BATCH_LIMIT = 30;
 const MAX_INITIAL_BOARD_COUNT = 5;
 
 const CATEGORIES = {
