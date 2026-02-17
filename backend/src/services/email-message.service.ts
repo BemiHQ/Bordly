@@ -7,8 +7,8 @@ import { orm } from '@/utils/orm';
 
 const CREATE_INITIAL_EMAILS_LIMIT = 50;
 
-export class EmailService {
-  static async createInitialEmails({ gmailAccount }: { gmailAccount: GmailAccount }) {
+export class EmailMessageService {
+  static async createInitialEmailMessages({ gmailAccount }: { gmailAccount: GmailAccount }) {
     const oauth2Client = newOauth2Client({
       accessToken: Encryption.decrypt(gmailAccount.accessTokenEncrypted),
       refreshToken: Encryption.decrypt(gmailAccount.refreshTokenEncrypted),

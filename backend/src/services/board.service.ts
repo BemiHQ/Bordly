@@ -2,8 +2,8 @@ import { Board } from '@/entities/board';
 import { BoardMember } from '@/entities/board-member';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
-import { EmailService } from '@/services/email.service';
 import { orm } from '@/utils/orm';
+import { enqueue, QUEUES } from '@/utils/pg-boss';
 
 export class BoardService {
   static async findByIdForUser({ boardId, user }: { boardId: string; user: User }) {
@@ -24,8 +24,7 @@ export class BoardService {
     await orm.em.persist([board, boardMember, gmailAccount]).flush();
     user.boards.add(board);
 
-    // Create initial emails asynchronously
-    EmailService.createInitialEmails({ gmailAccount });
+    await enqueue(QUEUES.CREATE_INITIAL_EMAIL_MESSAGES, { gmailAccountId: gmailAccount.id });
 
     return board;
   }

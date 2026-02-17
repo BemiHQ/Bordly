@@ -11,4 +11,8 @@ export class GmailAccountService {
     if (!googleId) return null;
     return orm.em.findOne(GmailAccount, { googleId }, { populate });
   }
+
+  static findById(id: string) {
+    return orm.em.findOneOrFail(GmailAccount, { id });
+  }
 }

@@ -8,6 +8,7 @@ import { authRoutes } from '@/routes/auth.routes';
 import { trpcRouter } from '@/trpc-router';
 import { ENV } from '@/utils/env';
 import { orm } from '@/utils/orm';
+import { closePgBoss, listenToQueues, pgBossInstance } from '@/utils/pg-boss';
 import { createContext } from '@/utils/trpc';
 
 const fastify = Fastify({ logger: false });
@@ -47,6 +48,9 @@ fastify.register(authRoutes);
 
 const start = async () => {
   try {
+    const boss = await pgBossInstance();
+    await listenToQueues(boss);
+
     await fastify.listen({ port: ENV.PORT });
     console.log(`[HTTP] Server listening on port ${ENV.PORT}`);
   } catch (err) {
@@ -54,5 +58,12 @@ const start = async () => {
     process.exit(1);
   }
 };
+
+process.on('SIGTERM', async () => {
+  console.log('[SERVER] SIGTERM received, shutting down gracefully');
+  await closePgBoss();
+  await fastify.close();
+  process.exit(0);
+});
 
 start();

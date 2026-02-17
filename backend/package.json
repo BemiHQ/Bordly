@@ -25,6 +25,7 @@
     "@trpc/server": "^11.8.1",
     "fastify": "^5.7.1",
     "googleapis": "^170.1.0",
+    "pg-boss": "^12.7.1",
     "superjson": "^2.2.6",
     "zod": "^4.3.6"
   },
