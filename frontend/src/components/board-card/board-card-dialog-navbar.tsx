@@ -4,9 +4,8 @@ import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { BoardCardState } from 'bordly-backend/utils/shared';
 import { Archive, Mail, OctagonX, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
@@ -29,22 +28,7 @@ export const BoardCardDialogNavbar = ({
   boardColumn: BoardColumn;
 }) => {
   const navigate = useNavigate();
-  const borderColumnSelectRef = useRef<HTMLSelectElement>(null);
-  const [borderColumnSelectOpen, setBorderColumnSelectOpen] = useState(false);
 
-  const { data: boardData } = useQuery({
-    ...context.trpc.board.get.queryOptions({ boardId }),
-    enabled: borderColumnSelectOpen,
-  });
-
-  // Pre-open NativeSelect dropdown when borderColumnSelectOpen becomes true
-  useEffect(() => {
-    if (borderColumnSelectOpen && borderColumnSelectRef.current) {
-      borderColumnSelectRef.current?.showPicker();
-    }
-  }, [borderColumnSelectOpen]);
-
-  const boardColumnsAsc = boardData?.boardColumnsAsc || [];
   const emailMessagesQueryKey = context.trpc.emailMessage.getEmailMessages.queryKey({ boardId, boardCardId });
   const boardCardsQueryKey = context.trpc.boardCard.getBoardCards.queryKey({ boardId });
 
@@ -150,104 +134,100 @@ export const BoardCardDialogNavbar = ({
     delayedMutation: useMutation(context.trpc.boardCard.setState.mutationOptions()),
   });
 
+  const { data: boardData } = useQuery({ ...context.trpc.board.get.queryOptions({ boardId }) });
+  if (!boardData) return <div className="h-8" />;
+
+  const { boardColumnsAsc } = boardData;
+
   return (
     <div className="flex gap-8 items-center">
-      {borderColumnSelectOpen ? (
-        <NativeSelect
-          ref={borderColumnSelectRef}
-          size="sm"
-          value={boardColumn?.id}
-          onChange={(e) => {
-            optimisticallySetBoardColumn({ boardId, boardCardId, boardColumnId: e.target.value });
-            setBorderColumnSelectOpen(false);
-          }}
-          onBlur={() => setBorderColumnSelectOpen(false)}
-          className="text-sm font-medium text-muted-foreground focus-visible:ring-1 w-fit !h-[32px]"
-          autoFocus
+      <Select
+        value={boardColumn?.id}
+        onValueChange={(value) => optimisticallySetBoardColumn({ boardId, boardCardId, boardColumnId: value })}
+      >
+        <SelectTrigger
+          className="text-sm font-medium text-muted-foreground hover:text-accent-foreground border-0 p-0 shadow-none focus-visible:!ring-0 !h-auto"
+          hideChevron
         >
-          {boardColumnsAsc.map((col) => (
-            <NativeSelectOption key={col.id} value={col.id}>
-              {col.name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      ) : (
-        <>
-          <div
-            className="text-sm font-medium text-muted-foreground mb-0.5 cursor-pointer"
-            onClick={() => setBorderColumnSelectOpen(true)}
-          >
-            {boardColumn?.name}
-          </div>
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => {
-                    optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
-                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-                  }}
-                  className="flex text-muted-foreground cursor-pointer hover:bg-border"
-                >
-                  <Archive className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Archive</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => {
-                    optimisticallyMarkAsSpam({ boardId, boardCardId, state: BoardCardState.SPAM });
-                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-                  }}
-                  className="flex text-muted-foreground cursor-pointer hover:bg-border"
-                >
-                  <OctagonX className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Report spam</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => {
-                    optimisticallyDelete({ boardId, boardCardId, state: BoardCardState.TRASH });
-                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-                  }}
-                  className="flex text-muted-foreground cursor-pointer hover:bg-border"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Delete</TooltipContent>
-            </Tooltip>
-            <div className="w-px h-4 bg-ring mx-0.5" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => {
-                    optimisticallyMarkAsUnread({ boardId, boardCardId });
-                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-                  }}
-                  className="flex text-muted-foreground cursor-pointer hover:bg-border"
-                >
-                  <Mail className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Mark as unread</TooltipContent>
-            </Tooltip>
-          </div>
-        </>
-      )}
+          <SelectValue placeholder={boardColumn?.name} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {boardColumnsAsc.map((col) => (
+              <SelectItem key={col.id} value={col.id}>
+                {col.name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      <div className="flex items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => {
+                optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
+                navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+              }}
+              className="flex text-muted-foreground cursor-pointer hover:bg-border"
+            >
+              <Archive className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Archive</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => {
+                optimisticallyMarkAsSpam({ boardId, boardCardId, state: BoardCardState.SPAM });
+                navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+              }}
+              className="flex text-muted-foreground cursor-pointer hover:bg-border"
+            >
+              <OctagonX className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Report spam</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => {
+                optimisticallyDelete({ boardId, boardCardId, state: BoardCardState.TRASH });
+                navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+              }}
+              className="flex text-muted-foreground cursor-pointer hover:bg-border"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Delete</TooltipContent>
+        </Tooltip>
+        <div className="w-px h-4 bg-ring mx-0.5" />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => {
+                optimisticallyMarkAsUnread({ boardId, boardCardId });
+                navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+              }}
+              className="flex text-muted-foreground cursor-pointer hover:bg-border"
+            >
+              <Mail className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Mark as unread</TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   );
 };
