@@ -1,3 +1,4 @@
+import { useMutation } from '@tanstack/react-query';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { TRPCRouter } from 'bordly-backend/trpc-router';
 import { Ellipsis, Link2, ListFilter, UsersRound } from 'lucide-react';
@@ -12,10 +13,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type BoardFilters, BoardFiltersProvider, useBoardFilters } from '@/hooks/use-board-filters';
+import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
+import { useRouteContext } from '@/hooks/use-route-context';
 import { isSsr } from '@/utils/ssr';
 import { cn } from '@/utils/strings';
 
@@ -168,6 +172,46 @@ export const BoardNavbar = ({
     hasAttachments: false,
     gmailAccountIds: [],
   });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState(board.name);
+  const { queryClient, trpc } = useRouteContext();
+
+  const boardQueryKey = trpc.board.get.queryKey({ boardId: board.id });
+  const optimisticallySetName = useOptimisticMutation({
+    queryClient,
+    queryKey: boardQueryKey,
+    onExecute: ({ name }) => {
+      queryClient.setQueryData(boardQueryKey, (oldData) => {
+        if (!oldData) return oldData;
+        return { ...oldData, board: { ...oldData.board, name } } satisfies typeof oldData;
+      });
+    },
+    errorToast: 'Failed to rename board. Please try again.',
+    mutation: useMutation(trpc.board.setName.mutationOptions()),
+  });
+
+  const handleNameClick = () => {
+    setIsEditing(true);
+    setEditedName(board.name);
+  };
+
+  const handleNameSubmit = () => {
+    const trimmedName = editedName.trim();
+    if (trimmedName && trimmedName !== board.name) {
+      optimisticallySetName({ boardId: board.id, name: trimmedName });
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleNameSubmit();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setEditedName(board.name);
+    }
+  };
+
   // Load filters from localStorage
   useEffect(() => {
     const savedFiltersJson = !isSsr() && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`);
@@ -184,7 +228,21 @@ export const BoardNavbar = ({
   return (
     <BoardFiltersProvider value={{ filters, setFilters }}>
       <div className="border-b bg-background px-6 py-2.5 flex items-center justify-between">
-        <h1 className="font-semibold">{board.name}</h1>
+        {isEditing ? (
+          <Input
+            inputSize="sm"
+            value={editedName}
+            onChange={(e) => setEditedName(e.target.value)}
+            onBlur={handleNameSubmit}
+            onKeyDown={handleKeyDown}
+            className="bg-background text-base font-semibold rounded-sm focus-visible:ring-1 w-fit px-2 ml-[-9px] mt-[-1px] bg-white"
+            autoFocus
+          />
+        ) : (
+          <h1 className="font-semibold cursor-pointer hover:text-primary" onClick={handleNameClick}>
+            {board.name}
+          </h1>
+        )}
         <div className="flex items-center gap-2">
           <FilterButton gmailAccounts={gmailAccounts} />
           <MenuButton board={board} gmailAccounts={gmailAccounts} currentUserId={currentUserId} />

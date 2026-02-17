@@ -35,6 +35,13 @@ export class BoardService {
     return board;
   }
 
+  static async setName(board: Board, { name }: { name: string }) {
+    board.setName(name);
+    orm.em.persist(board);
+    await orm.em.flush();
+    return board;
+  }
+
   static async createFirstBoard({ name, user }: { name: string; user: User }) {
     const board = new Board({ name });
     const boardMember = new BoardMember({ board, user, role: Role.ADMIN });

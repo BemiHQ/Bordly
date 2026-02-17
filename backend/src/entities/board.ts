@@ -31,6 +31,11 @@ export class Board extends BaseEntity {
     return this.boardColumns.length > 0;
   }
 
+  setName(name: string) {
+    this.name = name;
+    this.validate();
+  }
+
   toJson() {
     return {
       id: this.id,
