@@ -451,12 +451,6 @@ export const EmailMessageCard = ({
         </div>
       </div>
       <EmailMessageBody emailMessage={emailMessage} boardId={boardId} boardCardId={boardCardId} />
-      {onReply && (
-        <Button variant="outline" size="sm" onClick={onReply} className="gap-2 self-start mt-2">
-          <Reply className="size-4" />
-          Reply
-        </Button>
-      )}
       {emailMessage.attachments.length > 0 && (
         <div className="flex flex-col gap-2.5 mt-5 pt-5 border-t">
           <div className="flex items-center gap-1.5">
@@ -484,6 +478,12 @@ export const EmailMessageCard = ({
               ))}
           </div>
         </div>
+      )}
+      {onReply && (
+        <Button variant="outline" size="sm" onClick={onReply} className="gap-2 self-start mt-2">
+          <Reply className="size-4" />
+          Reply
+        </Button>
       )}
     </Card>
   );
