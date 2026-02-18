@@ -110,8 +110,15 @@ const EmailMessageBody = ({
   return (
     <div className="flex flex-col">
       <div className="text-sm whitespace-pre-wrap">{mainText}</div>
-      <ToggleQuotesButton expanded={blockquotesExpanded} toggle={() => setBlockquotesExpanded(!blockquotesExpanded)} />
-      {blockquotesExpanded && <div className="text-sm whitespace-pre-wrap">{backquotesText}</div>}
+      {backquotesText && (
+        <>
+          <ToggleQuotesButton
+            expanded={blockquotesExpanded}
+            toggle={() => setBlockquotesExpanded(!blockquotesExpanded)}
+          />
+          {blockquotesExpanded && <div className="text-sm whitespace-pre-wrap">{backquotesText}</div>}
+        </>
+      )}
     </div>
   );
 };
