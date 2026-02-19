@@ -164,6 +164,7 @@ function BoardCardComponent() {
                 boardId={boardId}
                 boardCardId={boardCardId}
                 context={context}
+                boardMembers={boardMembers}
                 onCommentAdded={() => {
                   setTimeout(() => scrollToBottom(), 100);
                 }}

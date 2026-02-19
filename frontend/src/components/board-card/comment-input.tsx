@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import type { RouteContext } from '@/hooks/use-route-context';
+import { type BoardMember, solo } from '@/query-helpers/board';
 import { addFakeCommentData, replaceBoardCardData, replaceFakeCommentData } from '@/query-helpers/board-card';
 import { replaceBoardCardData as replaceBoardCardDataInList } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
@@ -13,11 +14,13 @@ export const CommentInput = ({
   boardId,
   boardCardId,
   context,
+  boardMembers,
   onCommentAdded,
 }: {
   boardId: string;
   boardCardId: string;
   context: RouteContext;
+  boardMembers: BoardMember[];
   onCommentAdded?: () => void;
 }) => {
   const { trpc, queryClient } = context;
@@ -61,10 +64,10 @@ export const CommentInput = ({
               handleSubmit();
             }
           }}
-          placeholder="Chat with @Bordly and your team..."
+          placeholder={`Chat with @Bordly${solo(boardMembers) ? '' : ' and your team'}...`}
           className={cn(
             'bg-transparent pr-10 font-sans py-1.5',
-            text.trim() && 'focus-visible:ring-muted-foreground focus-visible:ring-[1px]',
+            text.trim() && 'border-semi-muted focus-visible:border-semi-muted focus-visible:ring-0 ',
           )}
           rows={1}
           autoResize

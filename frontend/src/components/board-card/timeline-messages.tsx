@@ -55,7 +55,15 @@ export const TimelineMessages = ({
             />
           );
         }
-        return <PostedComment key={item.data.id} comment={item.data} boardId={boardId} boardCardId={boardCardId} />;
+        return (
+          <PostedComment
+            key={item.data.id}
+            comment={item.data}
+            boardId={boardId}
+            boardCardId={boardCardId}
+            boardMembers={boardMembers}
+          />
+        );
       })}
     </>
   );

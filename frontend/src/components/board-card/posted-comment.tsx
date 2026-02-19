@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
+import { type BoardMember, solo } from '@/query-helpers/board';
 import type { Comment } from '@/query-helpers/board-card';
 import { deleteCommentData, replaceBoardCardData, updateCommentData } from '@/query-helpers/board-card';
 import { replaceBoardCardData as replaceBoardCardDataInList } from '@/query-helpers/board-cards';
@@ -23,10 +24,12 @@ export const PostedComment = ({
   comment,
   boardId,
   boardCardId,
+  boardMembers,
 }: {
   comment: Comment;
   boardId: string;
   boardCardId: string;
+  boardMembers: BoardMember[];
 }) => {
   const { trpc, queryClient, currentUser } = useRouteContext();
   const [isEditing, setIsEditing] = useState(false);
@@ -115,7 +118,7 @@ export const PostedComment = ({
                   setEditText(comment.text);
                 }
               }}
-              placeholder="Chat with @Bordly and your team..."
+              placeholder={`Chat with @Bordly${solo(boardMembers) ? '' : ' and your team'}...`}
               className="text-sm bg-primary-foreground font-sans py-1.5"
               rows={1}
               autoResize
