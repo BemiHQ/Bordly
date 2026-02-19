@@ -100,6 +100,17 @@ export const createQuotedHtml = ({
 };
 
 // Remove trailing empty elements like <div><br></div>. This includes nested empty elements within containers
+const hasVisibleContent = (elem: Element): boolean => {
+  if (elem.textContent?.trim()) {
+    return true;
+  }
+  const visibleTags = ['IMG', 'VIDEO', 'AUDIO', 'IFRAME', 'SVG', 'CANVAS', 'HR'];
+  if (visibleTags.includes(elem.tagName)) {
+    return true;
+  }
+  return Array.from(elem.children).some(hasVisibleContent);
+};
+
 export const removeTrailingEmpty = (container: Element | Document) => {
   const children = Array.from(container.childNodes);
   for (let i = children.length - 1; i >= 0; i--) {
@@ -111,7 +122,7 @@ export const removeTrailingEmpty = (container: Element | Document) => {
 
     if (node.nodeType === Node.ELEMENT_NODE) {
       const elem = node as Element;
-      if (!elem.textContent?.trim()) {
+      if (!hasVisibleContent(elem)) {
         node.remove();
         continue;
       }

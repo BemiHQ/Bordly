@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it } from 'vitest';
-import { parseTrailingBackquotes, parseTrailingBlockquotes } from './email';
+import { parseTrailingBackquotes, parseTrailingBlockquotes, removeTrailingEmpty } from './email';
 
 describe('parseTrailingBackquotes', () => {
   it('parses quotes in the middle of text', () => {
@@ -283,5 +283,115 @@ describe('parseTrailingBlockquotes', () => {
     // The main message should not be in the quoted elements
     expect(result[0].textContent).not.toContain('Thanks for update.');
     expect(result[1].textContent).not.toContain('Thanks for update.');
+  });
+});
+
+describe('removeTrailingEmpty', () => {
+  it('preserves images at the end of content', () => {
+    const html = `
+      <div>
+        <div>
+          <p>Name</p>
+          <a href="https://example.com/calendar">Book a meeting</a>
+        </div>
+        <div>
+          <br>
+        </div>
+        <a href="http://example.com"><img width="96" height="15" src="https://example.com/logo.png"></a>
+        <br>
+        <br>
+      </div>
+    `;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const container = doc.body.firstElementChild as Element;
+
+    removeTrailingEmpty(container);
+
+    const imgs = container.querySelectorAll('img');
+    expect(imgs.length).toBe(1);
+    expect(imgs[0].src).toContain('logo.png');
+  });
+
+  it('removes empty divs and br tags without removing images', () => {
+    const html = `
+      <div>
+        <p>Content</p>
+        <div><br></div>
+        <img src="https://example.com/image.png">
+        <br>
+      </div>
+    `;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const container = doc.body.firstElementChild as Element;
+
+    removeTrailingEmpty(container);
+
+    const img = container.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(img?.src).toContain('image.png');
+  });
+
+  it('removes trailing empty elements but preserves content', () => {
+    const html = `
+      <div>
+        <p>Hello</p>
+        <div><br></div>
+        <div></div>
+      </div>
+    `;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const container = doc.body.firstElementChild as Element;
+
+    removeTrailingEmpty(container);
+
+    expect(container.textContent?.trim()).toBe('Hello');
+    const emptyDivs = Array.from(container.querySelectorAll('div')).filter((div) => !div.textContent?.trim());
+    expect(emptyDivs.length).toBe(0);
+  });
+
+  it('handles nested elements with images', () => {
+    const html = `
+      <div>
+        <div>
+          <div>Text content</div>
+          <div>
+            <a href="http://example.com"><img src="https://example.com/nested.png"></a>
+          </div>
+        </div>
+        <br>
+      </div>
+    `;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const container = doc.body.firstElementChild as Element;
+
+    removeTrailingEmpty(container);
+
+    const img = container.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(container.textContent).toContain('Text content');
+  });
+
+  it('removes only trailing whitespace nodes', () => {
+    const html = `
+      <div>
+        <span>First</span>
+        <br>
+        <span>Second</span>
+        <br>
+        <br>
+      </div>
+    `;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const container = doc.body.firstElementChild as Element;
+
+    removeTrailingEmpty(container);
+
+    expect(container.textContent).toContain('First');
+    expect(container.textContent).toContain('Second');
   });
 });

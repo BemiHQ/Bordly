@@ -418,7 +418,7 @@ export class EmailMessageService {
     const gmail = await GmailAccountService.initGmail(gmailAccount);
 
     // Fetch changes via Gmail API
-    const historyChanges = await EmailMessageService.fetchGmailHistoryChanges({ gmail, gmailAccount });
+    const historyChanges = await EmailMessageService.fetchGmailHistoryChangesAsc({ gmail, gmailAccount });
     let lastExternalHistoryId = historyChanges.lastExternalHistoryId;
     const { externalEmailMessageIdsToAdd, externalEmailMessageIdsToDelete, labelChanges } = historyChanges;
     if (
@@ -661,7 +661,7 @@ export class EmailMessageService {
     });
   }
 
-  private static async fetchGmailHistoryChanges({
+  private static async fetchGmailHistoryChangesAsc({
     gmail,
     gmailAccount,
   }: {
