@@ -411,7 +411,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": true,
+          "nullable": false,
           "enumItems": ["ACTIVE", "INACTIVE"],
           "mappedType": "enum"
         },
@@ -1363,7 +1363,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "length": 255,
           "mappedType": "string"
         },

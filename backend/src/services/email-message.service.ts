@@ -17,7 +17,7 @@ import { reportError } from '@/utils/error-tracking';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
-import { GmailAccountState } from '@/utils/shared';
+import { FALLBACK_SUBJECT, GmailAccountState } from '@/utils/shared';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
 import { BoardAccountService } from './board-account.service';
@@ -378,7 +378,7 @@ export class EmailMessageService {
       messageId: GmailApi.headerValue(headers, 'message-id'),
       references: GmailApi.headerValue(headers, 'references'),
       from,
-      subject: GmailApi.headerValue(headers, 'subject') || '(No Subject)',
+      subject: GmailApi.headerValue(headers, 'subject') || FALLBACK_SUBJECT,
       snippet: cheerio.load(messageData.snippet!).text(),
       sent: labels.includes(LABEL.SENT),
       labels,
@@ -465,7 +465,7 @@ export class EmailMessageService {
       (msg) => msg.externalThreadId,
     );
     // - Board cards
-    const boardCardByThreadId: { [threadId: string]: BoardCard } = mapBy(
+    const boardCardByThreadId = mapBy(
       [
         ...(await BoardCardService.findCardsByExternalThreadIds({
           gmailAccount,
@@ -473,7 +473,7 @@ export class EmailMessageService {
           populate: ['domain', 'boardCardReadPositions', 'boardColumn.board.boardMembers'],
         })),
       ],
-      (boardCard) => boardCard.externalThreadId,
+      (boardCard) => boardCard.externalThreadId!,
     );
     // - Board columns
     const boardColumnsAscByBoardId: Record<string, BoardColumn[]> = {};
@@ -569,7 +569,7 @@ export class EmailMessageService {
           emailMessagesDesc,
         });
         orm.em.persist(boardCard);
-        boardCardByThreadId[threadId] = boardCard;
+        boardCardByThreadId[threadId] = boardCard as (typeof boardCardByThreadId)[string];
       }
     }
 

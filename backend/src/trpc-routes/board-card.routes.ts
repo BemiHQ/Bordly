@@ -1,3 +1,4 @@
+import type { Loaded } from '@mikro-orm/postgresql';
 import type { TRPCRouterRecord } from '@trpc/server';
 import { z } from 'zod';
 import type { BoardCard } from '@/entities/board-card';
@@ -10,7 +11,10 @@ import { POPULATE as COMMENT_POPULATE } from '@/trpc-routes/comment.routes';
 
 export const POPULATE = ['domain', 'boardCardReadPositions', 'emailDraft.fileAttachments'] as const;
 
-export const toJson = (boardCard: BoardCard, ctx: Context) => {
+export const toJson = (
+  boardCard: Loaded<BoardCard, 'emailDraft.fileAttachments' | 'domain' | 'boardCardReadPositions'>,
+  ctx: Context,
+) => {
   const user = ctx.user!;
   const boardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
 
@@ -29,10 +33,7 @@ export const BOARD_CARD_ROUTES = {
     }),
     get: publicProcedure.input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() })).query(async ({ input, ctx }) => {
       const { board } = authAsBoardMember({ ctx, input });
-      const boardCard = await BoardCardService.findById(board, {
-        boardCardId: input.boardCardId,
-        populate: [...POPULATE, 'boardColumn'],
-      });
+      const boardCard = await BoardCardService.findById(board, { boardCardId: input.boardCardId, populate: POPULATE });
       const emailMessagesAsc = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
         populate: ['domain', 'gmailAttachments'],
         orderBy: { externalCreatedAt: 'ASC' },
@@ -43,10 +44,15 @@ export const BOARD_CARD_ROUTES = {
       });
       return {
         boardCard: toJson(boardCard, ctx),
-        boardColumn: boardCard.loadedBoardColumn.toJson(),
         emailMessagesAsc: emailMessagesAsc.map((msg) => msg.toJson()),
         commentsAsc: comments.map((comment) => comment.toJson()),
       };
+    }),
+    createWithEmailDraft: publicProcedure.input(z.object({ boardId: z.uuid() })).mutation(async ({ input, ctx }) => {
+      const { board } = authAsBoardMember({ ctx, input });
+      const user = ctx.user!;
+      const boardCard = await BoardCardService.createWithEmailDraft(board, { user });
+      return { boardCard: toJson(boardCard, ctx) };
     }),
     markAsRead: publicProcedure
       .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() }))
@@ -100,6 +106,13 @@ export const BOARD_CARD_ROUTES = {
           populate: POPULATE,
         });
         return { boardCard: toJson(boardCard, ctx) };
+      }),
+    setSubject: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid(), subject: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        const { board } = authAsBoardMember({ ctx, input });
+        await BoardCardService.setSubject(board, { boardCardId: input.boardCardId, subject: input.subject });
+        return { success: true };
       }),
   } satisfies TRPCRouterRecord,
 };

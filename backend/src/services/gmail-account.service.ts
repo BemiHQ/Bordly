@@ -66,7 +66,9 @@ export class GmailAccountService {
     const boardCards = await BoardCardService.findByBoardAndGmailAccount({ board, gmailAccount });
 
     await orm.em.transactional(async (em) => {
-      const emailMessagesCondition = { externalThreadId: { $in: boardCards.map((card) => card.externalThreadId) } };
+      const emailMessagesCondition = {
+        externalThreadId: { $in: boardCards.map((c) => c.externalThreadId).filter((id): id is string => !!id) },
+      };
       await em.nativeDelete(GmailAttachment, { emailMessage: emailMessagesCondition });
       await em.nativeDelete(EmailMessage, emailMessagesCondition);
 
@@ -84,10 +86,28 @@ export class GmailAccountService {
       await orm.em.persist(gmailAccount).flush();
 
       if (gmailAccountCount === 1) {
-        await em.nativeDelete(BoardMember, { board: board.id });
-        await em.nativeDelete(BoardColumn, { board: board.id });
-        await em.nativeDelete(BoardInvite, { board: board.id });
-        await em.nativeDelete(Board, { id: board.id });
+        const boardCondition = { id: board.id };
+
+        // Delete records associated with member's gmail accounts (initiated by them vs shared gmail accounts)
+        const boardCardCondition = { boardColumn: { board: boardCondition } };
+        const membersBoardCards = await BoardCardService.findByBoard({ board });
+        const membersEmailMessagesCondition = {
+          externalThreadId: {
+            $in: membersBoardCards.map((c) => c.externalThreadId).filter((id): id is string => !!id),
+          },
+        };
+        await em.nativeDelete(GmailAttachment, { emailMessage: membersEmailMessagesCondition });
+        await em.nativeDelete(EmailMessage, membersEmailMessagesCondition);
+        await em.nativeDelete(FileAttachment, { emailDraft: { boardCard: boardCardCondition } });
+        await em.nativeDelete(EmailDraft, { boardCard: boardCardCondition });
+        await em.nativeDelete(Comment, { boardCard: boardCardCondition });
+        await em.nativeDelete(BoardCardReadPosition, { boardCard: boardCardCondition });
+        await em.nativeDelete(BoardCard, boardCardCondition);
+
+        await em.nativeDelete(BoardMember, boardCondition);
+        await em.nativeDelete(BoardColumn, boardCondition);
+        await em.nativeDelete(BoardInvite, boardCondition);
+        await em.nativeDelete(Board, boardCondition);
       }
 
       await S3Client.deleteFiles({ keys: s3KeysToDelete });

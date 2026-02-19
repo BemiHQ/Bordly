@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useEditor } from '@tiptap/react';
 import { ALargeSmall, Paperclip, Send, Trash } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ import { useRouteContext } from '@/hooks/use-route-context';
 import {
   addEmailMessageData,
   addFileAttachmentToEmailDraftData,
+  type BoardCard,
   type BoardCardData,
   type EmailDraft,
   type EmailMessage,
@@ -29,6 +31,7 @@ import {
   replaceBoardCardData,
 } from '@/query-helpers/board-card';
 import {
+  removeBoardCardData,
   removeBoardCardEmailDraftData,
   replaceBoardCardData as replaceBoardCardDataInList,
   setBoardCardEmailDraftData,
@@ -36,7 +39,7 @@ import {
 import { createQuotedHtml, formatQuoteHeader, sanitizeBodyHtml } from '@/utils/email';
 import { reportError } from '@/utils/error-tracking';
 import { cn } from '@/utils/strings';
-import { API_ENDPOINTS } from '@/utils/urls';
+import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 const AUTO_SAVE_INTERVAL_MS = 1_000;
 
@@ -53,24 +56,27 @@ const parseParticipantsInput = (value: string) => {
   return participantStrings.length > 0 ? participantStrings : undefined;
 };
 
-export const ReplyCard = ({
+export const EmailDraftCard = ({
   boardId,
-  boardCardId,
+  boardCard,
   emailDraft,
   emailMessagesAsc,
   onDiscard,
 }: {
   boardId: string;
-  boardCardId: string;
+  boardCard: BoardCard;
   emailDraft?: EmailDraft;
   emailMessagesAsc: EmailMessage[];
   onDiscard: () => void;
 }) => {
+  const navigate = useNavigate();
   const { queryClient, trpc } = useRouteContext();
   const [from, setFrom] = useState(emailDraft ? participantToInput(emailDraft.from) : '');
   const [to, setTo] = useState(emailDraft ? participantsToInput(emailDraft.to) : '');
   const [cc, setCc] = useState(emailDraft ? participantsToInput(emailDraft.cc) : '');
   const [bcc, setBcc] = useState(emailDraft ? participantsToInput(emailDraft.bcc) : '');
+
+  const noMessages = boardCard.emailMessageCount === 0;
 
   // Set default "From" address using loaded email addresses
   const { data: emailAddressesData } = useQuery({
@@ -122,6 +128,7 @@ export const ReplyCard = ({
     }),
   );
 
+  const boardCardId = boardCard.id;
   const boardCardQueryKey = trpc.boardCard.get.queryKey({ boardId, boardCardId });
   const upsertDraftMutation = useMutation(trpc.emailDraft.upsert.mutationOptions());
   const optimisticallyDiscardDraft = useOptimisticMutationWithUndo({
@@ -130,6 +137,10 @@ export const ReplyCard = ({
     onExecute: (params) => {
       removeEmailDraftData({ trpc, queryClient, params });
       removeBoardCardEmailDraftData({ trpc, queryClient, params });
+      if (noMessages) {
+        removeBoardCardData({ trpc, queryClient, params });
+        navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+      }
     },
     successToast: 'Draft discarded',
     errorToast: 'Failed to discard draft',
@@ -177,7 +188,7 @@ export const ReplyCard = ({
     : '';
 
   const { sanitizedHtml: sanitizedQuotedHtml, sanitizedDisplayHtml: sanitizedDisplayQuotedHtml } = useMemo(() => {
-    if (!quotedHtml || !lastEmailMessage) return { sanitizedHtml: '', sanitizedDisplayHtml: '' };
+    if (!quotedHtml) return { sanitizedHtml: '', sanitizedDisplayHtml: '' };
     return sanitizeBodyHtml({
       bodyHtml: quotedHtml,
       gmailAttachments: lastEmailMessage.gmailAttachments,
@@ -191,19 +202,21 @@ export const ReplyCard = ({
     enabled: blockquotesExpanded,
   });
 
-  const editor = useEditor(editorConfig({ initialHtml: emailDraft?.bodyHtml?.split(sanitizedQuotedHtml)[0] }));
+  const editor = useEditor(
+    editorConfig({
+      initialHtml: sanitizedQuotedHtml ? emailDraft?.bodyHtml?.split(sanitizedQuotedHtml)[0] : emailDraft?.bodyHtml,
+    }),
+  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignore emailDraftUpsertMutation to avoid unnecessary re-renders
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      if (!editor || !lastEmailMessage || emailDraftUpsertMutation.isPending || !hasChanges) return;
+      if (!editor || emailDraftUpsertMutation.isPending || !hasChanges) return;
 
       emailDraftUpsertMutation.mutate({
         boardId,
         boardCardId,
-        subject: lastEmailMessage.subject.includes('Re:')
-          ? lastEmailMessage.subject
-          : `Re: ${lastEmailMessage.subject}`,
+        subject: noMessages ? boardCard.subject : `Re: ${boardCard.subject}`,
         bodyHtml: `${editor.getHTML()}${sanitizedQuotedHtml}`,
         from: from.trim(),
         to: to ? parseParticipantsInput(to) : undefined,
@@ -219,7 +232,6 @@ export const ReplyCard = ({
     };
   }, [
     editor,
-    lastEmailMessage,
     emailDraftUpsertMutation.isPending,
     hasChanges,
     boardCardId,
@@ -228,11 +240,11 @@ export const ReplyCard = ({
     to,
     cc,
     bcc,
-    quotedHtml,
+    sanitizedQuotedHtml,
   ]);
 
   const handleSend = () => {
-    if (!editor || !lastEmailMessage) return;
+    if (!editor) return;
 
     // Cancel autosave to avoid race conditions
     if (autosaveIntervalRef.current !== null) {
@@ -244,7 +256,7 @@ export const ReplyCard = ({
     emailDraftSendMutation.mutate({
       boardId,
       boardCardId,
-      subject: lastEmailMessage.subject.includes('Re:') ? lastEmailMessage.subject : `Re: ${lastEmailMessage.subject}`,
+      subject: noMessages ? boardCard.subject : `Re: ${boardCard.subject}`,
       bodyHtml: `${editor.getHTML()}${sanitizedQuotedHtml}`,
       from: from.trim(),
       to: to ? parseParticipantsInput(to) : undefined,

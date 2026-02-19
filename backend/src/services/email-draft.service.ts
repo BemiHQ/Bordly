@@ -1,4 +1,4 @@
-import type { Populate } from '@mikro-orm/postgresql';
+import type { Loaded, Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
 import { EmailDraft, type Participant } from '@/entities/email-draft';
@@ -26,28 +26,28 @@ export class EmailDraftService {
     return orm.em.find(EmailDraft, { boardCard: { gmailAccount, boardColumn: { board } } }, { populate });
   }
 
-  static async upsert(
-    boardCard: BoardCard,
+  static async upsert<T extends Loaded<BoardCard, 'emailDraft' | 'boardColumn' | 'boardCardReadPositions'>>(
+    boardCard: T,
     {
       user,
       generated,
+      subject,
       from,
       to,
       cc,
       bcc,
-      subject,
       bodyHtml,
     }: {
-      user: User;
+      user: Loaded<User, 'boardMembers'>;
       generated: boolean;
+      subject: string;
       from: string;
       to?: string[];
       cc?: string[];
       bcc?: string[];
-      subject?: string;
       bodyHtml?: string;
     },
-  ) {
+  ): Promise<T> {
     const fromParticipant = EmailMessageService.parseParticipant(from)!;
     const toParticipants = to?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
     const ccParticipants = cc?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
@@ -92,17 +92,25 @@ export class EmailDraftService {
     return boardCard;
   }
 
-  static async delete(boardCard: BoardCard) {
+  static async delete(boardCard: Loaded<BoardCard, 'emailDraft.fileAttachments'>) {
     const { emailDraft } = boardCard;
     if (!emailDraft) return;
 
     orm.em.remove(emailDraft);
     await FileAttachmentService.deleteAllForDraft(emailDraft);
+
+    if (boardCard.noMessages) {
+      await BoardCardService.delete(boardCard);
+    }
+
     await orm.em.flush();
   }
 
   static async send(
-    boardCard: BoardCard,
+    boardCard: Loaded<
+      BoardCard,
+      'gmailAccount' | 'emailDraft.fileAttachments' | 'boardColumn' | 'boardCardReadPositions'
+    >,
     {
       user,
       from,
@@ -112,7 +120,7 @@ export class EmailDraftService {
       subject,
       bodyHtml,
     }: {
-      user: User;
+      user: Loaded<User>;
       from: string;
       to?: string[];
       cc?: string[];

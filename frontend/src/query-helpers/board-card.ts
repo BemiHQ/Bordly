@@ -6,7 +6,6 @@ import type { TrpcProxy } from '@/trpc';
 export type BoardCardData = inferRouterOutputs<TRPCRouter>['boardCard']['get'];
 
 export type BoardCard = BoardCardData['boardCard'];
-export type BoardColumn = BoardCardData['boardColumn'];
 export type EmailMessage = BoardCardData['emailMessagesAsc'][number];
 export type Comment = BoardCardData['commentsAsc'][number];
 
@@ -53,18 +52,18 @@ export const removeEmailDraftData = ({
   });
 };
 
-export const replaceBoardColumnData = ({
+export const replaceBoardColumnIdData = ({
   trpc,
   queryClient,
-  params: { boardId, boardCardId, boardColumn },
+  params: { boardId, boardCardId, boardColumnId },
 }: {
   trpc: TrpcProxy;
   queryClient: QueryClient;
-  params: { boardId: string; boardCardId: string; boardColumn: BoardColumn };
+  params: { boardId: string; boardCardId: string; boardColumnId: string };
 }) => {
   queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId }), (oldData) => {
     if (!oldData) return oldData;
-    return { ...oldData, boardColumn } satisfies typeof oldData;
+    return { ...oldData, boardCard: { ...oldData.boardCard, boardColumnId } } satisfies typeof oldData;
   });
 };
 
@@ -207,6 +206,35 @@ export const deleteCommentData = ({
       ...oldData,
       commentsAsc: oldData.commentsAsc.filter((c) => c.id !== commentId),
     } satisfies typeof oldData;
+  });
+};
+
+export const setBoardCardSubjectData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardCardId, subject },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardCardId: string; subject: string };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return { ...oldData, boardCard: { ...oldData.boardCard, subject } } satisfies typeof oldData;
+  });
+};
+
+export const addBoardCardData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardCard },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardCard: BoardCard };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId: boardCard.id }), (_oldData) => {
+    return { boardCard, emailMessagesAsc: [], commentsAsc: [] } satisfies typeof _oldData;
   });
 };
 

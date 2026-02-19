@@ -6,6 +6,8 @@ export const ERRORS = {
   NO_GMAIL_ACCESS: 'NO_GMAIL_ACCESS',
 };
 
+export const FALLBACK_SUBJECT = '(No Subject)';
+
 export enum BoardCardState {
   INBOX = 'INBOX',
   ARCHIVED = 'ARCHIVED',

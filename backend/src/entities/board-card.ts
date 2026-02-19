@@ -38,7 +38,7 @@ export interface BoardCard {
 @Index({ properties: ['assignedBoardMember'] })
 export class BoardCard extends BaseEntity {
   @ManyToOne()
-  gmailAccount: GmailAccount;
+  gmailAccount: GmailAccount; // BoardAccount's or BoardMember.User's Gmail account
   @ManyToOne()
   boardColumn: BoardColumn;
   @ManyToOne()
@@ -54,7 +54,7 @@ export class BoardCard extends BaseEntity {
   boardCardReadPositions = new Collection<BoardCardReadPosition>(this);
 
   @Property()
-  externalThreadId: string;
+  externalThreadId?: string;
   @Enum(() => State)
   state: State;
 
@@ -97,7 +97,7 @@ export class BoardCard extends BaseEntity {
     gmailAccount: GmailAccount;
     boardColumn: BoardColumn;
     domain: Domain;
-    externalThreadId: string;
+    externalThreadId?: string;
     state: State;
     subject: string;
     snippet: string;
@@ -126,6 +126,7 @@ export class BoardCard extends BaseEntity {
   }
 
   update({
+    externalThreadId,
     state,
     snippet,
     participantsAsc,
@@ -134,6 +135,7 @@ export class BoardCard extends BaseEntity {
     emailMessageCount,
     movedToTrashAt,
   }: {
+    externalThreadId: string;
     state: State;
     snippet: string;
     participantsAsc: Participant[];
@@ -142,6 +144,7 @@ export class BoardCard extends BaseEntity {
     emailMessageCount: number;
     movedToTrashAt?: Date;
   }) {
+    this.externalThreadId = externalThreadId;
     this.state = state;
     this.snippet = snippet.slice(0, MAX_SNIPPET_LENGTH);
     this.participantsAsc = participantsAsc.map((p) => ({ ...p, email: p.email.toLowerCase() }));
@@ -150,6 +153,10 @@ export class BoardCard extends BaseEntity {
     this.emailMessageCount = emailMessageCount;
     this.movedToTrashAt = movedToTrashAt;
     this.validate();
+  }
+
+  get noMessages() {
+    return this.emailMessageCount === 0;
   }
 
   setBoardColumn(boardColumn: BoardColumn) {
@@ -174,6 +181,11 @@ export class BoardCard extends BaseEntity {
 
   setSnippet(snippet: string) {
     this.snippet = snippet.slice(0, MAX_SNIPPET_LENGTH);
+    this.validate();
+  }
+
+  setSubject(subject: string) {
+    this.subject = subject;
     this.validate();
   }
 
@@ -219,7 +231,6 @@ export class BoardCard extends BaseEntity {
     if (!this.gmailAccount) throw new Error('GmailAccount is required');
     if (!this.boardColumn) throw new Error('BoardColumn is required');
     if (!this.domain) throw new Error('Domain is required');
-    if (!this.externalThreadId) throw new Error('ExternalThreadId is required');
     if (!this.state) throw new Error('State is required');
     if (!this.subject) throw new Error('Subject is required');
     if (this.snippet === undefined || this.snippet === null) throw new Error('Snippet is required');

@@ -56,6 +56,9 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
         throw new Error(`Board not found or user is not a member: ${boardId} (user ID: ${userId})`);
       }
       const boardCard = await BoardCardService.findById(board, { boardCardId });
+      if (!boardCard.externalThreadId) {
+        throw new Error(`Board card does not have an external thread ID: ${boardCardId} (user ID: ${userId})`);
+      }
       const attachment = await GmailAttachmentService.findByIdAndExternalThreadId(gmailAttachmentId, {
         externalThreadId: boardCard.externalThreadId,
         populate: ['emailMessage'],

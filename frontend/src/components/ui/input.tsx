@@ -12,7 +12,7 @@ const inputVariants = cva('', {
     variant: {
       default:
         'border border-input focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] shadow-xs',
-      ghost: '',
+      ghost: 'p-0 h-auto rounded-none',
     },
     defaultVariants: {
       inputSize: 'default',

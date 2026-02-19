@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Loaded } from '@mikro-orm/postgresql';
 import type { EmailDraft } from '@/entities/email-draft';
 import { FileAttachment } from '@/entities/file-attachment';
 import { orm } from '@/utils/orm';
@@ -47,7 +48,7 @@ export class FileAttachmentService {
     await orm.em.flush();
   }
 
-  static async deleteAllForDraft(emailDraft: EmailDraft) {
+  static async deleteAllForDraft(emailDraft: Loaded<EmailDraft, 'fileAttachments'>) {
     const s3Keys = emailDraft.fileAttachments.map((a) => a.s3Key);
     await S3Client.deleteFiles({ keys: s3Keys });
 

@@ -1,16 +1,24 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, useMatches, useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { FALLBACK_SUBJECT } from 'bordly-backend/utils/shared';
+import { useEffect, useState } from 'react';
 import { BoardCardDialogNavbar } from '@/components/board-card/board-card-dialog-navbar';
 import { CommentInput } from '@/components/board-card/comment-input';
-import { ReplyCard } from '@/components/board-card/reply-card';
+import { EmailDraftCard } from '@/components/board-card/email-draft-card';
 import { TimelineMessages } from '@/components/board-card/timeline-messages';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { usePrefetchQuery } from '@/hooks/use-prefetch-query';
 import { RouteProvider } from '@/hooks/use-route-context';
+import { useScrollContainer } from '@/hooks/use-scroll-container';
 import { ensureLoggedIn } from '@/loaders/authentication';
-import { replaceBoardCardData } from '@/query-helpers/board-cards';
+import { setBoardCardSubjectData } from '@/query-helpers/board-card';
+import {
+  replaceBoardCardData,
+  setBoardCardSubjectData as setBoardCardSubjectDataInList,
+} from '@/query-helpers/board-cards';
 import { cn, extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
 
@@ -38,13 +46,10 @@ function BoardCardComponent() {
   const boardId = extractUuid(params.boardId);
   const boardCardId = extractUuid(params.boardCardId);
 
+  const [subject, setSubject] = useState('');
+  const [isEditingSubject, setIsEditingSubject] = useState(false);
   const [showReply, setShowReply] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
-  const scrollContainerRef = useCallback((node: HTMLDivElement | null) => {
-    if (node) setScrollContainer(node);
-  }, []);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const { isScrolled, scrollContainerRef, bottomRef, scrollToBottom, scrollToTop } = useScrollContainer();
 
   const {
     data: boardCardData,
@@ -58,16 +63,35 @@ function BoardCardComponent() {
   const { data: boardData } = useQuery(trpc.board.get.queryOptions({ boardId }));
 
   const boardCard = boardCardData?.boardCard;
-  const boardColumn = boardCardData?.boardColumn;
   const emailMessagesAsc = boardCardData?.emailMessagesAsc;
   const commentsAsc = boardCardData?.commentsAsc || [];
   const boardMembers = boardData?.boardMembers || [];
+  const boardColumn = boardData?.boardColumnsAsc.find((col) => col.id === boardCard?.boardColumnId);
 
   const markAsReadMutation = useMutation(
     trpc.boardCard.markAsRead.mutationOptions({
       onSuccess: ({ boardCard }) => replaceBoardCardData({ queryClient, trpc, params: { boardId, boardCard } }),
     }),
   );
+
+  const optimisticallySetSubject = useOptimisticMutation({
+    queryClient,
+    queryKey: trpc.boardCard.get.queryKey({ boardId, boardCardId }),
+    onExecute: (params) => {
+      setBoardCardSubjectData({ trpc, queryClient, params });
+      setBoardCardSubjectDataInList({ trpc, queryClient, params });
+    },
+    errorToast: 'Failed to update subject. Please try again.',
+    mutation: useMutation(trpc.boardCard.setSubject.mutationOptions()),
+  });
+  const handleSubjectChange = () => {
+    setIsEditingSubject(false);
+    if (subject !== boardCard?.subject) {
+      const newSubject = subject || FALLBACK_SUBJECT;
+      setSubject(newSubject);
+      optimisticallySetSubject({ boardId, boardCardId, subject: newSubject });
+    }
+  };
 
   // Mark as read on open if there are unread messages and set document title to email subject
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignore markAsReadMutation to avoid infinite loop
@@ -78,6 +102,7 @@ function BoardCardComponent() {
 
     if (boardCard) {
       document.title = `${boardCard.subject} | Bordly`;
+      setSubject(boardCard.subject === FALLBACK_SUBJECT ? '' : boardCard.subject);
     }
 
     if (boardCard?.emailDraft && !boardCard.emailDraft.generated) {
@@ -85,35 +110,17 @@ function BoardCardComponent() {
     }
   }, [boardCard, boardId, boardCardId, matches.length]);
 
-  // Track scroll position for DialogHeader shadow
-  useEffect(() => {
-    if (!scrollContainer) return;
-
-    const handleScroll = () => {
-      setIsScrolled(scrollContainer.scrollTop > 0);
-    };
-
-    scrollContainer.addEventListener('scroll', handleScroll);
-    return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  }, [scrollContainer]);
-
   // Scroll to bottom when reply card is shown
   useEffect(() => {
-    if (showReply && scrollContainer) {
-      setTimeout(() => {
-        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
-      }, 100);
+    if (showReply) {
+      setTimeout(() => scrollToTop(), 100);
     }
-  }, [showReply, scrollContainer]);
+  }, [showReply, scrollToTop]);
 
-  const scrollToBottom = () => {
-    if (bottomRef.current && scrollContainer) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
-  };
-
-  // Prefetch email addresses for ReplyCard
+  // Prefetch email addresses for EmailDraftCard
   usePrefetchQuery(queryClient, { ...trpc.senderEmailAddress.getAddressesForBoardMember.queryOptions({ boardId }) });
+
+  const noMessages = boardCard?.emailMessageCount === 0;
 
   return (
     <RouteProvider value={{ trpc, queryClient, currentUser }}>
@@ -140,13 +147,43 @@ function BoardCardComponent() {
                 <BoardCardDialogNavbar
                   boardId={boardId}
                   boardCard={boardCard}
-                  boardColumn={boardColumn}
                   boardColumnsAsc={boardData.boardColumnsAsc}
                   boardMembers={boardMembers}
                 />
               </DialogHeader>
               <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 mb-10">
-                <DialogTitle className="mb-3 mt-2">{boardCard?.subject}</DialogTitle>
+                <div className={isEditingSubject ? 'mt-1 mb-2' : 'mb-3 mt-2'}>
+                  {isEditingSubject && noMessages ? (
+                    <Input
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      onBlur={handleSubjectChange}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSubjectChange();
+                        } else if (e.key === 'Escape') {
+                          setSubject(boardCard.subject);
+                          setIsEditingSubject(false);
+                        }
+                      }}
+                      variant="ghost"
+                      className="text-base font-semibold h-5"
+                      autoFocus
+                    />
+                  ) : (
+                    <DialogTitle
+                      className={noMessages ? 'cursor-pointer hover:text-primary' : ''}
+                      onClick={noMessages ? () => setIsEditingSubject(true) : undefined}
+                    >
+                      {noMessages && boardCard.subject === FALLBACK_SUBJECT ? (
+                        <span className="text-semi-muted">Subject</span>
+                      ) : (
+                        subject
+                      )}
+                    </DialogTitle>
+                  )}
+                </div>
+
                 <div className="flex flex-col gap-4">
                   <TimelineMessages
                     emailMessages={emailMessagesAsc}
@@ -157,9 +194,9 @@ function BoardCardComponent() {
                     onReply={() => setShowReply(true)}
                   />
                   {showReply && (
-                    <ReplyCard
+                    <EmailDraftCard
                       boardId={boardId}
-                      boardCardId={boardCardId}
+                      boardCard={boardCard}
                       emailDraft={boardCard.emailDraft}
                       emailMessagesAsc={emailMessagesAsc}
                       onDiscard={() => setShowReply(false)}

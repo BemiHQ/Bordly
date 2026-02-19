@@ -18,12 +18,7 @@ import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
 import { type BoardColumn as BoardColumnType, type BoardMember, solo } from '@/query-helpers/board';
-import {
-  type BoardCard,
-  type BoardColumn,
-  replaceBoardColumnData,
-  setAssignedBoardMemberData,
-} from '@/query-helpers/board-card';
+import { type BoardCard, replaceBoardColumnIdData, setAssignedBoardMemberData } from '@/query-helpers/board-card';
 import {
   changeBoardCardColumnData,
   removeBoardCardData,
@@ -35,24 +30,24 @@ import { ROUTES } from '@/utils/urls';
 export const BoardCardDialogNavbar = ({
   boardId,
   boardCard,
-  boardColumn,
   boardColumnsAsc,
   boardMembers,
 }: {
   boardId: string;
-  boardCard: BoardCard;
-  boardColumn: BoardColumn;
+  boardCard?: BoardCard;
   boardColumnsAsc: BoardColumnType[];
   boardMembers: BoardMember[];
 }) => {
   const { trpc, queryClient, currentUser } = useRouteContext();
   const navigate = useNavigate();
 
-  const boardCardId = boardCard.id;
+  const boardCardId = boardCard?.id;
 
   const soloBoard = solo(boardMembers);
-  const participantMembers = boardMembers.filter((m) => boardCard.participantUserIds?.includes(m.user.id));
-  const assignedMember = boardMembers.find((m) => m.id === boardCard.assignedBoardMemberId);
+  const participantMembers = boardCard
+    ? boardMembers.filter((m) => boardCard.participantUserIds?.includes(m.user.id))
+    : [];
+  const assignedMember = boardCard ? boardMembers.find((m) => m.id === boardCard.assignedBoardMemberId) : undefined;
   const currentUserMember = boardMembers.find((m) => m.user.id === currentUser!.id)!;
 
   const boardCardQueryKey = trpc.boardCard.get.queryKey({ boardId, boardCardId });
@@ -71,10 +66,10 @@ export const BoardCardDialogNavbar = ({
     queryKey: boardCardQueryKey,
     onExecute: (params) => {
       const boardColumn = boardColumnsAsc.find((col) => col.id === params.boardColumnId)!;
-      replaceBoardColumnData({
+      replaceBoardColumnIdData({
         trpc: trpc,
         queryClient,
-        params: { ...params, boardColumn },
+        params: { ...params, boardColumnId: boardColumn.id },
       });
       changeBoardCardColumnData({ trpc: trpc, queryClient, params });
     },
@@ -129,11 +124,15 @@ export const BoardCardDialogNavbar = ({
     mutation: useMutation(trpc.boardCard.markAsUnread.mutationOptions()),
   });
 
+  const boardColumn = boardCard ? boardColumnsAsc.find((col) => col.id === boardCard.boardColumnId) : undefined;
+
   return (
     <div className="flex gap-8 items-center mr-11">
       <Select
         value={boardColumn?.id}
-        onValueChange={(value) => optimisticallySetBoardColumn({ boardId, boardCardId, boardColumnId: value })}
+        onValueChange={(value) =>
+          boardCard && optimisticallySetBoardColumn({ boardId, boardCardId: boardCard.id, boardColumnId: value })
+        }
       >
         <SelectTrigger size="sm" variant="ghost" className="font-medium text-muted-foreground p-0" hideChevron>
           <SelectValue placeholder={boardColumn?.name} />
@@ -148,98 +147,109 @@ export const BoardCardDialogNavbar = ({
           </SelectGroup>
         </SelectContent>
       </Select>
-      <div className="flex items-center gap-2">
-        {!soloBoard &&
-          (participantMembers.length > 1 ||
-            (participantMembers.length === 1 && participantMembers[0].id !== assignedMember?.id)) && (
-            <AvatarGroup
-              className="mr-2"
-              avatars={participantMembers.map((member) => (
-                <Avatar key={member.user.id} size="xs">
-                  <AvatarImage src={member.user.photoUrl} alt={member.user.fullName} />
-                  <AvatarFallback hashForBgColor={member.user.fullName}>
-                    {member.user.fullName.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-            />
-          )}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => {
-                optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
-                navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-              }}
-              className="flex text-muted-foreground cursor-pointer hover:bg-border"
-            >
-              <Archive className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Archive</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => {
-                optimisticallyMarkAsSpam({ boardId, boardCardId, state: BoardCardState.SPAM });
-                navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-              }}
-              className="flex text-muted-foreground cursor-pointer hover:bg-border"
-            >
-              <OctagonX className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Report spam</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => {
-                optimisticallyDelete({ boardId, boardCardId, state: BoardCardState.TRASH });
-                navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-              }}
-              className="flex text-muted-foreground cursor-pointer hover:bg-border"
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Delete</TooltipContent>
-        </Tooltip>
-        <div className="w-px h-4 bg-ring mx-0.5" />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => {
-                optimisticallyMarkAsUnread({ boardId, boardCardId });
-                navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-              }}
-              className="flex text-muted-foreground cursor-pointer hover:bg-border"
-            >
-              <Mail className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            Mark as unread
-            {soloBoard ? '' : ' (only for you)'}
-          </TooltipContent>
-        </Tooltip>
-      </div>
+      {boardCard && boardCard.emailMessageCount > 0 && (
+        <div className="flex items-center gap-2">
+          {!soloBoard &&
+            (participantMembers.length > 1 ||
+              (participantMembers.length === 1 && participantMembers[0].id !== assignedMember?.id)) && (
+              <AvatarGroup
+                className="mr-2"
+                avatars={participantMembers.map((member) => (
+                  <Avatar key={member.user.id} size="xs">
+                    <AvatarImage src={member.user.photoUrl} alt={member.user.fullName} />
+                    <AvatarFallback hashForBgColor={member.user.fullName}>
+                      {member.user.fullName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+              />
+            )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => {
+                  if (boardCardId) {
+                    optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
+                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+                  }
+                }}
+                className="flex text-muted-foreground cursor-pointer hover:bg-border"
+              >
+                <Archive className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Archive</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => {
+                  if (boardCardId) {
+                    optimisticallyMarkAsSpam({ boardId, boardCardId, state: BoardCardState.SPAM });
+                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+                  }
+                }}
+                className="flex text-muted-foreground cursor-pointer hover:bg-border"
+              >
+                <OctagonX className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Report spam</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => {
+                  if (boardCardId) {
+                    optimisticallyDelete({ boardId, boardCardId, state: BoardCardState.TRASH });
+                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+                  }
+                }}
+                className="flex text-muted-foreground cursor-pointer hover:bg-border"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Delete</TooltipContent>
+          </Tooltip>
+          <div className="w-px h-4 bg-ring mx-0.5" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => {
+                  if (boardCardId) {
+                    optimisticallyMarkAsUnread({ boardId, boardCardId });
+                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+                  }
+                }}
+                className="flex text-muted-foreground cursor-pointer hover:bg-border"
+              >
+                <Mail className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Mark as unread
+              {soloBoard ? '' : ' (only for you)'}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
       <div className="flex items-center ml-auto">
         <Select
           value={assignedMember?.id || 'unassigned'}
           onValueChange={(value) =>
+            boardCard &&
             optimisticallySetAssignee({
               boardId,
-              boardCardId,
+              boardCardId: boardCard.id,
               assignedBoardMemberId: value === 'unassigned' ? null : value,
             })
           }

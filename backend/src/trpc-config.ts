@@ -1,7 +1,8 @@
-import { NotFoundError } from '@mikro-orm/postgresql';
+import { type Loaded, NotFoundError } from '@mikro-orm/postgresql';
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify';
 import superjson from 'superjson';
+import type { Board } from '@/entities/board';
 import { BoardService } from '@/services/board.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
@@ -61,14 +62,14 @@ export const publicProcedure = t.procedure.use(errorHandlerMiddleware).use(loggi
 
 export const authAsBoardMember = ({ ctx, input }: { ctx: Context; input: { boardId: string } }) => {
   if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
-  const board = BoardService.tryFindAsMember(input.boardId, { user: ctx.user });
+  const board = BoardService.tryFindAsMember(input.boardId, { user: ctx.user }) as Loaded<Board, 'boardMembers'> | null;
   if (!board) throw new TRPCError({ code: 'NOT_FOUND' });
   return { board, user: ctx.user };
 };
 
 export const authAsBoardAdmin = ({ ctx, input }: { ctx: Context; input: { boardId: string } }) => {
   if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
-  const board = BoardService.tryFindAsAdmin(input.boardId, { user: ctx.user });
+  const board = BoardService.tryFindAsAdmin(input.boardId, { user: ctx.user }) as Loaded<Board, 'boardMembers'> | null;
   if (!board) throw new TRPCError({ code: 'NOT_FOUND' });
   return { board, user: ctx.user };
 };

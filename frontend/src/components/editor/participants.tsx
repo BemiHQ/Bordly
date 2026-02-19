@@ -49,7 +49,7 @@ export const Participants = ({
               onChange();
             }}
           >
-            <SelectTrigger size="sm" variant="ghost" className="h-7">
+            <SelectTrigger size="sm" variant="ghost" className="h-7 px-3">
               <SelectValue placeholder={from} />
             </SelectTrigger>
             <SelectContent>
@@ -75,17 +75,23 @@ export const Participants = ({
       </div>
       <div className="flex items-center gap-1">
         <div className="text-xs text-muted-foreground">To</div>
-        <Input inputSize="sm" className="h-7" variant="ghost" value={to} onChange={handleFieldChange(setTo)} />
+        <Input inputSize="sm" className="h-7 px-3" variant="ghost" value={to} onChange={handleFieldChange(setTo)} />
       </div>
       {showCcBcc && (
         <>
           <div className="flex items-center gap-1">
             <div className="text-xs text-muted-foreground">Cc</div>
-            <Input inputSize="sm" className="h-7" variant="ghost" value={cc} onChange={handleFieldChange(setCc)} />
+            <Input inputSize="sm" className="h-7 px-3" variant="ghost" value={cc} onChange={handleFieldChange(setCc)} />
           </div>
           <div className="flex items-center gap-1">
             <div className="text-xs text-muted-foreground">Bcc</div>
-            <Input inputSize="sm" className="h-7" variant="ghost" value={bcc} onChange={handleFieldChange(setBcc)} />
+            <Input
+              inputSize="sm"
+              className="h-7 px-3"
+              variant="ghost"
+              value={bcc}
+              onChange={handleFieldChange(setBcc)}
+            />
           </div>
         </>
       )}

@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
-import { Ellipsis, Link2, ListFilter, UsersRound } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { Ellipsis, Link2, ListFilter, MailPlus, UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BoardMembersDialog } from '@/components/board/board-members-dialog';
 import { EmailAccountsDialog } from '@/components/board/email-accounts-dialog';
@@ -21,8 +22,24 @@ import { useRouteContext } from '@/hooks/use-route-context';
 import { type Board, type BoardAccount, type BoardMember, renameBoardData } from '@/query-helpers/board';
 import { isSsr } from '@/utils/ssr';
 import { cn } from '@/utils/strings';
+import { ROUTES } from '@/utils/urls';
 
 export const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
+
+const ComposeButton = ({ boardId }: { boardId: string }) => {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="icon-sm" className="px-2" asChild>
+          <Link to={ROUTES.BOARD_COMPOSE.replace('$boardId', boardId)}>
+            <MailPlus className="text-muted-foreground" />
+          </Link>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="left">New email</TooltipContent>
+    </Tooltip>
+  );
+};
 
 const FilterButton = ({ boardAccounts }: { boardAccounts: BoardAccount[] }) => {
   const { filters, setFilters } = useBoardFilters();
@@ -51,7 +68,7 @@ const FilterButton = ({ boardAccounts }: { boardAccounts: BoardAccount[] }) => {
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent side="left">Filters</TooltipContent>
+        <TooltipContent side="bottom">Filters</TooltipContent>
       </Tooltip>
       <PopoverContent align="end">
         <div className="flex flex-col gap-4 px-2 pb-2">
@@ -229,12 +246,12 @@ export const BoardNavbar = ({
       <div className="border-b bg-background px-6 py-2.5 flex items-center justify-between">
         {isEditing ? (
           <Input
-            inputSize="sm"
             value={editedName}
             onChange={(e) => setEditedName(e.target.value)}
             onBlur={handleNameSubmit}
             onKeyDown={handleKeyDown}
-            className="bg-background text-base font-semibold rounded-sm focus-visible:ring-1 w-fit px-2 ml-[-9px] mt-[-1px] bg-white min-w-sm"
+            variant="ghost"
+            className="text-base font-semibold"
             autoFocus
           />
         ) : (
@@ -243,6 +260,7 @@ export const BoardNavbar = ({
           </h1>
         )}
         <div className="flex items-center gap-2">
+          <ComposeButton boardId={board.id} />
           <FilterButton boardAccounts={boardAccounts} />
           <MenuButton board={board} boardMembers={boardMembers} boardAccounts={boardAccounts} />
         </div>

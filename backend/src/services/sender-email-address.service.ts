@@ -1,5 +1,6 @@
-import type { Loaded } from '@mikro-orm/postgresql';
+import type { Loaded, Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
+import type { Participant } from '@/entities/email-message';
 import { GmailAccount } from '@/entities/gmail-account';
 import { SenderEmailAddress } from '@/entities/sender-email-address';
 import type { User } from '@/entities/user';
@@ -10,6 +11,10 @@ import { groupBy, mapBy } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 
 export class SenderEmailAddressService {
+  static toParticipant(emailAddress: SenderEmailAddress) {
+    return { name: emailAddress.name, email: emailAddress.email } as Participant;
+  }
+
   static async persistNewAddresses(gmailAccount: GmailAccount) {
     const gmail = await GmailAccountService.initGmail(gmailAccount);
     const sendAsItems = await GmailApi.listSendAs(gmail);
@@ -36,13 +41,18 @@ export class SenderEmailAddressService {
     return emailAddresses;
   }
 
-  static async findAddressesByBoard(user: User, board: Board) {
+  static async findAddressesByBoard<Hint extends string = never>(
+    board: Board,
+    { user, populate = [] }: { user: User; populate?: Populate<SenderEmailAddress, Hint> },
+  ) {
     const boardAccounts = await BoardAccountService.findAccountsByBoard(board, { populate: ['gmailAccount'] });
     const boardAccountsByGmailAccountId = groupBy(boardAccounts, (ba) => ba.gmailAccount.id);
 
-    const senderEmailAddresses = await orm.em.find(SenderEmailAddress, {
-      gmailAccount: { $or: [{ user }, { id: { $in: boardAccounts.map((ba) => ba.gmailAccount.id) } }] },
-    });
+    const senderEmailAddresses = await orm.em.find(
+      SenderEmailAddress,
+      { gmailAccount: { $or: [{ user }, { id: { $in: boardAccounts.map((ba) => ba.gmailAccount.id) } }] } },
+      { populate },
+    );
 
     return senderEmailAddresses.filter((emailAddress) => {
       // Current user's email addresses

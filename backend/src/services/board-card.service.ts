@@ -1,16 +1,24 @@
-import type { Populate } from '@mikro-orm/postgresql';
+import type { Loaded, Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
 import { BoardCard, State } from '@/entities/board-card';
 import { BoardCardReadPosition } from '@/entities/board-card-read-position';
 import type { BoardColumn } from '@/entities/board-column';
+import { Comment } from '@/entities/comment';
+import { Domain } from '@/entities/domain';
+import { EmailDraft } from '@/entities/email-draft';
 import type { EmailMessage, Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
+import type { User } from '@/entities/user';
+import { BoardService } from '@/services/board.service';
 import { BoardColumnService } from '@/services/board-column.service';
 import { BoardMemberService } from '@/services/board-member.service';
+import { DomainService } from '@/services/domain.service';
 import { EmailDraftService } from '@/services/email-draft.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
+import { SenderEmailAddressService } from '@/services/sender-email-address.service';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { orm } from '@/utils/orm';
+import { FALLBACK_SUBJECT } from '@/utils/shared';
 import { msAgoFrom } from '@/utils/time';
 
 export class BoardCardService {
@@ -58,6 +66,16 @@ export class BoardCardService {
     return orm.em.find(BoardCard, { gmailAccount, boardColumn: { board } }, { populate });
   }
 
+  static async findByBoard<Hint extends string = never>({
+    board,
+    populate = [],
+  }: {
+    board: Board;
+    populate?: Populate<BoardCard, Hint>;
+  }) {
+    return orm.em.find(BoardCard, { boardColumn: { board } }, { populate });
+  }
+
   static async markAsRead<Hint extends string = never>(
     board: Board,
     { boardCardId, populate }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
@@ -72,7 +90,7 @@ export class BoardCardService {
       orm.em.persist(boardCardReadPosition);
     }
 
-    if (board.solo) {
+    if (board.solo && boardCard.externalThreadId) {
       console.log('[GMAIL] Marking thread as read:', boardCard.externalThreadId);
       const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
       await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
@@ -80,6 +98,69 @@ export class BoardCardService {
     await orm.em.flush();
 
     return boardCard;
+  }
+
+  static async createWithEmailDraft(board: Loaded<Board>, { user }: { user: Loaded<User, 'boardMembers'> }) {
+    const senderEmailAddresses = await SenderEmailAddressService.findAddressesByBoard(board, {
+      user,
+      populate: ['gmailAccount'],
+    });
+    if (senderEmailAddresses.length === 0) {
+      throw new Error('No sender email addresses available for this board');
+    }
+
+    const firstSenderEmailAddress = senderEmailAddresses[0]!;
+    const fromParticipant = SenderEmailAddressService.toParticipant(firstSenderEmailAddress);
+
+    const domainName = fromParticipant.email.split('@')[1]!;
+    let domain = await DomainService.tryFindByName(domainName);
+    if (!domain) {
+      domain = new Domain({ name: domainName });
+      await DomainService.fetchIcon(domain);
+      orm.em.persist(domain);
+    }
+
+    await BoardService.populate(board, ['boardColumns']);
+    const firstBoardColumn = board.boardColumns[0]!;
+
+    const boardCard = new BoardCard({
+      gmailAccount: firstSenderEmailAddress.loadedGmailAccount,
+      boardColumn: firstBoardColumn,
+      domain,
+      state: State.INBOX,
+      subject: FALLBACK_SUBJECT,
+      snippet: '',
+      participantsAsc: [fromParticipant],
+      lastEventAt: new Date(),
+      hasAttachments: false,
+      emailMessageCount: 0,
+    });
+
+    const boardMember = user.boardMembers.find((bm) => bm.board.id === board.id)!;
+    boardCard.assignToBoardMember(boardMember);
+    boardCard.addParticipantUserId(user.id);
+
+    for (const member of board.boardMembers) {
+      if (member.isAgent) continue;
+      const lastReadAt = member.id === boardMember.id ? boardCard.lastEventAt : msAgoFrom(boardCard.lastEventAt);
+      boardCard.boardCardReadPositions.add(new BoardCardReadPosition({ boardCard, user: member.user, lastReadAt }));
+    }
+
+    boardCard.emailDraft = new EmailDraft({
+      boardCard,
+      generated: false,
+      from: fromParticipant,
+      to: undefined,
+      cc: undefined,
+      bcc: undefined,
+      subject: boardCard.subject,
+      bodyHtml: '',
+    });
+
+    orm.em.persist([boardCard, boardCard.emailDraft]);
+
+    await orm.em.flush();
+    return boardCard as Loaded<BoardCard, 'emailDraft.fileAttachments' | 'domain' | 'boardCardReadPositions'>;
   }
 
   static async markAsUnread<Hint extends string = never>(
@@ -96,7 +177,7 @@ export class BoardCardService {
       orm.em.persist(boardCardReadPosition);
     }
 
-    if (board.solo) {
+    if (board.solo && boardCard.externalThreadId) {
       console.log('[GMAIL] Marking thread as unread:', boardCard.externalThreadId);
       const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
       await GmailApi.markThreadAsUnread(gmail, boardCard.externalThreadId);
@@ -136,17 +217,17 @@ export class BoardCardService {
 
     boardCard.setState(state);
 
-    if (state === State.ARCHIVED) {
+    if (state === State.ARCHIVED && boardCard.externalThreadId) {
       await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
-      await EmailDraftService.delete(boardCard);
-    } else if (state === State.TRASH) {
+      await EmailDraftService.delete(boardCard as Loaded<BoardCard, 'emailDraft.fileAttachments'>);
+    } else if (state === State.TRASH && boardCard.externalThreadId) {
       console.log('[GMAIL] Marking thread as trash:', boardCard.externalThreadId);
       await GmailApi.markThreadAsTrash(gmail, boardCard.externalThreadId);
-      await EmailDraftService.delete(boardCard);
-    } else if (state === State.SPAM) {
+      await EmailDraftService.delete(boardCard as Loaded<BoardCard, 'emailDraft.fileAttachments'>);
+    } else if (state === State.SPAM && boardCard.externalThreadId) {
       console.log('[GMAIL] Marking thread as spam:', boardCard.externalThreadId);
       await GmailApi.markThreadAsSpam(gmail, boardCard.externalThreadId);
-      await EmailDraftService.delete(boardCard);
+      await EmailDraftService.delete(boardCard as Loaded<BoardCard, 'emailDraft.fileAttachments'>);
     }
 
     await orm.em.flush();
@@ -173,6 +254,21 @@ export class BoardCardService {
     orm.em.persist(boardCard);
 
     await orm.em.flush();
+
+    return boardCard;
+  }
+
+  static async setSubject<Hint extends string = never>(
+    board: Board,
+    { boardCardId, subject, populate }: { boardCardId: string; subject: string; populate?: Populate<BoardCard, Hint> },
+  ) {
+    const boardCard = await BoardCardService.findById(board, { boardCardId, populate });
+
+    if (boardCard.noMessages) {
+      boardCard.setSubject(subject);
+      orm.em.persist(boardCard);
+      await orm.em.flush();
+    }
 
     return boardCard;
   }
@@ -229,13 +325,13 @@ export class BoardCardService {
     return boardCard;
   }
 
-  static rebuildFromEmailMessages({
+  static rebuildFromEmailMessages<T extends Loaded<BoardCard, 'boardColumn' | 'boardCardReadPositions'>>({
     boardCard,
     emailMessagesDesc,
   }: {
-    boardCard: BoardCard;
+    boardCard: T;
     emailMessagesDesc: EmailMessage[];
-  }) {
+  }): T {
     if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
 
     const board = boardCard.loadedBoardColumn.loadedBoard;
@@ -267,6 +363,7 @@ export class BoardCardService {
     boardCard.update({
       state,
       snippet: lastEmailMessage.snippet,
+      externalThreadId: lastEmailMessage.externalThreadId,
       participantsAsc: BoardCardService.participantsAsc({ emailMessagesDesc }),
       lastEventAt,
       hasAttachments: emailMessagesDesc.some((msg) => msg.gmailAttachments.length > 0),
@@ -275,6 +372,14 @@ export class BoardCardService {
     });
 
     return boardCard;
+  }
+
+  static async delete(boardCard: Loaded<BoardCard>) {
+    await orm.em.transactional(async (em) => {
+      em.nativeDelete(Comment, { boardCard });
+      em.nativeDelete(BoardCardReadPosition, { boardCard });
+      em.nativeDelete(BoardCard, { id: boardCard.id });
+    });
   }
 
   // Unique by email

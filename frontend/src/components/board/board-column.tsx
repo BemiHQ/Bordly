@@ -97,26 +97,23 @@ export const BoardColumn = ({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'bg-secondary flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-2 rounded-lg border border-border transition-colors',
+        'bg-secondary flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-1 rounded-lg border border-border transition-colors',
         isOver && !isDraggingColumn ? 'border-semi-muted' : '',
       )}
     >
-      <div className="flex items-center gap-2 p-2 mt-1.5 h-7" {...attributes} {...listeners}>
+      <div className="flex items-center gap-2 p-2 mt-1.5 ml-3 h-7" {...attributes} {...listeners}>
         {isEditing ? (
           <Input
-            inputSize="sm"
             value={editedName}
             onChange={(e) => setEditedName(e.target.value)}
             onBlur={handleNameSubmit}
             onKeyDown={handleKeyDown}
-            className="bg-background px-2 mt-0.5 h-6.5 text-sm font-semibold rounded-sm focus-visible:ring-1"
+            variant="ghost"
+            className="text-sm font-semibold"
             autoFocus
           />
         ) : (
-          <h2
-            className="ml-[9px] pt-0.5 text-sm font-semibold cursor-pointer hover:text-primary w-full"
-            onClick={handleNameClick}
-          >
+          <h2 className="text-sm font-semibold cursor-pointer hover:text-primary w-full" onClick={handleNameClick}>
             {editedName}
           </h2>
         )}

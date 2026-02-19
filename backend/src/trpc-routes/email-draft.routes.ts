@@ -12,11 +12,11 @@ export const EMAIL_DRAFT_ROUTES = {
         z.object({
           boardId: z.uuid(),
           boardCardId: z.uuid(),
+          subject: z.string(),
           from: z.string().min(1),
           to: z.array(z.string().min(1)).min(1).optional(),
           cc: z.array(z.string().min(1)).min(1).optional(),
           bcc: z.array(z.string().min(1)).min(1).optional(),
-          subject: z.string().optional(),
           bodyHtml: z.string().optional(),
         }),
       )

@@ -8,7 +8,7 @@ export const SENDER_EMAIL_ADDRESS_ROUTES = {
   senderEmailAddress: {
     getAddressesForBoardMember: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
       const { board, user } = authAsBoardMember({ ctx, input });
-      const senderEmailAddresses = await SenderEmailAddressService.findAddressesByBoard(user, board);
+      const senderEmailAddresses = await SenderEmailAddressService.findAddressesByBoard(board, { user });
       return {
         senderEmailAddresses: senderEmailAddresses.map((emailAddress) => emailAddress.toJson()),
       };

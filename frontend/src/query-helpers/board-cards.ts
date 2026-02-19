@@ -10,6 +10,42 @@ const queryKey = (trpc: TrpcProxy, params: { boardId: string }) => {
   return trpc.boardCard.getBoardCards.queryKey(params);
 };
 
+export const setBoardCardSubjectData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardCardId, subject },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardCardId: string; subject: string };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardCardsDesc: oldData.boardCardsDesc.map((c) => (c.id === boardCardId ? { ...c, subject } : c)),
+    } satisfies typeof oldData;
+  });
+};
+
+export const addBoardCardData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardCard },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardCard: BoardCard };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardCardsDesc: [boardCard, ...oldData.boardCardsDesc],
+    } satisfies typeof oldData;
+  });
+};
+
 export const setBoardCardAssignedBoardMemberData = ({
   trpc,
   queryClient,

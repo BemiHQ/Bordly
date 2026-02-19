@@ -6,6 +6,7 @@ export const ROUTES = {
   WELCOME: '/welcome',
   BOARD: '/boards/$boardId',
   BOARD_CARD: '/boards/$boardId/c/$boardCardId',
+  BOARD_COMPOSE: '/boards/$boardId/compose',
   INTERNAL_HEALTH: '/internal/health',
 };
 
