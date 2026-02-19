@@ -35,6 +35,7 @@ import { cn, extractUuid } from '@/utils/strings';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 const REFETCH_INTERVAL_MS = 30_000;
+const REFETCH_INTERVAL_NEW_BOARD_MS = 5_000;
 
 const ARCHIVE_DROP_ZONE_ID = 'archive-zone';
 
@@ -257,7 +258,8 @@ function BoardComponent() {
 
   const { data: boardData, error } = useQuery({
     ...trpc.board.get.queryOptions({ boardId: extractUuid(params.boardId) }),
-    refetchInterval: ({ state: { data } }) => (data?.boardColumnsAsc.length === 0 ? REFETCH_INTERVAL_MS : false),
+    refetchInterval: ({ state: { data } }) =>
+      !data || data.boardColumnsAsc.length === 0 ? REFETCH_INTERVAL_NEW_BOARD_MS : false,
     refetchIntervalInBackground: true,
     retry: false,
   });
@@ -278,7 +280,8 @@ function BoardComponent() {
 
   const { data: boardCardsData } = useQuery({
     ...trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
-    refetchInterval: REFETCH_INTERVAL_MS,
+    refetchInterval: () =>
+      !boardData || boardData.boardColumnsAsc.length === 0 ? REFETCH_INTERVAL_NEW_BOARD_MS : REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: true,
     retry: false,
   });
