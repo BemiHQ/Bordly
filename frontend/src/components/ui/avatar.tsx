@@ -114,7 +114,7 @@ export const AvatarGroup = ({
       )}
       {...props}
     >
-      {avatars.reverse().map((avatar, index) => {
+      {avatars.toReversed().map((avatar, index) => {
         // biome-ignore lint/suspicious/noArrayIndexKey: index is okay here
         return <React.Fragment key={index}>{avatar}</React.Fragment>;
       })}

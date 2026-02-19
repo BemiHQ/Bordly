@@ -212,7 +212,7 @@ export class BoardCardService {
     let lastReadAt: Date;
     if (board.solo) {
       // Solo: inherit unread status from gmail
-      const firstUnreadEmailMessage = emailMessagesDesc.reverse().find((m) => m.labels.includes(LABEL.UNREAD));
+      const firstUnreadEmailMessage = emailMessagesDesc.toReversed().find((m) => m.labels.includes(LABEL.UNREAD));
       lastReadAt = firstUnreadEmailMessage ? msAgoFrom(firstUnreadEmailMessage.externalCreatedAt) : lastEventAt;
     } else {
       // Multi-member: always mark as unread
@@ -245,7 +245,7 @@ export class BoardCardService {
     let state: State;
     if (board.solo) {
       // Solo: inherit unread status from gmail
-      const firstUnreadEmailMessage = emailMessagesDesc.reverse().find((m) => m.labels.includes(LABEL.UNREAD));
+      const firstUnreadEmailMessage = emailMessagesDesc.toReversed().find((m) => m.labels.includes(LABEL.UNREAD));
       const lastReadAt = firstUnreadEmailMessage ? msAgoFrom(firstUnreadEmailMessage.externalCreatedAt) : lastEventAt;
       for (const boardCardReadPosition of boardCard.boardCardReadPositions) {
         boardCardReadPosition.setLastReadAt(lastReadAt);
@@ -280,7 +280,7 @@ export class BoardCardService {
   // Unique by email
   private static participantsAsc({ emailMessagesDesc }: { emailMessagesDesc: EmailMessage[] }) {
     const participantsAsc = emailMessagesDesc
-      .reverse()
+      .toReversed()
       .flatMap((emailMessage) => [
         emailMessage.from,
         ...(emailMessage.to || []),
