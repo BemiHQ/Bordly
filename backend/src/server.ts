@@ -41,8 +41,9 @@ fastify.addHook('onResponse', (request, reply, done) => {
 fastify.register(cors, {
   origin: ENV.APP_ENDPOINT,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['content-type', 'authorization', 'trpc-accept'],
+  maxAge: 24 * 60 * 60, // 24 hours in seconds
 });
 fastify.register(secureSession, {
   key: Buffer.from(ENV.COOKIE_SECRET, 'base64'),

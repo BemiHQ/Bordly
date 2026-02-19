@@ -16,7 +16,15 @@ import { ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
   component: BoardCardComponent,
-  loader: ensureLoggedIn(ROUTES.BOARD_CARD),
+  loader: async ({ context: { queryClient, trpc }, params }) => {
+    const data = await ensureLoggedIn(ROUTES.BOARD_CARD)({ context: { queryClient, trpc } });
+
+    const boardId = extractUuid(params.boardId);
+    const boardCardId = extractUuid(params.boardCardId);
+    queryClient.ensureQueryData(trpc.boardCard.get.queryOptions({ boardId, boardCardId }));
+
+    return data;
+  },
 });
 
 function BoardCardComponent() {
