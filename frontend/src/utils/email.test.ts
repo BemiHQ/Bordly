@@ -79,6 +79,44 @@ On 2026-02-09 12:00, second@example.com wrote:
     expect(result.backquotesText).toContain('> First quote block');
     expect(result.backquotesText).not.toContain('Second quote block');
   });
+
+  it('parses forwarded message at the end', () => {
+    const input = `Please review this.
+
+---------- Forwarded message ---------
+From: John Doe <john@example.com>
+Date: Wed, Feb 18, 2026 at 5:17 PM
+Subject: Important update
+To: <jane@example.com>
+
+This is the forwarded content.`;
+
+    const result = parseTrailingBackquotes(input);
+    expect(result.mainText).toBe('Please review this.');
+    expect(result.backquotesText).toContain('---------- Forwarded message ---------');
+    expect(result.backquotesText).toContain('From: John Doe');
+    expect(result.backquotesText).toContain('This is the forwarded content.');
+  });
+
+  it('parses forwarded message in the middle with backquotes', () => {
+    const input = `Hi there,
+---------- Forwarded message ---------
+From: Alice <alice@example.com>
+Date: Mon, Feb 17, 2026 at 3:00 PM
+Subject: Update
+To: <bob@example.com>
+
+> Content here.
+
+Let me know your thoughts.`;
+
+    const result = parseTrailingBackquotes(input);
+    expect(result.mainText).toContain('Hi there,');
+    expect(result.mainText).toContain('Let me know your thoughts.');
+    expect(result.backquotesText).toContain('Forwarded message');
+    expect(result.backquotesText).toContain('From: Alice');
+    expect(result.backquotesText).toContain('> Content here');
+  });
 });
 
 describe('parseTrailingBlockquotes', () => {
@@ -283,6 +321,82 @@ describe('parseTrailingBlockquotes', () => {
     // The main message should not be in the quoted elements
     expect(result[0].textContent).not.toContain('Thanks for update.');
     expect(result[1].textContent).not.toContain('Thanks for update.');
+  });
+
+  it('parses forwarded message structure', () => {
+    const html = `<p>Please see below.</p>
+<div class="gmail_quote">
+  <div dir="ltr" class="gmail_attr">
+    ---------- Forwarded message ---------<br>
+    From: <strong>John Doe</strong> <span>&lt;<a href="mailto:john@example.com">john@example.com</a>&gt;</span><br>
+    Date: Wed, Feb 18, 2026 at 5:17 PM<br>
+    Subject: Project update<br>
+    To: &lt;<a href="mailto:jane@example.com">jane@example.com</a>&gt;<br>
+  </div>
+  <div dir="ltr">
+    <div>Content of the forwarded message.</div>
+  </div>
+</div>`;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const result = parseTrailingBlockquotes(doc.body);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].outerHTML).toContain('gmail_quote');
+    expect(result[0].textContent).toContain('Forwarded message');
+    expect(result[0].textContent).toContain('john@example.com');
+    expect(result[0].textContent).not.toContain('Please see below');
+  });
+
+  it('parses forwarded message with content in container', () => {
+    const html = `<p>Review this.</p>
+<div>
+  <div>---------- Forwarded message ---------</div>
+  <div>
+    <div>From: Alice &lt;alice@example.com&gt;</div>
+    <div>Date: Mon, Feb 17, 2026 at 2:00 PM</div>
+    <div>Subject: Important</div>
+    <div>Message content here.</div>
+  </div>
+</div>`;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const result = parseTrailingBlockquotes(doc.body);
+
+    expect(result.length).toBeGreaterThan(0);
+    const combinedText = result.map((el) => el.textContent).join(' ');
+    expect(combinedText).toContain('Forwarded message');
+    expect(combinedText).toContain('From: Alice');
+    expect(combinedText).toContain('Message content here');
+  });
+
+  it('parses deeply nested gmail_quote inside wrapper divs', () => {
+    const html = `<div>
+  <div>
+    <div class="">Hello Alice - Thanks for thinking of me!</div>
+    <div class="gmail_signature"><b>Bob Smith</b></div>
+    <div>
+      <div class="gmail_quote">
+        On Wed, Feb 18, 2026 at 7:07 PM, Alice wrote:<br>
+        <blockquote class="gmail_quote">
+          <div>Hi Bob, would you be interested?</div>
+        </blockquote>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const result = parseTrailingBlockquotes(doc.body);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].className).toContain('gmail_quote');
+    expect(result[0].textContent).toContain('On Wed, Feb 18, 2026');
+    expect(result[0].textContent).not.toContain('Hello Alice');
+    expect(result[0].textContent).not.toContain('Bob Smith');
   });
 });
 

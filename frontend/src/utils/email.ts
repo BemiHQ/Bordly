@@ -9,6 +9,39 @@ type Attachment = {
   contentId: string | null | undefined;
 };
 
+const isNonEmptyNode = (node: ChildNode) =>
+  node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim());
+
+// Check if an element is a quote container (has "On ... wrote:" or forwarded message header child followed by blockquote or blockquote wrapper)
+// Returns the indices of the header and blockquote wrapper elements if found
+const findQuoteContainerChildren = (elem: Element): { onWroteIndex: number; blockquoteIndex: number } | null => {
+  const children = Array.from(elem.childNodes).filter(isNonEmptyNode);
+
+  for (let i = 0; i < children.length - 1; i++) {
+    if (children[i].nodeType === Node.ELEMENT_NODE && children[i + 1].nodeType === Node.ELEMENT_NODE) {
+      const text = (children[i] as Element).textContent?.trim() || '';
+      const nextElem = children[i + 1] as Element;
+      if (
+        (/On\s+.+\s+wrote:/i.test(text) || /^-+\s*Forwarded message\s*-+/i.test(text)) &&
+        (nextElem.tagName === 'BLOCKQUOTE' || nextElem.querySelector('blockquote'))
+      ) {
+        return { onWroteIndex: i, blockquoteIndex: i + 1 };
+      }
+    }
+  }
+  return null;
+};
+
+const findGmailQuote = (elem: Element): Element | null => {
+  const isGmailQuote = elem.classList.contains('gmail_quote') && !!elem.querySelector('blockquote');
+  if (isGmailQuote) return elem;
+
+  const nested = elem.querySelector('.gmail_quote');
+  return nested?.querySelector('blockquote') ? nested : null;
+};
+
+// ---------------------------------------------------------------------------------------------------------------------
+
 export const sanitizeBodyHtml = ({
   bodyHtml,
   gmailAttachments,
@@ -135,33 +168,6 @@ export const removeTrailingEmpty = (container: Element | Document) => {
   }
 };
 
-const isNonEmptyNode = (node: ChildNode) =>
-  node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim());
-
-// Check if an element is a quote container (has "On ... wrote:" child followed by blockquote or blockquote wrapper)
-// Returns the indices of the "On ... wrote:" and blockquote wrapper elements if found
-const findQuoteContainerChildren = (elem: Element): { onWroteIndex: number; blockquoteIndex: number } | null => {
-  const children = Array.from(elem.childNodes).filter(isNonEmptyNode);
-
-  for (let i = 0; i < children.length - 1; i++) {
-    if (children[i].nodeType === Node.ELEMENT_NODE && children[i + 1].nodeType === Node.ELEMENT_NODE) {
-      const text = (children[i] as Element).textContent?.trim() || '';
-      const nextElem = children[i + 1] as Element;
-      if (
-        /On\s+.+\s+wrote:/i.test(text) &&
-        (nextElem.tagName === 'BLOCKQUOTE' || nextElem.querySelector('blockquote'))
-      ) {
-        return { onWroteIndex: i, blockquoteIndex: i + 1 };
-      }
-    }
-  }
-  return null;
-};
-
-const isQuoteContainer = (elem: Element): boolean => {
-  return findQuoteContainerChildren(elem) !== null;
-};
-
 // Recursively collect all blockquote elements and "On ... wrote:" elements
 export const parseTrailingBlockquotes = (container: Element): Element[] => {
   const children = Array.from(container.childNodes);
@@ -175,33 +181,28 @@ export const parseTrailingBlockquotes = (container: Element): Element[] => {
 
     const elem = node as Element;
 
-    // Check if this element is a quote container (e.g., Gmail quote structure)
+    // Check for gmail_quote (direct or nested)
+    const gmailQuote = findGmailQuote(elem);
+    if (gmailQuote) {
+      foundFirstQuote = true;
+      quotedElements.push(gmailQuote);
+      continue;
+    }
+
+    // Check if this element is a quote container (e.g., Gmail quote structure with gmail_attr)
     const quoteIndices = findQuoteContainerChildren(elem);
     if (quoteIndices) {
       foundFirstQuote = true;
-      // If this is a Gmail quote container, keep it as a single element
-      if (elem.classList.contains('gmail_quote')) {
-        quotedElements.push(elem);
-      } else {
-        // For generic containers (e.g., Missive style), extract the individual child elements
-        const children = Array.from(elem.childNodes).filter(isNonEmptyNode);
-        quotedElements.push(children[quoteIndices.onWroteIndex] as Element);
-        quotedElements.push(children[quoteIndices.blockquoteIndex] as Element);
-      }
+      // For generic containers (e.g., Missive style), extract the individual child elements
+      const children = Array.from(elem.childNodes).filter(isNonEmptyNode);
+      quotedElements.push(children[quoteIndices.onWroteIndex] as Element);
+      quotedElements.push(children[quoteIndices.blockquoteIndex] as Element);
       continue;
     }
 
-    // Check if element contains a quote container as a child and recurse to find it
-    const childQuoteContainers = Array.from(elem.children).filter((child) => isQuoteContainer(child));
-    if (childQuoteContainers.length > 0) {
-      foundFirstQuote = true;
-      quotedElements.push(...childQuoteContainers);
-      continue;
-    }
-
-    // Check if this is an "On ... wrote:" element
+    // Check if this is an "On ... wrote:" or "Forwarded message" element
     const text = elem.textContent?.trim() || '';
-    if (/On\s+.+\s+wrote:/i.test(text)) {
+    if (/On\s+.+\s+wrote:/i.test(text) || /^-+\s*Forwarded message\s*-+/i.test(text)) {
       foundFirstQuote = true;
       quotedElements.push(elem);
 
@@ -248,7 +249,10 @@ export const parseTrailingBackquotes = (text: string): { mainText: string; backq
     const trimmedLine = lines[i].trim();
     if (!trimmedLine) continue;
 
-    const isQuoteLine = /On\s+.+\s+wrote:/i.test(trimmedLine) || /^>/.test(trimmedLine);
+    const isQuoteLine =
+      /On\s+.+\s+wrote:/i.test(trimmedLine) ||
+      /^-+\s*Forwarded message\s*-+/i.test(trimmedLine) ||
+      /^>/.test(trimmedLine);
 
     if (isQuoteLine) {
       if (quoteStartIndex === -1) quoteStartIndex = i;
@@ -259,7 +263,7 @@ export const parseTrailingBackquotes = (text: string): { mainText: string; backq
   }
 
   if (quoteStartIndex !== -1) {
-    const endIndex = quoteEndIndex !== -1 ? quoteEndIndex + 1 : quoteStartIndex + 1;
+    const endIndex = quoteEndIndex !== -1 ? quoteEndIndex + 1 : lines.length;
     const mainText = `${lines.slice(0, quoteStartIndex).join('\n')}\n${lines.slice(endIndex).join('\n')}`.trim();
     const backquotesText = lines.slice(quoteStartIndex, endIndex).join('\n');
     return { mainText, backquotesText };
