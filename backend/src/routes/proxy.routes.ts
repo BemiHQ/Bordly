@@ -88,7 +88,6 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
         .header('Content-Disposition', `attachment; filename="${sanitizedFilename}"`)
         .header('Content-Length', buffer.length)
         .header('Cache-Control', 'private, max-age=86400')
-        .header('X-Content-Type-Options', 'nosniff')
         .send(buffer);
     } catch (error) {
       reportError(error);
@@ -126,7 +125,6 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
         .header('Content-Type', contentType)
         .header('Cache-Control', 'public, max-age=2592000, immutable')
         .header('Access-Control-Allow-Origin', ENV.APP_ENDPOINT)
-        .header('X-Content-Type-Options', 'nosniff')
         .send(Buffer.from(iconBuffer));
     } catch (error) {
       reportError(error);

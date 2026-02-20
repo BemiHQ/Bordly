@@ -209,7 +209,7 @@ export const EmailMessageCard = ({
             </div>
           </div>
           <div className="flex items-center gap-1 min-w-0">
-            <div className="text-xs text-muted-foreground truncate">{shortAddresses}</div>
+            <div className="text-xs text-muted-foreground truncate">{shortAddresses || 'To'}</div>
             <Popover open={detailsOpen} onOpenChange={setDetailsOpen}>
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="icon" className="size-4.5 flex-shrink-0 rounded-full">

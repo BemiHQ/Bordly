@@ -195,13 +195,13 @@ export class GmailApi {
   ) {
     const boundary = `boundary_${Date.now()}`;
     const headers = [
-      `From: ${from}`,
-      to && to.length > 0 ? `To: ${to.join(', ')}` : undefined,
-      cc && cc.length > 0 ? `Cc: ${cc.join(', ')}` : undefined,
-      bcc && bcc.length > 0 ? `Bcc: ${bcc.join(', ')}` : undefined,
-      `Subject: ${GmailApi.encodeHeaderValue(subject || '')}`,
-      inReplyTo ? `In-Reply-To: ${inReplyTo}` : undefined,
-      references ? `References: ${references}` : undefined,
+      `From: ${GmailApi.sanitize(from)}`,
+      to && to.length > 0 ? `To: ${to.map(GmailApi.sanitize).join(', ')}` : undefined,
+      cc && cc.length > 0 ? `Cc: ${cc.map(GmailApi.sanitize).join(', ')}` : undefined,
+      bcc && bcc.length > 0 ? `Bcc: ${bcc.map(GmailApi.sanitize).join(', ')}` : undefined,
+      `Subject: ${GmailApi.encodeHeaderValue(GmailApi.sanitize(subject || ''))}`,
+      inReplyTo ? `In-Reply-To: ${GmailApi.sanitize(inReplyTo)}` : undefined,
+      references ? `References: ${GmailApi.sanitize(references)}` : undefined,
       'MIME-Version: 1.0',
       attachments && attachments.length > 0
         ? `Content-Type: multipart/mixed; boundary="${boundary}"`
@@ -222,9 +222,9 @@ export class GmailApi {
       // Add attachment parts
       for (const attachment of attachments) {
         message += `--${boundary}\r\n`;
-        message += `Content-Type: ${attachment.mimeType}\r\n`;
+        message += `Content-Type: ${GmailApi.sanitize(attachment.mimeType)}\r\n`;
         message += 'Content-Transfer-Encoding: base64\r\n';
-        message += `Content-Disposition: attachment; filename="${GmailApi.encodeHeaderValue(attachment.filename)}"\r\n\r\n`;
+        message += `Content-Disposition: attachment; filename="${GmailApi.encodeHeaderValue(GmailApi.sanitizeFileName(attachment.filename))}"\r\n\r\n`;
         message += `${attachment.data.toString('base64')}\r\n`;
       }
 
@@ -250,7 +250,16 @@ export class GmailApi {
     return response.data;
   }
 
+  private static sanitize(value: string) {
+    return value.replace(/[\r\n]/g, ''); // Remove CRLF to prevent header injection attacks
+  }
+
+  private static sanitizeFileName(filename: string) {
+    return GmailApi.sanitize(filename).replace(/["\\]/g, '').replace(/[/\\]/g, '_'); // Remove quotes and backslashes, replace path separators with underscores
+  }
+
   private static encodeHeaderValue(value: string) {
+    // Check if value contains only printable ASCII characters (space through tilde)
     if (/^[\x20-\x7E]*$/.test(value)) {
       return value;
     }

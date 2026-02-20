@@ -22,10 +22,17 @@ const SESSION_COOKIE_NAME = 'sId';
 const fastify = Fastify({ logger: false });
 setupFastifyErrorHandler(fastify);
 
-fastify.addHook('onRequest', (request, _reply, done) => {
+fastify.addHook('onRequest', (request, reply, done) => {
   if (!request.url.startsWith(ROUTES.TRPC) && request.url !== ROUTES.INTERNAL_HEALTH) {
     console.log(`[HTTP] ${request.method} ${request.url}`);
   }
+
+  if (!request.url.startsWith('/proxy')) {
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+    reply.header('Pragma', 'no-cache');
+    reply.header('Expires', '0');
+  }
+
   RequestContext.create(orm.em, done);
 });
 

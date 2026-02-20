@@ -80,7 +80,7 @@ const NewBoard = ({ setBoardId }: { setBoardId: (boardId: string) => void }) => 
         </span>
 
         <img
-          src="/images/google-oauth-gmail.png"
+          src="/screenshots/google-oauth-gmail.png"
           alt="Gmail OAuth Access"
           className="w-full rounded-3xl shadow-md my-6"
         />

@@ -6,11 +6,14 @@ import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
+  esbuild: {
+    legalComments: 'none',
+  },
   plugins: [
     nitro({
       routeRules: {
         '/**': {
-          headers: {
+          headers: { // Sync with frontend/src/routes/auth.tsx
             'Content-Security-Policy': [
               "default-src 'none'",
               "img-src 'self' https:",
@@ -18,13 +21,24 @@ const config = defineConfig({
               "font-src 'self' https://fonts.gstatic.com",
               `connect-src 'self' ${process.env.VITE_API_ENDPOINT}`,
               "script-src 'self' 'unsafe-inline'",
-              "frame-src 'none'",
+              "frame-src 'self'",
+              "frame-ancestors 'self'",
               "manifest-src 'self'",
               "base-uri 'self'",
               "form-action 'self'",
             ].join('; '),
+            'X-Frame-Options': 'SAMEORIGIN',
+            'Cache-Control': 'no-cache, no-store, must-revalidate, private',
+            'Pragma': 'no-cache',
+            'Expires': '0',
           },
         },
+        '/assets/**':        { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
+        '/images/**':        { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
+        '/screenshots/**':   { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
+        '/domain-icons/**':  { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
+        '/favicon.ico':      { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
+        '/site.webmanifest': { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
       },
     }),
     // this is the plugin that enables path aliases

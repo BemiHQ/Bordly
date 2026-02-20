@@ -75,17 +75,17 @@ export class GmailAccount extends BaseEntity {
     this.name = name;
     this.user = user;
     this.externalId = externalId;
-    this.accessTokenEncrypted = Encryption.encrypt(accessToken);
+    this.accessTokenEncrypted = Encryption.encrypt(accessToken, { salt: externalId });
     this.accessTokenExpiresAt = accessTokenExpiresAt;
-    this.refreshTokenEncrypted = Encryption.encrypt(refreshToken);
+    this.refreshTokenEncrypted = Encryption.encrypt(refreshToken, { salt: externalId });
     this.validate();
   }
 
   get accessToken(): string {
-    return Encryption.decrypt(this.accessTokenEncrypted);
+    return Encryption.decrypt(this.accessTokenEncrypted, { salt: this.externalId });
   }
   get refreshToken(): string {
-    return Encryption.decrypt(this.refreshTokenEncrypted);
+    return Encryption.decrypt(this.refreshTokenEncrypted, { salt: this.externalId });
   }
 
   isAccessTokenExpired(): boolean {
@@ -101,8 +101,8 @@ export class GmailAccount extends BaseEntity {
     refreshToken: string;
     accessTokenExpiresAt: Date;
   }) {
-    this.accessTokenEncrypted = Encryption.encrypt(accessToken);
-    this.refreshTokenEncrypted = Encryption.encrypt(refreshToken);
+    this.accessTokenEncrypted = Encryption.encrypt(accessToken, { salt: this.externalId });
+    this.refreshTokenEncrypted = Encryption.encrypt(refreshToken, { salt: this.externalId });
     this.accessTokenExpiresAt = accessTokenExpiresAt;
   }
 
