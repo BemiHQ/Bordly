@@ -172,7 +172,11 @@ export const EmailDraftCard = ({
     trpc.emailDraft.send.mutationOptions({
       onSuccess: ({ emailMessage, boardCard }) => {
         addEmailMessageData({ trpc, queryClient, params: { boardId, boardCardId, emailMessage } });
+        removeEmailDraftData({ trpc, queryClient, params: { boardId, boardCardId } });
+
         replaceBoardCardDataInList({ trpc, queryClient, params: { boardId, boardCard } });
+        removeBoardCardEmailDraftData({ trpc, queryClient, params: { boardId, boardCardId } });
+
         editor.commands.clearContent();
         onDiscard();
       },

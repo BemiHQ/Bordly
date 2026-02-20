@@ -121,7 +121,7 @@ export class BoardCardService {
     }
 
     await BoardService.populate(board, ['boardColumns']);
-    const firstBoardColumn = board.boardColumns[0]!;
+    const firstBoardColumn = [...board.boardColumns].sort((a, b) => a.position - b.position)[0]!;
 
     const boardCard = new BoardCard({
       gmailAccount: firstSenderEmailAddress.loadedGmailAccount,

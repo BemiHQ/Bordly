@@ -420,10 +420,10 @@ export class EmailMessageService {
     // Fetch changes via Gmail API
     const historyChanges = await EmailMessageService.fetchGmailHistoryChangesAsc({ gmail, gmailAccount });
     let lastExternalHistoryId = historyChanges.lastExternalHistoryId;
-    const { externalEmailMessageIdsToAdd, externalEmailMessageIdsToDelete, labelChanges } = historyChanges;
+    const { addedEmailMessagesIds, deletedExternalEmailMessageIds, labelChanges } = historyChanges;
     if (
-      externalEmailMessageIdsToAdd.length === 0 &&
-      externalEmailMessageIdsToDelete.length === 0 &&
+      addedEmailMessagesIds.length === 0 &&
+      deletedExternalEmailMessageIds.length === 0 &&
       labelChanges.length === 0
     ) {
       if (lastExternalHistoryId && lastExternalHistoryId !== gmailAccount.externalHistoryId) {
@@ -434,7 +434,7 @@ export class EmailMessageService {
     }
 
     // Pull all necessary data at once:
-    // - Affected Email Messages
+    // - Existing affected Email Messages
     const affectedEmailMessages = [
       ...(await orm.em.find(
         EmailMessage,
@@ -442,8 +442,8 @@ export class EmailMessageService {
           gmailAccount,
           externalId: {
             $in: unique([
-              ...externalEmailMessageIdsToAdd,
-              ...externalEmailMessageIdsToDelete,
+              ...addedEmailMessagesIds.map((m) => m.externalMessageId),
+              ...deletedExternalEmailMessageIds,
               ...labelChanges.map((lc) => lc.externalMessageId),
             ]),
           },
@@ -453,7 +453,10 @@ export class EmailMessageService {
     ] as EmailMessage[];
     const affectedEmailMessageByExternalId = mapBy(affectedEmailMessages, (msg) => msg.externalId);
     // - All email messages in affected threads
-    const affectedExternalThreadIds = unique(affectedEmailMessages.map((msg) => msg.externalThreadId));
+    const affectedExternalThreadIds = unique([
+      ...affectedEmailMessages.map((msg) => msg.externalThreadId),
+      ...addedEmailMessagesIds.map((m) => m.externalThreadId),
+    ]);
     const emailMessagesDescByThreadId = groupBy(
       [
         ...(await orm.em.find(
@@ -487,7 +490,8 @@ export class EmailMessageService {
     const domainNames = new Set<string>();
     const alreadDeletedExternalMessageIds = new Set();
     const draftExternalMessageIds = new Set<string>();
-    for (const externalMessageId of externalEmailMessageIdsToAdd) {
+    for (const addedEmailMessageIds of addedEmailMessagesIds) {
+      const { externalMessageId, externalThreadId } = addedEmailMessageIds;
       const emailMessageAlreadyExists = !!affectedEmailMessageByExternalId[externalMessageId];
       if (emailMessageAlreadyExists) continue;
 
@@ -500,8 +504,7 @@ export class EmailMessageService {
         }
 
         const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
-        const threadId = emailMessage.externalThreadId;
-        const boardCard = boardCardByThreadId[threadId];
+        const boardCard = boardCardByThreadId[externalThreadId];
 
         if (!boardCard && !EmailMessageService.boardAccountToSyncWhenNoBoardCard({ emailMessage, gmailAccount })) {
           console.log(`[GMAIL] Skipping message ${externalMessageId} - does not match sync criteria`);
@@ -509,7 +512,10 @@ export class EmailMessageService {
         }
 
         affectedEmailMessageByExternalId[externalMessageId] = emailMessage;
-        emailMessagesDescByThreadId[threadId] = [emailMessage, ...(emailMessagesDescByThreadId[threadId] || [])];
+        emailMessagesDescByThreadId[externalThreadId] = [
+          emailMessage,
+          ...(emailMessagesDescByThreadId[externalThreadId] || []),
+        ];
         domainNames.add(emailMessage.loadedDomain.name);
 
         if (!lastExternalHistoryId && messageData.historyId) {
@@ -537,16 +543,16 @@ export class EmailMessageService {
       return domain;
     };
     // Handle add: create or update Domains & BoardCards
-    for (const externalMessageId of externalEmailMessageIdsToAdd) {
+    for (const externalMessageIds of addedEmailMessagesIds) {
+      const { externalMessageId, externalThreadId } = externalMessageIds;
       if (alreadDeletedExternalMessageIds.has(externalMessageId)) continue; // Skip already deleted messages (404)
       if (draftExternalMessageIds.has(externalMessageId)) continue; // Skip drafts
 
       const emailMessage = affectedEmailMessageByExternalId[externalMessageId];
       if (!emailMessage) continue; // Skipped message
 
-      const threadId = emailMessage.externalThreadId;
-      const boardCard = boardCardByThreadId[threadId];
-      const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;
+      const boardCard = boardCardByThreadId[externalThreadId];
+      const emailMessagesDesc = emailMessagesDescByThreadId[externalThreadId]!;
 
       // Update or create Domains, create EmailMessages
       emailMessage.domain = await persistDomainOnce(emailMessage.loadedDomain);
@@ -555,7 +561,7 @@ export class EmailMessageService {
       if (boardCard) {
         const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc });
         orm.em.persist(rebuiltBoardCard);
-        boardCardByThreadId[threadId] = rebuiltBoardCard;
+        boardCardByThreadId[externalThreadId] = rebuiltBoardCard;
       } else {
         const boardAccount = EmailMessageService.boardAccountToSyncWhenNoBoardCard({ emailMessage, gmailAccount })!;
         const boardColumnsAsc = boardColumnsAscByBoardId[boardAccount.board.id]!;
@@ -569,13 +575,13 @@ export class EmailMessageService {
           emailMessagesDesc,
         });
         orm.em.persist(boardCard);
-        boardCardByThreadId[threadId] = boardCard as (typeof boardCardByThreadId)[string];
+        boardCardByThreadId[externalThreadId] = boardCard as (typeof boardCardByThreadId)[string];
       }
     }
 
     // Handle delete: delete EmailMessages, update/delete BoardCards
     console.log(`[GMAIL] Processing deletions for ${gmailAccount.email}...`);
-    for (const externalMessageId of externalEmailMessageIdsToDelete) {
+    for (const externalMessageId of deletedExternalEmailMessageIds) {
       const emailMessageToDelete = affectedEmailMessageByExternalId[externalMessageId];
       if (!emailMessageToDelete) continue; // Already deleted
 
@@ -668,8 +674,8 @@ export class EmailMessageService {
     gmail: gmail_v1.Gmail;
     gmailAccount: Loaded<GmailAccount, 'boardAccounts'>;
   }) {
-    const externalEmailMessageIdsToAdd: string[] = [];
-    const externalEmailMessageIdsToDelete: string[] = [];
+    const addedEmailMessagesIds: { externalMessageId: string; externalThreadId: string }[] = [];
+    const deletedExternalEmailMessageIds: string[] = [];
     const labelChanges: { externalMessageId: string; added?: string[]; removed?: string[] }[] = [];
     let lastExternalHistoryId = gmailAccount.externalHistoryId;
     if (gmailAccount.externalHistoryId) {
@@ -683,10 +689,14 @@ export class EmailMessageService {
 
         for (const history of historyItems) {
           for (const messageAdded of history.messagesAdded || []) {
-            if (messageAdded.message?.id) externalEmailMessageIdsToAdd.push(messageAdded.message.id);
+            if (messageAdded.message?.id)
+              addedEmailMessagesIds.push({
+                externalMessageId: messageAdded.message.id,
+                externalThreadId: messageAdded.message.threadId!,
+              });
           }
           for (const messageDeleted of history.messagesDeleted || []) {
-            if (messageDeleted.message?.id) externalEmailMessageIdsToDelete.push(messageDeleted.message.id);
+            if (messageDeleted.message?.id) deletedExternalEmailMessageIds.push(messageDeleted.message.id);
           }
           for (const labelAdded of history.labelsAdded || []) {
             if (labelAdded.message?.id) {
@@ -714,13 +724,13 @@ export class EmailMessageService {
         limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT,
         emails: allReceivingEmails.length > 0 ? allReceivingEmails : undefined,
       });
-      externalEmailMessageIdsToAdd.push(...messages.map((m) => m.id).filter((id): id is string => !!id));
+      addedEmailMessagesIds.push(...messages.map((m) => ({ externalMessageId: m.id!, externalThreadId: m.threadId! })));
     }
 
     return {
       lastExternalHistoryId,
-      externalEmailMessageIdsToAdd: unique(externalEmailMessageIdsToAdd),
-      externalEmailMessageIdsToDelete: unique(externalEmailMessageIdsToDelete),
+      addedEmailMessagesIds,
+      deletedExternalEmailMessageIds: unique(deletedExternalEmailMessageIds),
       labelChanges,
     };
   }
