@@ -9,8 +9,14 @@ type Attachment = {
   contentId: string | null | undefined;
 };
 
+const FORWARDED_MESSAGE_REGEX = /^-+\s*Forwarded message\s*-+/i;
+const QUOTE_HEADER_REGEX = /On\s+.+\s+wrote:|^-+\s*Forwarded message\s*-+/i;
+
 const isNonEmptyNode = (node: ChildNode) =>
   node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim());
+
+const isQuoteHeader = (text: string): boolean => QUOTE_HEADER_REGEX.test(text);
+const isForwardedHeader = (text: string): boolean => FORWARDED_MESSAGE_REGEX.test(text);
 
 // Check if an element is a quote container (has "On ... wrote:" or forwarded message header child followed by blockquote or blockquote wrapper)
 // Returns the indices of the header and blockquote wrapper elements if found
@@ -21,10 +27,7 @@ const findQuoteContainerChildren = (elem: Element): { onWroteIndex: number; bloc
     if (children[i].nodeType === Node.ELEMENT_NODE && children[i + 1].nodeType === Node.ELEMENT_NODE) {
       const text = (children[i] as Element).textContent?.trim() || '';
       const nextElem = children[i + 1] as Element;
-      if (
-        (/On\s+.+\s+wrote:/i.test(text) || /^-+\s*Forwarded message\s*-+/i.test(text)) &&
-        (nextElem.tagName === 'BLOCKQUOTE' || nextElem.querySelector('blockquote'))
-      ) {
+      if (isQuoteHeader(text) && (nextElem.tagName === 'BLOCKQUOTE' || nextElem.querySelector('blockquote'))) {
         return { onWroteIndex: i, blockquoteIndex: i + 1 };
       }
     }
@@ -38,6 +41,31 @@ const findGmailQuote = (elem: Element): Element | null => {
 
   const nested = elem.querySelector('.gmail_quote');
   return nested?.querySelector('blockquote') ? nested : null;
+};
+
+// Remove trailing empty elements like <div><br></div>. This includes nested empty elements within containers
+const hasVisibleContent = (elem: Element): boolean => {
+  if (elem.textContent?.trim()) {
+    return true;
+  }
+  const visibleTags = ['IMG', 'VIDEO', 'AUDIO', 'IFRAME', 'SVG', 'CANVAS', 'HR'];
+  if (visibleTags.includes(elem.tagName)) {
+    return true;
+  }
+  return Array.from(elem.children).some(hasVisibleContent);
+};
+
+// Check if there's any visible content before a given index in the children list
+const hasVisibleContentBefore = (children: ChildNode[], beforeIndex: number): boolean => {
+  return children.slice(0, beforeIndex).some((node) => {
+    if (node.nodeType === Node.TEXT_NODE) return !!node.textContent?.trim();
+    if (node.nodeType === Node.ELEMENT_NODE) return hasVisibleContent(node as Element);
+    return false;
+  });
+};
+
+const shouldSkipForwardedMessage = (isForwarded: boolean, children: ChildNode[], index: number): boolean => {
+  return isForwarded && !hasVisibleContentBefore(children, index);
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -132,18 +160,6 @@ export const createQuotedHtml = ({
 </div>`;
 };
 
-// Remove trailing empty elements like <div><br></div>. This includes nested empty elements within containers
-const hasVisibleContent = (elem: Element): boolean => {
-  if (elem.textContent?.trim()) {
-    return true;
-  }
-  const visibleTags = ['IMG', 'VIDEO', 'AUDIO', 'IFRAME', 'SVG', 'CANVAS', 'HR'];
-  if (visibleTags.includes(elem.tagName)) {
-    return true;
-  }
-  return Array.from(elem.children).some(hasVisibleContent);
-};
-
 export const removeTrailingEmpty = (container: Element | Document) => {
   const children = Array.from(container.childNodes);
   for (let i = children.length - 1; i >= 0; i--) {
@@ -184,6 +200,11 @@ export const parseTrailingBlockquotes = (container: Element): Element[] => {
     // Check for gmail_quote (direct or nested)
     const gmailQuote = findGmailQuote(elem);
     if (gmailQuote) {
+      const gmailAttr = gmailQuote.querySelector('.gmail_attr');
+      const isForwarded = !!(gmailAttr && isForwardedHeader(gmailAttr.textContent?.trim() || ''));
+
+      if (shouldSkipForwardedMessage(isForwarded, children, i)) break;
+
       foundFirstQuote = true;
       quotedElements.push(gmailQuote);
       continue;
@@ -192,17 +213,23 @@ export const parseTrailingBlockquotes = (container: Element): Element[] => {
     // Check if this element is a quote container (e.g., Gmail quote structure with gmail_attr)
     const quoteIndices = findQuoteContainerChildren(elem);
     if (quoteIndices) {
+      const childNodes = Array.from(elem.childNodes).filter(isNonEmptyNode);
+      const headerElem = childNodes[quoteIndices.onWroteIndex] as Element;
+      const isForwarded = isForwardedHeader(headerElem.textContent?.trim() || '');
+
+      if (shouldSkipForwardedMessage(isForwarded, children, i)) break;
+
       foundFirstQuote = true;
-      // For generic containers (e.g., Missive style), extract the individual child elements
-      const children = Array.from(elem.childNodes).filter(isNonEmptyNode);
-      quotedElements.push(children[quoteIndices.onWroteIndex] as Element);
-      quotedElements.push(children[quoteIndices.blockquoteIndex] as Element);
+      quotedElements.push(childNodes[quoteIndices.onWroteIndex] as Element);
+      quotedElements.push(childNodes[quoteIndices.blockquoteIndex] as Element);
       continue;
     }
 
     // Check if this is an "On ... wrote:" or "Forwarded message" element
     const text = elem.textContent?.trim() || '';
-    if (/On\s+.+\s+wrote:/i.test(text) || /^-+\s*Forwarded message\s*-+/i.test(text)) {
+    if (isQuoteHeader(text)) {
+      if (shouldSkipForwardedMessage(isForwardedHeader(text), children, i)) break;
+
       foundFirstQuote = true;
       quotedElements.push(elem);
 
@@ -215,7 +242,7 @@ export const parseTrailingBlockquotes = (container: Element): Element[] => {
         const nextElem = nextNode as Element;
         if (nextElem.tagName === 'BLOCKQUOTE' || nextElem.querySelector('blockquote')) {
           quotedElements.push(nextElem);
-          i = j; // Skip past the element we just added
+          i = j;
           break;
         }
         if (nextElem.textContent?.trim()) break;
@@ -249,10 +276,7 @@ export const parseTrailingBackquotes = (text: string): { mainText: string; backq
     const trimmedLine = lines[i].trim();
     if (!trimmedLine) continue;
 
-    const isQuoteLine =
-      /On\s+.+\s+wrote:/i.test(trimmedLine) ||
-      /^-+\s*Forwarded message\s*-+/i.test(trimmedLine) ||
-      /^>/.test(trimmedLine);
+    const isQuoteLine = isQuoteHeader(trimmedLine) || /^>/.test(trimmedLine);
 
     if (isQuoteLine) {
       if (quoteStartIndex === -1) quoteStartIndex = i;
@@ -263,6 +287,13 @@ export const parseTrailingBackquotes = (text: string): { mainText: string; backq
   }
 
   if (quoteStartIndex !== -1) {
+    const beforeQuote = lines.slice(0, quoteStartIndex).join('\n').trim();
+    const isForwardedMessage = isForwardedHeader(lines[quoteStartIndex].trim());
+
+    if (isForwardedMessage && !beforeQuote) {
+      return { mainText: text.trimEnd(), backquotesText: '' };
+    }
+
     const endIndex = quoteEndIndex !== -1 ? quoteEndIndex + 1 : lines.length;
     const mainText = `${lines.slice(0, quoteStartIndex).join('\n')}\n${lines.slice(endIndex).join('\n')}`.trim();
     const backquotesText = lines.slice(quoteStartIndex, endIndex).join('\n');

@@ -80,8 +80,8 @@ On 2026-02-09 12:00, second@example.com wrote:
     expect(result.backquotesText).not.toContain('Second quote block');
   });
 
-  it('parses forwarded message at the end', () => {
-    const input = `Please review this.
+  it('parses forwarded messages with visible content before', () => {
+    const withContent = `Please review this.
 
 ---------- Forwarded message ---------
 From: John Doe <john@example.com>
@@ -91,31 +91,37 @@ To: <jane@example.com>
 
 This is the forwarded content.`;
 
-    const result = parseTrailingBackquotes(input);
-    expect(result.mainText).toBe('Please review this.');
-    expect(result.backquotesText).toContain('---------- Forwarded message ---------');
-    expect(result.backquotesText).toContain('From: John Doe');
-    expect(result.backquotesText).toContain('This is the forwarded content.');
-  });
+    const result1 = parseTrailingBackquotes(withContent);
+    expect(result1.mainText).toBe('Please review this.');
+    expect(result1.backquotesText).toContain('Forwarded message');
+    expect(result1.backquotesText).toContain('forwarded content');
 
-  it('parses forwarded message in the middle with backquotes', () => {
-    const input = `Hi there,
+    const withMiddleContent = `Hi there,
 ---------- Forwarded message ---------
 From: Alice <alice@example.com>
-Date: Mon, Feb 17, 2026 at 3:00 PM
-Subject: Update
-To: <bob@example.com>
-
 > Content here.
 
 Let me know your thoughts.`;
 
+    const result2 = parseTrailingBackquotes(withMiddleContent);
+    expect(result2.mainText).toContain('Hi there,');
+    expect(result2.mainText).toContain('Let me know your thoughts.');
+    expect(result2.backquotesText).toContain('Forwarded message');
+  });
+
+  it('does not blockquote forwarded message without visible content before it', () => {
+    const input = `---------- Forwarded message ---------
+From: Jane Smith <jane@example.com>
+Date: Fri, 20 Feb 2026 at 09:10
+Subject: Test email
+To: <recipient@example.com>
+
+Hey there, this is the forwarded content.`;
+
     const result = parseTrailingBackquotes(input);
-    expect(result.mainText).toContain('Hi there,');
-    expect(result.mainText).toContain('Let me know your thoughts.');
-    expect(result.backquotesText).toContain('Forwarded message');
-    expect(result.backquotesText).toContain('From: Alice');
-    expect(result.backquotesText).toContain('> Content here');
+    expect(result.mainText).toContain('Forwarded message');
+    expect(result.mainText).toContain('Hey there');
+    expect(result.backquotesText).toBe('');
   });
 });
 
@@ -323,52 +329,39 @@ describe('parseTrailingBlockquotes', () => {
     expect(result[1].textContent).not.toContain('Thanks for update.');
   });
 
-  it('parses forwarded message structure', () => {
-    const html = `<p>Please see below.</p>
+  it('parses forwarded message structures with visible content before', () => {
+    const withGmailQuote = `<p>Please see below.</p>
 <div class="gmail_quote">
   <div dir="ltr" class="gmail_attr">
     ---------- Forwarded message ---------<br>
     From: <strong>John Doe</strong> <span>&lt;<a href="mailto:john@example.com">john@example.com</a>&gt;</span><br>
-    Date: Wed, Feb 18, 2026 at 5:17 PM<br>
-    Subject: Project update<br>
-    To: &lt;<a href="mailto:jane@example.com">jane@example.com</a>&gt;<br>
   </div>
-  <div dir="ltr">
-    <div>Content of the forwarded message.</div>
-  </div>
+  <div dir="ltr"><div>Content of the forwarded message.</div></div>
 </div>`;
 
     const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
+    const doc1 = parser.parseFromString(withGmailQuote, 'text/html');
+    const result1 = parseTrailingBlockquotes(doc1.body);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].outerHTML).toContain('gmail_quote');
-    expect(result[0].textContent).toContain('Forwarded message');
-    expect(result[0].textContent).toContain('john@example.com');
-    expect(result[0].textContent).not.toContain('Please see below');
-  });
+    expect(result1).toHaveLength(1);
+    expect(result1[0].textContent).toContain('Forwarded message');
+    expect(result1[0].textContent).not.toContain('Please see below');
 
-  it('parses forwarded message with content in container', () => {
-    const html = `<p>Review this.</p>
+    const withContainer = `<p>Review this.</p>
 <div>
   <div>---------- Forwarded message ---------</div>
   <div>
     <div>From: Alice &lt;alice@example.com&gt;</div>
-    <div>Date: Mon, Feb 17, 2026 at 2:00 PM</div>
-    <div>Subject: Important</div>
     <div>Message content here.</div>
   </div>
 </div>`;
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
+    const doc2 = parser.parseFromString(withContainer, 'text/html');
+    const result2 = parseTrailingBlockquotes(doc2.body);
 
-    expect(result.length).toBeGreaterThan(0);
-    const combinedText = result.map((el) => el.textContent).join(' ');
+    expect(result2.length).toBeGreaterThan(0);
+    const combinedText = result2.map((el) => el.textContent).join(' ');
     expect(combinedText).toContain('Forwarded message');
-    expect(combinedText).toContain('From: Alice');
     expect(combinedText).toContain('Message content here');
   });
 
@@ -397,6 +390,56 @@ describe('parseTrailingBlockquotes', () => {
     expect(result[0].textContent).toContain('On Wed, Feb 18, 2026');
     expect(result[0].textContent).not.toContain('Hello Alice');
     expect(result[0].textContent).not.toContain('Bob Smith');
+  });
+
+  it('does not blockquote forwarded message without visible content before it', () => {
+    const html = `<div dir="ltr">
+  <br>
+  <br>
+  <div class="gmail_quote gmail_quote_container">
+    <div dir="ltr" class="gmail_attr">
+      ---------- Forwarded message ---------<br>
+      From: <strong class="gmail_sendername" dir="auto">Jane Smith</strong> <span dir="auto">&lt;<a href="mailto:jane@example.com">jane@example.com</a>&gt;</span><br>
+      Date: Fri, 20 Feb 2026 at 09:10<br>
+      Subject: Test email<br>
+      To: &lt;<a href="mailto:recipient@example.com">recipient@example.com</a>&gt;<br>
+    </div><br>
+    <br>
+    <p style="margin:0px;line-height:1.5;font-size:14px;min-height:1.5em"><span style="font-family:ui-sans-serif,system-ui,sans-serif;font-size:14px">Hey there</span></p>
+  </div>
+</div>`;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const result = parseTrailingBlockquotes(doc.body);
+
+    expect(result).toHaveLength(0);
+  });
+
+  it('blockquotes forwarded message when there is visible content before it', () => {
+    const html = `<div dir="ltr">
+  <p>Please see the message below.</p>
+  <div class="gmail_quote gmail_quote_container">
+    <div dir="ltr" class="gmail_attr">
+      ---------- Forwarded message ---------<br>
+      From: <strong class="gmail_sendername" dir="auto">John Doe</strong> <span dir="auto">&lt;<a href="mailto:john@example.com">john@example.com</a>&gt;</span><br>
+      Date: Fri, 20 Feb 2026 at 09:10<br>
+      Subject: Important<br>
+      To: &lt;<a href="mailto:recipient@example.com">recipient@example.com</a>&gt;<br>
+    </div><br>
+    <br>
+    <p>Message content here</p>
+  </div>
+</div>`;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const result = parseTrailingBlockquotes(doc.body);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].outerHTML).toContain('gmail_quote');
+    expect(result[0].textContent).toContain('Forwarded message');
+    expect(result[0].textContent).not.toContain('Please see the message below');
   });
 });
 

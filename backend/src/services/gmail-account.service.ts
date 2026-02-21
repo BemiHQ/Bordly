@@ -13,12 +13,13 @@ import { EmailMessage } from '@/entities/email-message';
 import { FileAttachment } from '@/entities/file-attachment';
 import { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
+import { BoardCardService } from '@/services/board-card.service';
 import { EmailDraftService } from '@/services/email-draft.service';
+import { reportError } from '@/utils/error-tracking';
 import { GmailApi } from '@/utils/gmail-api';
 import { GoogleApi } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
 import { S3Client } from '@/utils/s3-client';
-import { BoardCardService } from './board-card.service';
 
 export class GmailAccountService {
   static tryFindByExternalId<Hint extends string = never>(
@@ -139,28 +140,33 @@ export class GmailAccountService {
   static async refreshAccessToken(
     gmailAccount: GmailAccount,
   ): Promise<{ gmailAccount: GmailAccount; oauth2Client: Auth.OAuth2Client; accessToken: string }> {
-    const oauth2Client = GoogleApi.newOauth2Client({
-      accessToken: gmailAccount.accessToken,
-      accessTokenExpiresAt: gmailAccount.accessTokenExpiresAt,
-      refreshToken: gmailAccount.refreshToken,
-    });
+    try {
+      const oauth2Client = GoogleApi.newOauth2Client({
+        accessToken: gmailAccount.accessToken,
+        accessTokenExpiresAt: gmailAccount.accessTokenExpiresAt,
+        refreshToken: gmailAccount.refreshToken,
+      });
 
-    if (!gmailAccount.isAccessTokenExpired()) {
-      return { gmailAccount, oauth2Client, accessToken: gmailAccount.accessToken };
+      if (!gmailAccount.isAccessTokenExpired()) {
+        return { gmailAccount, oauth2Client, accessToken: gmailAccount.accessToken };
+      }
+
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      if (!credentials.access_token) {
+        throw new Error('Failed to refresh access token');
+      }
+
+      gmailAccount.setTokens({
+        accessToken: credentials.access_token,
+        refreshToken: gmailAccount.refreshToken,
+        accessTokenExpiresAt: new Date(credentials.expiry_date as number),
+      });
+      await orm.em.persist(gmailAccount).flush();
+
+      return { gmailAccount, oauth2Client, accessToken: credentials.access_token };
+    } catch (error) {
+      reportError(error, { email: gmailAccount.email });
+      throw error;
     }
-
-    const { credentials } = await oauth2Client.refreshAccessToken();
-    if (!credentials.access_token) {
-      throw new Error('Failed to refresh access token');
-    }
-
-    gmailAccount.setTokens({
-      accessToken: credentials.access_token,
-      refreshToken: gmailAccount.refreshToken,
-      accessTokenExpiresAt: new Date(credentials.expiry_date as number),
-    });
-    await orm.em.persist(gmailAccount).flush();
-
-    return { gmailAccount, oauth2Client, accessToken: credentials.access_token };
   }
 }

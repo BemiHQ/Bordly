@@ -63,15 +63,17 @@ export const Participants = ({
             </SelectContent>
           </Select>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          onClick={() => setShowCcBcc((prev) => !prev)}
-          className="text-muted-foreground"
-        >
-          {showCcBcc ? 'Hide Cc/Bcc' : 'Add Cc/Bcc'}
-        </Button>
+        {(!showCcBcc || (cc === '' && bcc === '')) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => setShowCcBcc((prev) => !prev)}
+            className="text-muted-foreground"
+          >
+            {showCcBcc ? 'Hide Cc/Bcc' : 'Add Cc/Bcc'}
+          </Button>
+        )}
       </div>
       <div className="flex items-center gap-1">
         <div className="text-xs text-muted-foreground">To</div>

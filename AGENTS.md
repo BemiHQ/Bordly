@@ -4,4 +4,4 @@ There are two projects in this repository: @frontend and @backend.
 - Run `make check` after making changes to format, lint, and find type errors
 - Do not use `any` type in TypeScript
 - Do not use `git` unless explicitly asked
-- When asked "/review", review the code changes, see if all changes are necessary, refactor and simplify
+- When asked to write tests from examples, anonymize test data
