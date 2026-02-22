@@ -1,14 +1,16 @@
-import { Collection, Entity, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
+import { Collection, Entity, ManyToOne, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCard } from '@/entities/board-card';
 import type { Participant } from '@/entities/email-message';
 import type { FileAttachment } from '@/entities/file-attachment';
+import type { GmailAccount } from '@/entities/gmail-account';
 import { parseHtmlBody } from '@/utils/email';
 
 export type { Participant } from '@/entities/email-message';
 
 export interface EmailDraft {
   loadedBoardCard: BoardCard;
+  loadedGmailAccount: GmailAccount;
 }
 
 @Entity({ tableName: 'email_drafts' })
@@ -16,6 +18,8 @@ export interface EmailDraft {
 export class EmailDraft extends BaseEntity {
   @OneToOne()
   boardCard: BoardCard;
+  @ManyToOne()
+  gmailAccount: GmailAccount;
 
   @OneToMany({ mappedBy: (attachment: FileAttachment) => attachment.emailDraft })
   fileAttachments = new Collection<FileAttachment>(this);
@@ -39,6 +43,7 @@ export class EmailDraft extends BaseEntity {
 
   constructor({
     boardCard,
+    gmailAccount,
     generated,
     from,
     to,
@@ -48,6 +53,7 @@ export class EmailDraft extends BaseEntity {
     bodyHtml,
   }: {
     boardCard: BoardCard;
+    gmailAccount: GmailAccount;
     generated: boolean;
     from: Participant;
     to?: Participant[];
@@ -58,6 +64,7 @@ export class EmailDraft extends BaseEntity {
   }) {
     super();
     this.boardCard = boardCard;
+    this.gmailAccount = gmailAccount;
     this.generated = generated;
     this.from = from;
     this.to = to;
@@ -70,6 +77,7 @@ export class EmailDraft extends BaseEntity {
   }
 
   update({
+    gmailAccount,
     generated,
     from,
     to,
@@ -78,6 +86,7 @@ export class EmailDraft extends BaseEntity {
     subject,
     bodyHtml,
   }: {
+    gmailAccount: GmailAccount;
     generated: boolean;
     from: Participant;
     to?: Participant[];
@@ -86,6 +95,7 @@ export class EmailDraft extends BaseEntity {
     subject?: string;
     bodyHtml?: string;
   }) {
+    this.gmailAccount = gmailAccount;
     this.generated = generated;
     this.from = { ...from, email: from.email.toLowerCase() };
     this.to = to?.map((p) => ({ ...p, email: p.email.toLowerCase() }));
@@ -115,6 +125,7 @@ export class EmailDraft extends BaseEntity {
   }
 
   private validate() {
+    if (!this.gmailAccount) throw new Error('Gmail account is required');
     if (!this.boardCard) throw new Error('Board card is required');
     if (this.generated === undefined || this.generated === null) throw new Error('Generated status is required');
     if (!this.from) throw new Error('From address is required');

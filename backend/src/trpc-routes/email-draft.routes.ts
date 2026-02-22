@@ -27,7 +27,11 @@ export const EMAIL_DRAFT_ROUTES = {
           boardCardId: input.boardCardId,
           populate: [...BOARD_CARD_POPULATE, 'boardColumn'],
         });
-        const updatedBoardCard = await EmailDraftService.upsert(boardCard, { ...input, generated: false, user });
+        const updatedBoardCard = (await EmailDraftService.upsert(boardCard, {
+          ...input,
+          generated: false,
+          user,
+        })) as typeof boardCard;
         return { boardCard: boardCardToJson(updatedBoardCard, ctx) };
       }),
     delete: publicProcedure
@@ -59,13 +63,22 @@ export const EMAIL_DRAFT_ROUTES = {
         const { board } = authAsBoardMember({ ctx, input });
         const boardCard = await BoardCardService.findById(board, {
           boardCardId: input.boardCardId,
-          populate: [...BOARD_CARD_POPULATE, 'gmailAccount.senderEmailAddresses', 'boardColumn.board.boardMembers'],
+          populate: [
+            ...BOARD_CARD_POPULATE,
+            'gmailAccount.senderEmailAddresses',
+            'emailDraft.gmailAccount',
+            'boardColumn.board.boardMembers',
+            'comments',
+          ],
         });
 
-        const { emailMessage, boardCard: updatedBoardCard } = await EmailDraftService.send(boardCard, {
+        const { emailMessage, boardCard: updatedBoardCard } = (await EmailDraftService.send(boardCard, {
           ...input,
           user: ctx.user!,
-        });
+        })) as {
+          emailMessage: Awaited<ReturnType<typeof EmailDraftService.send>>['emailMessage'];
+          boardCard: typeof boardCard;
+        };
         return {
           emailMessage: emailMessage.toJson(),
           boardCard: boardCardToJson(updatedBoardCard, ctx),

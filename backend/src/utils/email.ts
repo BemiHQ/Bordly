@@ -222,6 +222,11 @@ const parseTrailingBackquotes = (text: string): { mainText: string; backquotesTe
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+export const htmlToText = (html: string): string => {
+  const $ = cheerio.load(html);
+  return $.text().replace(/\r\n/g, '\n').trim();
+};
+
 export const parseHtmlBody = (bodyHtml: string): { mainHtml: string; styles: string; quotedHtml: string } => {
   const $ = cheerio.load(bodyHtml);
 

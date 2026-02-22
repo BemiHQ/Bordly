@@ -1238,6 +1238,15 @@
           "nullable": false,
           "enumItems": ["ADMIN", "MEMBER", "AGENT"],
           "mappedType": "enum"
+        },
+        "memory": {
+          "name": "memory",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "json"
         }
       },
       "name": "board_members",
@@ -1586,6 +1595,15 @@
           "nullable": false,
           "mappedType": "uuid"
         },
+        "gmail_account_id": {
+          "name": "gmail_account_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "uuid"
+        },
         "generated": {
           "name": "generated",
           "type": "boolean",
@@ -1687,6 +1705,14 @@
           "localTableName": "public.email_drafts",
           "referencedColumnNames": ["id"],
           "referencedTableName": "public.board_cards",
+          "updateRule": "cascade"
+        },
+        "email_drafts_gmail_account_id_foreign": {
+          "constraintName": "email_drafts_gmail_account_id_foreign",
+          "columnNames": ["gmail_account_id"],
+          "localTableName": "public.email_drafts",
+          "referencedColumnNames": ["id"],
+          "referencedTableName": "public.gmail_accounts",
           "updateRule": "cascade"
         }
       },

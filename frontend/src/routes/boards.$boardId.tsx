@@ -280,7 +280,8 @@ function BoardComponent() {
 
   const { data: boardCardsData } = useQuery({
     ...trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
-    refetchInterval: REFETCH_CARDS_INTERVAL_MS,
+    refetchInterval:
+      !boardData || boardData.boardColumnsAsc.length === 0 ? REFETCH_NEW_BOARD_INTERVAL_MS : REFETCH_CARDS_INTERVAL_MS,
     refetchIntervalInBackground: true,
     enabled: boardData && boardData.boardColumnsAsc.length > 0,
     retry: false,

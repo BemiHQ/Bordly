@@ -1,8 +1,8 @@
 import { Entity, Index, ManyToOne, Property } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
+import type { BoardCard } from '@/entities/board-card';
 import type { User } from '@/entities/user';
-import type { BoardCard } from './board-card';
 
 export interface Comment {
   loadedBoardCard: BoardCard;

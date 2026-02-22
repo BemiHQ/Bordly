@@ -1,7 +1,7 @@
 import type { Loaded, Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
 import type { Participant } from '@/entities/email-message';
-import { GmailAccount } from '@/entities/gmail-account';
+import type { GmailAccount } from '@/entities/gmail-account';
 import { SenderEmailAddress } from '@/entities/sender-email-address';
 import type { User } from '@/entities/user';
 import { BoardAccountService } from '@/services/board-account.service';
@@ -112,7 +112,7 @@ export class SenderEmailAddressService {
   }
 
   static async syncEmailAddresses() {
-    const gmailAccounts = await orm.em.find(GmailAccount, {}, { populate: ['senderEmailAddresses'] });
+    const gmailAccounts = await GmailAccountService.findActiveAccounts({ populate: ['senderEmailAddresses'] });
 
     for (const gmailAccount of gmailAccounts) {
       await SenderEmailAddressService.syncEmailAddressesForGmailAccount(gmailAccount);

@@ -9,6 +9,7 @@ import { DomainService } from '@/services/domain.service';
 import { EmailMessageService } from '@/services/email-message.service';
 import { FileAttachmentService } from '@/services/file-attachment.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
+import { SenderEmailAddressService } from '@/services/sender-email-address.service';
 import { GmailApi } from '@/utils/gmail-api';
 import { orm } from '@/utils/orm';
 import { S3Client } from '@/utils/s3-client';
@@ -26,8 +27,8 @@ export class EmailDraftService {
     return orm.em.find(EmailDraft, { boardCard: { gmailAccount, boardColumn: { board } } }, { populate });
   }
 
-  static async upsert<T extends Loaded<BoardCard, 'emailDraft' | 'boardColumn' | 'boardCardReadPositions'>>(
-    boardCard: T,
+  static async upsert(
+    boardCard: Loaded<BoardCard, 'emailDraft' | 'boardColumn' | 'boardCardReadPositions'>,
     {
       user,
       generated,
@@ -47,14 +48,24 @@ export class EmailDraftService {
       bcc?: string[];
       bodyHtml?: string;
     },
-  ): Promise<T> {
+  ) {
+    const {
+      boardColumn: { board },
+    } = boardCard;
+
     const fromParticipant = EmailMessageService.parseParticipant(from)!;
     const toParticipants = to?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
     const ccParticipants = cc?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
     const bccParticipants = bcc?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
 
+    const gmailAccount = await EmailDraftService.gmailAccountFromFromParticipant({ board, fromParticipant, user });
+    if (!gmailAccount) {
+      throw new Error(`No Gmail account found for sender email ${fromParticipant.email} on board ${board.id}`);
+    }
+
     if (boardCard.emailDraft) {
       boardCard.emailDraft.update({
+        gmailAccount,
         generated,
         from: fromParticipant,
         to: toParticipants,
@@ -65,6 +76,7 @@ export class EmailDraftService {
       });
     } else {
       boardCard.emailDraft = new EmailDraft({
+        gmailAccount,
         boardCard,
         generated,
         from: fromParticipant,
@@ -79,7 +91,7 @@ export class EmailDraftService {
         const boardMember = user.boardMembers.find((bm) => bm.board.id === boardCard.loadedBoardColumn.board.id)!;
         boardCard.assignToBoardMember(boardMember);
       }
-      boardCard.addParticipantUserId(user.id);
+      boardCard.addParticipantUserId(gmailAccount.user.id);
     }
     boardCard.setLastEventAt(boardCard.emailDraft.createdAt);
     orm.em.persist([boardCard.emailDraft, boardCard]);
@@ -106,10 +118,16 @@ export class EmailDraftService {
     await orm.em.flush();
   }
 
+  // Returns originally passed { boardCard } type
   static async send(
     boardCard: Loaded<
       BoardCard,
-      'gmailAccount' | 'emailDraft.fileAttachments' | 'boardColumn' | 'boardCardReadPositions'
+      | 'gmailAccount'
+      | 'emailDraft.fileAttachments'
+      | 'emailDraft.gmailAccount'
+      | 'boardColumn'
+      | 'boardCardReadPositions'
+      | 'comments'
     >,
     {
       user,
@@ -144,9 +162,6 @@ export class EmailDraftService {
     const domainName = fromParticipant.email.split('@')[1]!;
     const domain = await DomainService.tryFindByName(domainName);
 
-    const gmailAccount = boardCard.loadedGmailAccount;
-    const gmail = await GmailAccountService.initGmail(gmailAccount);
-
     const attachments = boardCard.emailDraft
       ? await Promise.all(
           boardCard.emailDraft.fileAttachments.map(async (attachment) => {
@@ -155,6 +170,14 @@ export class EmailDraftService {
           }),
         )
       : undefined;
+
+    const board = boardCard.loadedBoardColumn.board;
+    const gmailAccount = await EmailDraftService.gmailAccountFromFromParticipant({ board, fromParticipant, user });
+    if (!gmailAccount) {
+      throw new Error(`No Gmail account found for sender email ${fromParticipant.email} on board ${board.id}`);
+    }
+
+    const gmail = await GmailAccountService.initGmail(gmailAccount);
 
     const sentMessage = await GmailApi.sendEmail(gmail, {
       from: participantToString(fromParticipant),
@@ -184,7 +207,7 @@ export class EmailDraftService {
     const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({
       boardCard,
       emailMessagesDesc: [emailMessage, ...emailMessagesDesc],
-    });
+    }) as typeof boardCard;
     orm.em.persist(rebuiltBoardCard);
 
     const userBoardCardReadPosition = rebuiltBoardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
@@ -201,5 +224,22 @@ export class EmailDraftService {
     await orm.em.flush();
 
     return { emailMessage, boardCard: rebuiltBoardCard };
+  }
+
+  private static async gmailAccountFromFromParticipant({
+    board,
+    fromParticipant,
+    user,
+  }: {
+    board: Loaded<Board>;
+    fromParticipant: Participant;
+    user: Loaded<User>;
+  }) {
+    const senderEmailAddresses = await SenderEmailAddressService.findAddressesByBoard(board, {
+      user,
+      populate: ['gmailAccount'],
+    });
+
+    return senderEmailAddresses.find((addr) => addr.email === fromParticipant.email)?.loadedGmailAccount;
   }
 }

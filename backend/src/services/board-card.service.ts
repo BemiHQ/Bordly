@@ -17,6 +17,7 @@ import { EmailDraftService } from '@/services/email-draft.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { SenderEmailAddressService } from '@/services/sender-email-address.service';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
+import { unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import { FALLBACK_SUBJECT } from '@/utils/shared';
 import { msAgoFrom } from '@/utils/time';
@@ -134,11 +135,11 @@ export class BoardCardService {
       lastEventAt: new Date(),
       hasAttachments: false,
       emailMessageCount: 0,
+      participantUserIds: [user.id],
     });
 
     const boardMember = user.boardMembers.find((bm) => bm.board.id === board.id)!;
     boardCard.assignToBoardMember(boardMember);
-    boardCard.addParticipantUserId(user.id);
 
     for (const member of board.boardMembers) {
       if (member.isAgent) continue;
@@ -148,6 +149,7 @@ export class BoardCardService {
 
     boardCard.emailDraft = new EmailDraft({
       boardCard,
+      gmailAccount: firstSenderEmailAddress.loadedGmailAccount,
       generated: false,
       from: fromParticipant,
       to: undefined,
@@ -280,7 +282,7 @@ export class BoardCardService {
   }: {
     boardColumn: BoardColumn;
     gmailAccount: GmailAccount;
-    emailMessagesDesc: EmailMessage[];
+    emailMessagesDesc: Loaded<EmailMessage, 'gmailAttachments' | 'gmailAccount'>[];
   }) {
     if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
 
@@ -289,6 +291,8 @@ export class BoardCardService {
     const lastEmailMessage = emailMessagesDesc[0]!;
     const firstEmailMessage = emailMessagesDesc[emailMessagesDesc.length - 1]!;
     const lastEventAt = lastEmailMessage.externalCreatedAt;
+
+    const participantUserIds = unique(emailMessagesDesc.map((msg) => msg.loadedGmailAccount.user.id));
 
     const boardCard = new BoardCard({
       gmailAccount,
@@ -303,6 +307,7 @@ export class BoardCardService {
       hasAttachments: emailMessagesDesc.some((msg) => msg.gmailAttachments.length > 0),
       emailMessageCount: emailMessagesDesc.length,
       movedToTrashAt: state === State.TRASH ? new Date() : undefined,
+      participantUserIds: participantUserIds.length > 0 ? participantUserIds : undefined,
     });
 
     let lastReadAt: Date;
@@ -325,13 +330,14 @@ export class BoardCardService {
     return boardCard;
   }
 
-  static rebuildFromEmailMessages<T extends Loaded<BoardCard, 'boardColumn' | 'boardCardReadPositions'>>({
+  // Returns originally passed boardCard type
+  static rebuildFromEmailMessages({
     boardCard,
     emailMessagesDesc,
   }: {
-    boardCard: T;
-    emailMessagesDesc: EmailMessage[];
-  }): T {
+    boardCard: Loaded<BoardCard, 'boardColumn' | 'boardCardReadPositions' | 'comments' | 'emailDraft.gmailAccount'>;
+    emailMessagesDesc: Loaded<EmailMessage, 'gmailAttachments' | 'gmailAccount'>[];
+  }) {
     if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
 
     const board = boardCard.loadedBoardColumn.loadedBoard;
@@ -360,6 +366,14 @@ export class BoardCardService {
       }
     }
 
+    const participantUserIds = unique(
+      [
+        ...emailMessagesDesc.map((msg) => msg.loadedGmailAccount.user.id),
+        ...boardCard.comments.map((c) => c.user.id),
+        boardCard.emailDraft?.loadedGmailAccount.user.id,
+      ].filter((id): id is string => !!id),
+    );
+
     boardCard.update({
       state,
       snippet: lastEmailMessage.snippet,
@@ -369,6 +383,7 @@ export class BoardCardService {
       hasAttachments: emailMessagesDesc.some((msg) => msg.gmailAttachments.length > 0),
       emailMessageCount: emailMessagesDesc.length,
       movedToTrashAt: state === State.TRASH ? boardCard.movedToTrashAt || new Date() : undefined,
+      participantUserIds: participantUserIds.length > 0 ? participantUserIds : undefined,
     });
 
     return boardCard;

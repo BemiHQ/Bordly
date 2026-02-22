@@ -1,8 +1,27 @@
-import type { Populate } from '@mikro-orm/postgresql';
+import type { Loaded, Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
-import { BoardMember, type Role } from '@/entities/board-member';
+import { BoardCard } from '@/entities/board-card';
+import { BoardMember, BoardMemberMemory, type Role } from '@/entities/board-member';
+import { EmailMessage } from '@/entities/email-message';
 import type { User } from '@/entities/user';
+import { AgentService } from '@/services/agent.service';
+import { parseTextBody } from '@/utils/email';
+import { reportError } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
+
+const AGENT_MEMORY_ANALYSIS = {
+  name: 'Board Member Memory Analysis Agent',
+  instructions: `Analyze the following sent email messages to extract the sender's communication patterns and preferences.
+
+Extract and return ONLY a valid JSON object with these fields (set to null if not found):
+- greeting: Common greeting pattern (e.g., "Hi [First Name],", "Hello [Full Name],", "Hey,")
+- opener: Common opening line after greeting (e.g., "Hope you're doing well!", "Thanks for reaching out.")
+- signature: Email signature style (e.g., "Best,\nJohn", "Cheers,\nJohn Smith\nCEO", "Thank you,\nJohn")
+- formality: Level of formality ("formal", "casual", "semi-formal")
+- meetingLink: Common meeting link if present (e.g., Calendly/Cal.com link)`,
+};
+
+const MAX_EMAILS_CONTENT_LENGTH_TO_ANALYZE = 1_000_000; // 1 million characters = ~250K tokens
 
 export class BoardMemberService {
   static async findMembers<Hint extends string = never>(
@@ -50,5 +69,67 @@ export class BoardMemberService {
     { userId, populate = [] }: { userId: string; populate?: Populate<BoardMember, Hint> },
   ) {
     return orm.em.findOneOrFail(BoardMember, { board, user: userId }, { populate });
+  }
+
+  static async setMemory(boardMember: Loaded<BoardMember, 'user'>) {
+    if (boardMember.isAgent) throw new Error('Cannot set memory for agent board member');
+
+    const boardCards = await orm.em.find(
+      BoardCard,
+      { boardColumn: { board: boardMember.board }, participantUserIds: { $contains: [boardMember.user.id] } },
+      { populate: ['gmailAccount'] },
+    );
+    if (boardCards.length === 0) return;
+
+    const externalThreadIds = boardCards.map((card) => card.externalThreadId).filter((id): id is string => !!id);
+    if (externalThreadIds.length === 0) return;
+
+    const emailMessages = await orm.em.find(
+      EmailMessage,
+      { externalThreadId: { $in: externalThreadIds }, gmailAccount: boardMember.loadedUser.gmailAccount, sent: true },
+      { orderBy: { externalCreatedAt: 'DESC' } },
+    );
+    if (emailMessages.length === 0) return;
+
+    const agent = AgentService.createAgent(AGENT_MEMORY_ANALYSIS);
+
+    let totalContentLength = 0;
+    const emailContents: string[] = [];
+    for (const msg of emailMessages) {
+      const { mainText } = parseTextBody(msg.bodyText || '');
+      const content = `From: ${msg.from.email}
+Subject: ${msg.subject}
+Body: ${mainText}`;
+
+      totalContentLength += content.length;
+      if (totalContentLength > MAX_EMAILS_CONTENT_LENGTH_TO_ANALYZE) break;
+
+      emailContents.push(content);
+    }
+
+    console.log(`[AGENT] Analyzing ${emailMessages.length} sent messages for board member memory...`);
+    const response = await agent.generate([
+      { role: 'user', content: `Analyze these sent emails: ${emailContents.join('\n\n---\n\n')}` },
+    ]);
+
+    let memoryData: Partial<BoardMemberMemory>;
+    try {
+      const cleanedResponse = response.text.replace(/```json\n?|\n?```/g, '').trim();
+      memoryData = JSON.parse(cleanedResponse);
+    } catch (error) {
+      reportError(error, { email: boardMember.user.email });
+      return;
+    }
+
+    const memory = new BoardMemberMemory();
+    if (memoryData.greeting) memory.greeting = memoryData.greeting;
+    if (memoryData.opener) memory.opener = memoryData.opener;
+    if (memoryData.signature) memory.signature = memoryData.signature;
+    if (memoryData.formality) memory.formality = memoryData.formality;
+    if (memoryData.meetingLink) memory.meetingLink = memoryData.meetingLink;
+
+    boardMember.setMemory(memory);
+    orm.em.persist(boardMember);
+    await orm.em.flush();
   }
 }

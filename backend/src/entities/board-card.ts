@@ -10,6 +10,7 @@ import {
   Unique,
 } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
+import type { BoardCardReadPosition } from '@/entities/board-card-read-position';
 import type { BoardColumn } from '@/entities/board-column';
 import type { BoardMember } from '@/entities/board-member';
 import type { Comment } from '@/entities/comment';
@@ -18,7 +19,6 @@ import type { EmailDraft } from '@/entities/email-draft';
 import type { Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { BoardCardState as State } from '@/utils/shared';
-import type { BoardCardReadPosition } from './board-card-read-position';
 
 const MAX_SNIPPET_LENGTH = 201;
 
@@ -93,6 +93,7 @@ export class BoardCard extends BaseEntity {
     emailMessageCount,
     pinnedPosition,
     movedToTrashAt,
+    participantUserIds,
   }: {
     gmailAccount: GmailAccount;
     boardColumn: BoardColumn;
@@ -107,6 +108,7 @@ export class BoardCard extends BaseEntity {
     emailMessageCount: number;
     pinnedPosition?: number;
     movedToTrashAt?: Date;
+    participantUserIds?: string[];
   }) {
     super();
     this.gmailAccount = gmailAccount;
@@ -122,6 +124,7 @@ export class BoardCard extends BaseEntity {
     this.emailMessageCount = emailMessageCount;
     this.pinnedPosition = pinnedPosition;
     this.movedToTrashAt = movedToTrashAt;
+    this.participantUserIds = participantUserIds;
     this.validate();
   }
 
@@ -134,6 +137,7 @@ export class BoardCard extends BaseEntity {
     hasAttachments,
     emailMessageCount,
     movedToTrashAt,
+    participantUserIds,
   }: {
     externalThreadId: string;
     state: State;
@@ -143,6 +147,7 @@ export class BoardCard extends BaseEntity {
     hasAttachments: boolean;
     emailMessageCount: number;
     movedToTrashAt?: Date;
+    participantUserIds?: string[];
   }) {
     this.externalThreadId = externalThreadId;
     this.state = state;
@@ -152,6 +157,7 @@ export class BoardCard extends BaseEntity {
     this.hasAttachments = hasAttachments;
     this.emailMessageCount = emailMessageCount;
     this.movedToTrashAt = movedToTrashAt;
+    this.participantUserIds = participantUserIds;
     this.validate();
   }
 

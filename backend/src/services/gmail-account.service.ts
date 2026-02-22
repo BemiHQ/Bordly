@@ -20,6 +20,7 @@ import { GmailApi } from '@/utils/gmail-api';
 import { GoogleApi } from '@/utils/google-api';
 import { orm } from '@/utils/orm';
 import { S3Client } from '@/utils/s3-client';
+import { GmailAccountState } from '@/utils/shared';
 
 export class GmailAccountService {
   static tryFindByExternalId<Hint extends string = never>(
@@ -37,10 +38,20 @@ export class GmailAccountService {
     return orm.em.findOneOrFail(GmailAccount, { id }, { populate });
   }
 
-  static findAllAccountsWithBoards<Hint extends string = never>(
+  static findActiveAccounts<Hint extends string = never>(
     { populate }: { populate?: Populate<GmailAccount, Hint> } = { populate: [] },
   ) {
-    return orm.em.find(GmailAccount, { boardAccounts: { $ne: null } }, { populate });
+    return orm.em.find(GmailAccount, { state: { $ne: GmailAccountState.ACTIVE } }, { populate });
+  }
+
+  static findActiveAccountsWithBoards<Hint extends string = never>(
+    { populate }: { populate?: Populate<GmailAccount, Hint> } = { populate: [] },
+  ) {
+    return orm.em.find(
+      GmailAccount,
+      { boardAccounts: { $ne: null }, state: { $ne: GmailAccountState.ACTIVE } },
+      { populate },
+    );
   }
 
   static async addToBoard(gmailAccount: GmailAccount, { board }: { board: Board }) {
@@ -87,9 +98,8 @@ export class GmailAccountService {
       await orm.em.persist(gmailAccount).flush();
 
       if (gmailAccountCount === 1) {
-        const boardCondition = { id: board.id };
-
         // Delete records associated with member's gmail accounts (initiated by them vs shared gmail accounts)
+        const boardCondition = { id: board.id };
         const boardCardCondition = { boardColumn: { board: boardCondition } };
         const membersBoardCards = await BoardCardService.findByBoard({ board });
         const membersEmailMessagesCondition = {
@@ -105,9 +115,9 @@ export class GmailAccountService {
         await em.nativeDelete(BoardCardReadPosition, { boardCard: boardCardCondition });
         await em.nativeDelete(BoardCard, boardCardCondition);
 
-        await em.nativeDelete(BoardMember, boardCondition);
-        await em.nativeDelete(BoardColumn, boardCondition);
-        await em.nativeDelete(BoardInvite, boardCondition);
+        await em.nativeDelete(BoardMember, { board: boardCondition });
+        await em.nativeDelete(BoardColumn, { board: boardCondition });
+        await em.nativeDelete(BoardInvite, { board: boardCondition });
         await em.nativeDelete(Board, boardCondition);
       }
 

@@ -1,6 +1,5 @@
 import type { Loaded, OrderDefinition, Populate } from '@mikro-orm/postgresql';
 import { RequestContext } from '@mikro-orm/postgresql';
-import * as cheerio from 'cheerio';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 import type { BoardCard } from '@/entities/board-card';
 import { BoardColumn } from '@/entities/board-column';
@@ -9,18 +8,20 @@ import { EmailMessage, type Participant } from '@/entities/email-message';
 import { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
 import { AgentService } from '@/services/agent.service';
+import { BoardAccountService } from '@/services/board-account.service';
 import { BoardCardService } from '@/services/board-card.service';
+import { BoardMemberService } from '@/services/board-member.service';
 import { DomainService } from '@/services/domain.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
+import { htmlToText } from '@/utils/email';
 import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
-import { FALLBACK_SUBJECT, GmailAccountState } from '@/utils/shared';
+import { FALLBACK_SUBJECT } from '@/utils/shared';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
-import { BoardAccountService } from './board-account.service';
 
 const CREATE_NEW_EMAIL_MESSAGES_READ_DB_INTERVAL_MS = 60 * 1_000; // 60 seconds
 const CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS = 5 * 1_000; // 5 seconds
@@ -66,11 +67,10 @@ export class EmailMessageService {
 
     while (true) {
       const gmailAccounts = (
-        await GmailAccountService.findAllAccountsWithBoards({
+        await GmailAccountService.findActiveAccountsWithBoards({
           populate: ['boardAccounts.board.boardColumns', 'boardAccounts.board.boardMembers'],
         })
       ).filter((acc) => {
-        if (acc.state === GmailAccountState.INACTIVE) return false;
         if (![...acc.boardAccounts].some((ba) => ba.loadedBoard.initialized)) return false;
         const promiseData = promiseDataByGmailAccountId[acc.id];
         if (promiseData?.ignoredUntil && promiseData.ignoredUntil > new Date()) return false;
@@ -154,7 +154,7 @@ export class EmailMessageService {
   // Creates: EmailMessage, Attachment, *BoardColumn*, Domain, BoardCard
   static async createInitialBoardEmailMessages(boardAccountId: string) {
     const boardAccount = await BoardAccountService.findById(boardAccountId, {
-      populate: ['board.boardMembers', 'gmailAccount'],
+      populate: ['board.boardMembers.user', 'gmailAccount'],
     });
     const { loadedBoard: board, loadedGmailAccount: gmailAccount } = boardAccount;
 
@@ -168,7 +168,8 @@ export class EmailMessageService {
 
     // Collect EmailMessages and Attachments
     let lastExternalHistoryId: string | undefined;
-    const emailMessagesDescByThreadId: Record<string, EmailMessage[]> = {};
+    // Return type from parseEmailMessage
+    const emailMessagesDescByThreadId: Record<string, ReturnType<typeof EmailMessageService.parseEmailMessage>[]> = {};
     const domainNames = new Set<string>();
     const processedMessageIds = new Set<string>();
 
@@ -282,6 +283,9 @@ export class EmailMessageService {
     }
 
     await orm.em.flush();
+
+    const boardMember = board.boardMembers.find((member) => !member.isAgent)!;
+    await BoardMemberService.setMemory(boardMember);
   }
 
   static async findLastByExternalThreadId(externalThreadId: string) {
@@ -379,7 +383,7 @@ export class EmailMessageService {
       references: GmailApi.headerValue(headers, 'references'),
       from,
       subject: GmailApi.headerValue(headers, 'subject') || FALLBACK_SUBJECT,
-      snippet: cheerio.load(messageData.snippet!).text(),
+      snippet: htmlToText(messageData.snippet!),
       sent: labels.includes(LABEL.SENT),
       labels,
       to,
@@ -406,7 +410,7 @@ export class EmailMessageService {
     }
 
     emailMessage.gmailAttachments.set(attachments);
-    return emailMessage;
+    return emailMessage as Loaded<EmailMessage, 'gmailAttachments' | 'gmailAccount' | 'domain'>;
   }
 
   // -------------------------------------------------------------------------------------------------------------------
@@ -450,7 +454,7 @@ export class EmailMessageService {
         },
         { populate: ['gmailAttachments', 'domain'] },
       )),
-    ] as EmailMessage[];
+    ];
     const affectedEmailMessageByExternalId = mapBy(affectedEmailMessages, (msg) => msg.externalId);
     // - All email messages in affected threads
     const affectedExternalThreadIds = unique([
@@ -462,9 +466,9 @@ export class EmailMessageService {
         ...(await orm.em.find(
           EmailMessage,
           { gmailAccount, externalThreadId: { $in: affectedExternalThreadIds } },
-          { orderBy: { externalCreatedAt: 'DESC' }, populate: ['gmailAttachments'] },
+          { orderBy: { externalCreatedAt: 'DESC' }, populate: ['gmailAttachments', 'gmailAccount'] },
         )),
-      ] as EmailMessage[],
+      ],
       (msg) => msg.externalThreadId,
     );
     // - Board cards
@@ -473,7 +477,13 @@ export class EmailMessageService {
         ...(await BoardCardService.findCardsByExternalThreadIds({
           gmailAccount,
           externalThreadIds: affectedExternalThreadIds,
-          populate: ['domain', 'boardCardReadPositions', 'boardColumn.board.boardMembers'],
+          populate: [
+            'domain',
+            'boardCardReadPositions',
+            'boardColumn.board.boardMembers',
+            'comments',
+            'emailDraft.gmailAccount',
+          ],
         })),
       ],
       (boardCard) => boardCard.externalThreadId!,
@@ -559,7 +569,10 @@ export class EmailMessageService {
       orm.em.persist(emailMessage);
 
       if (boardCard) {
-        const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc });
+        const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({
+          boardCard,
+          emailMessagesDesc,
+        }) as typeof boardCard;
         orm.em.persist(rebuiltBoardCard);
         boardCardByThreadId[externalThreadId] = rebuiltBoardCard;
       } else {
@@ -600,7 +613,7 @@ export class EmailMessageService {
         orm.em.remove(boardCard);
         delete boardCardByThreadId[threadId];
       } else {
-        boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc });
+        boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc }) as typeof boardCard;
         orm.em.persist(boardCard);
         boardCardByThreadId[threadId] = boardCard;
       }
@@ -628,7 +641,7 @@ export class EmailMessageService {
       emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
 
       let boardCard = boardCardByThreadId[threadId]!;
-      boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc });
+      boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc }) as typeof boardCard;
       orm.em.persist(boardCard);
       boardCardByThreadId[threadId] = boardCard;
     }

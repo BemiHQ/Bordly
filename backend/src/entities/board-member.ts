@@ -1,4 +1,15 @@
-import { Collection, Entity, Enum, Index, ManyToOne, OneToMany, Unique } from '@mikro-orm/postgresql';
+import {
+  Collection,
+  Embeddable,
+  Embedded,
+  Entity,
+  Enum,
+  Index,
+  ManyToOne,
+  OneToMany,
+  Property,
+  Unique,
+} from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
@@ -11,6 +22,20 @@ export { BoardMemberRole as Role };
 export interface BoardMember {
   loadedBoard: Board;
   loadedUser: User;
+}
+
+@Embeddable()
+export class BoardMemberMemory {
+  @Property()
+  greeting?: string;
+  @Property()
+  opener?: string;
+  @Property()
+  signature?: string;
+  @Property()
+  formality?: string;
+  @Property()
+  meetingLink?: string;
 }
 
 @Entity({ tableName: 'board_members' })
@@ -28,12 +53,19 @@ export class BoardMember extends BaseEntity {
   @Enum(() => BoardMemberRole)
   role: BoardMemberRole;
 
+  @Embedded(() => BoardMemberMemory, { object: true, lazy: true })
+  memory?: BoardMemberMemory;
+
   constructor({ board, user, role }: { board: Board; user: User; role: BoardMemberRole }) {
     super();
     this.board = board;
     this.user = user;
     this.role = role;
     this.validate();
+  }
+
+  setMemory(memory: BoardMemberMemory) {
+    this.memory = memory;
   }
 
   setRole(role: BoardMemberRole) {
