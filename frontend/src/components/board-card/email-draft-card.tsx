@@ -36,7 +36,7 @@ import {
   replaceBoardCardData as replaceBoardCardDataInList,
   setBoardCardEmailDraftData,
 } from '@/query-helpers/board-cards';
-import { createQuotedHtml, formatQuoteHeader, sanitizeBodyHtml } from '@/utils/email';
+import { createQuotedHtml, formattedQuoteHeader, sanitizedDisplayHtml } from '@/utils/email';
 import { reportError } from '@/utils/error-tracking';
 import { cn } from '@/utils/strings';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
@@ -158,7 +158,7 @@ export const EmailDraftCard = ({
           boardId,
           boardCardId,
           subject: previousEmailDraft.subject || '',
-          bodyHtml: previousEmailDraft.bodyHtml || '',
+          bodyHtml: `${previousEmailDraft.mainHtml || ''}${previousEmailDraft.quotedHtml || ''}`,
           from: previousEmailDraft.from ? participantToInput(previousEmailDraft.from) : '',
           to: previousEmailDraft.to ? previousEmailDraft.to.map((p) => participantToInput(p)) : undefined,
           cc: previousEmailDraft.cc ? previousEmailDraft.cc.map((p) => participantToInput(p)) : undefined,
@@ -183,32 +183,40 @@ export const EmailDraftCard = ({
     }),
   );
 
-  const quotedHtml = lastEmailMessage
-    ? createQuotedHtml({
-        bodyHtml: lastEmailMessage.bodyHtml || '',
-        bodyText: lastEmailMessage.bodyText,
-        quoteHeader: formatQuoteHeader({ from: lastEmailMessage.from, sentAt: lastEmailMessage.externalCreatedAt }),
-      })
-    : '';
+  const quotedHtml = useMemo(
+    () =>
+      lastEmailMessage
+        ? createQuotedHtml({
+            html: `${lastEmailMessage.mainHtml || ''}${lastEmailMessage.quotedHtml || ''}`,
+            text: `${lastEmailMessage.mainText || ''}${lastEmailMessage.quotedText || ''}`,
+            quoteHeader: formattedQuoteHeader({
+              from: lastEmailMessage.from,
+              sentAt: lastEmailMessage.externalCreatedAt,
+            }),
+          })
+        : '',
+    [lastEmailMessage],
+  );
 
-  const { sanitizedHtml: sanitizedQuotedHtml, sanitizedDisplayHtml: sanitizedDisplayQuotedHtml } = useMemo(() => {
-    if (!quotedHtml) return { sanitizedHtml: '', sanitizedDisplayHtml: '' };
-    return sanitizeBodyHtml({
-      bodyHtml: quotedHtml,
-      gmailAttachments: lastEmailMessage.gmailAttachments,
-      boardId,
-      boardCardId,
-    });
-  }, [quotedHtml, lastEmailMessage, boardId, boardCardId]);
+  const displayQuotedHtml = useMemo(
+    () =>
+      sanitizedDisplayHtml({
+        bodyHtml: quotedHtml,
+        gmailAttachments: lastEmailMessage.gmailAttachments,
+        boardId,
+        boardCardId,
+      }),
+    [quotedHtml, lastEmailMessage.gmailAttachments, boardId, boardCardId],
+  );
 
   useEmailIframe(blockquotesIframeRef, {
-    html: sanitizedDisplayQuotedHtml,
+    html: displayQuotedHtml,
     enabled: blockquotesExpanded,
   });
 
   const editor = useEditor(
     editorConfig({
-      initialHtml: sanitizedQuotedHtml ? emailDraft?.bodyHtml?.split(sanitizedQuotedHtml)[0] : emailDraft?.bodyHtml,
+      initialHtml: emailDraft?.mainHtml,
     }),
   );
 
@@ -221,7 +229,7 @@ export const EmailDraftCard = ({
         boardId,
         boardCardId,
         subject: noMessages ? boardCard.subject : `Re: ${boardCard.subject}`,
-        bodyHtml: `${editor.getHTML()}${sanitizedQuotedHtml}`,
+        bodyHtml: `${editor.getHTML()}${quotedHtml}`,
         from: from.trim(),
         to: to ? parseParticipantsInput(to) : undefined,
         cc: cc ? parseParticipantsInput(cc) : undefined,
@@ -234,18 +242,7 @@ export const EmailDraftCard = ({
       window.clearInterval(intervalId);
       autosaveIntervalRef.current = null;
     };
-  }, [
-    editor,
-    emailDraftUpsertMutation.isPending,
-    hasChanges,
-    boardCardId,
-    boardId,
-    from,
-    to,
-    cc,
-    bcc,
-    sanitizedQuotedHtml,
-  ]);
+  }, [editor, emailDraftUpsertMutation.isPending, hasChanges, boardCardId, boardId, from, to, cc, bcc, quotedHtml]);
 
   const handleSend = () => {
     if (!editor) return;
@@ -261,7 +258,7 @@ export const EmailDraftCard = ({
       boardId,
       boardCardId,
       subject: noMessages ? boardCard.subject : `Re: ${boardCard.subject}`,
-      bodyHtml: `${editor.getHTML()}${sanitizedQuotedHtml}`,
+      bodyHtml: `${editor.getHTML()}${quotedHtml}`,
       from: from.trim(),
       to: to ? parseParticipantsInput(to) : undefined,
       cc: cc ? parseParticipantsInput(cc) : undefined,
@@ -359,7 +356,7 @@ export const EmailDraftCard = ({
         />
       )}
       <Editor editor={editor} onChange={() => setHasChanges(true)} />
-      {sanitizedDisplayQuotedHtml && (
+      {displayQuotedHtml && (
         <div className="flex flex-col px-4">
           <ToggleQuotesButton
             expanded={blockquotesExpanded}

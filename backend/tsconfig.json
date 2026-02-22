@@ -51,5 +51,6 @@
     "paths": {
       "@/*": ["./*"]
     }
-  }
+  },
+  "exclude": ["vitest.config.ts", "**/*.test.ts"]
 }

@@ -37,7 +37,7 @@ down-services:
 	devbox services stop
 
 test:
-	devbox run --env-file frontend/.env "cd frontend && pnpm run test"
+	devbox run "cd backend && pnpm test && cd ../frontend && pnpm test"
 
 ps:
 	devbox services ls
@@ -49,9 +49,10 @@ format:
 	devbox run "pnpm run check"
 
 check: format
-	devbox run "cd backend && pnpm run build && \
-		cd ../frontend && pnpm tsc --noEmit && \
-		rm -rf ../backend/dist"
+	devbox run "cd backend && pnpm run build && cd ../frontend && pnpm tsc --noEmit";
+	status=$$?;
+	rm -rf ./backend/dist;
+	exit $$status
 
 migrate:
 	devbox run --env-file backend/.env "cd backend && pnpm run migrate"

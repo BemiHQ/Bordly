@@ -3,6 +3,7 @@ import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCard } from '@/entities/board-card';
 import type { Participant } from '@/entities/email-message';
 import type { FileAttachment } from '@/entities/file-attachment';
+import { parseHtmlBody } from '@/utils/email';
 
 export type { Participant } from '@/entities/email-message';
 
@@ -96,6 +97,8 @@ export class EmailDraft extends BaseEntity {
   }
 
   toJson() {
+    const parsed = this.bodyHtml ? parseHtmlBody(this.bodyHtml) : { mainHtml: '', quotedHtml: '' };
+
     return {
       id: this.id,
       boardCardId: this.boardCard.id,
@@ -105,8 +108,9 @@ export class EmailDraft extends BaseEntity {
       cc: this.cc,
       bcc: this.bcc,
       subject: this.subject,
-      bodyHtml: this.bodyHtml,
       fileAttachments: this.fileAttachments.map((a) => a.toJson()),
+      mainHtml: parsed.mainHtml,
+      quotedHtml: parsed.quotedHtml,
     };
   }
 

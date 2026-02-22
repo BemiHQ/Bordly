@@ -9,12 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useEmailIframe } from '@/hooks/use-email-iframe';
 import type { BoardMember } from '@/query-helpers/board';
 import type { EmailMessage, GmailAttachment } from '@/query-helpers/board-card';
-import {
-  parseTrailingBackquotes,
-  parseTrailingBlockquotes,
-  removeTrailingEmpty,
-  sanitizeBodyHtml,
-} from '@/utils/email';
+import { sanitizedDisplayHtml } from '@/utils/email';
 import { pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
 import { API_ENDPOINTS } from '@/utils/urls';
@@ -28,56 +23,42 @@ const EmailMessageBody = ({
   boardId: string;
   boardCardId: string;
 }) => {
-  const [mainText, setMainText] = useState('');
-  const [mainHtml, setMainHtml] = useState('');
-  const [styles, setStyles] = useState('');
+  const [displayMainHtml, setDisplayMainHtml] = useState('');
   const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
-  const [blockquotesHtml, setBlockquotesHtml] = useState('');
-  const [backquotesText, setBackquotesText] = useState('');
+  const [displayQuotedHtml, setDisplayQuotedHtml] = useState('');
   const bodyIframeRef = useRef<HTMLIFrameElement>(null);
   const backquotesIframeRef = useRef<HTMLIFrameElement>(null);
 
-  const { bodyHtml, bodyText } = emailMessage;
+  const { mainHtml, mainText, quotedHtml, quotedText, styles } = emailMessage;
 
   useEffect(() => {
-    if (bodyHtml || !bodyText) {
-      // HTML body
-      const { sanitizedDisplayHtml, styles: extractedStyles } = sanitizeBodyHtml({
-        bodyHtml: bodyHtml || '',
+    if (mainHtml || quotedHtml) {
+      const displayMain = sanitizedDisplayHtml({
+        bodyHtml: mainHtml || '',
         gmailAttachments: emailMessage.gmailAttachments,
         boardId,
         boardCardId,
       });
 
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(`<body>${sanitizedDisplayHtml}</body>`, 'text/html');
-
-      // Extract and set trailing blockquotes
-      const trailingBlockquotes = parseTrailingBlockquotes(doc.body);
-      setBlockquotesHtml(trailingBlockquotes.map((bq) => bq.outerHTML).join(''));
-      trailingBlockquotes.forEach((bq) => {
-        bq.remove(); // remove from main content
+      const displayQuoted = sanitizedDisplayHtml({
+        bodyHtml: quotedHtml || '',
+        gmailAttachments: emailMessage.gmailAttachments,
+        boardId,
+        boardCardId,
       });
 
-      // Get HTML body
-      removeTrailingEmpty(doc.body);
-      setMainHtml(doc.body.innerHTML);
-      setStyles(extractedStyles);
-    } else {
-      // Text body
-      const { mainText: parsedMainText, backquotesText: parsedBackquotesText } = parseTrailingBackquotes(bodyText);
-      setMainText(parsedMainText);
-      setBackquotesText(parsedBackquotesText);
+      setDisplayMainHtml(displayMain);
+      setDisplayQuotedHtml(displayQuoted);
     }
-  }, [bodyHtml, bodyText, emailMessage.gmailAttachments, boardId, boardCardId]);
+  }, [mainHtml, quotedHtml, emailMessage.gmailAttachments, boardId, boardCardId]);
 
-  useEmailIframe(bodyIframeRef, { html: mainHtml, styles });
-  useEmailIframe(backquotesIframeRef, { html: blockquotesHtml, styles, enabled: blockquotesExpanded });
+  useEmailIframe(bodyIframeRef, { html: displayMainHtml, styles: styles ?? '' });
+  useEmailIframe(backquotesIframeRef, { html: displayQuotedHtml, styles: styles ?? '', enabled: blockquotesExpanded });
 
-  if (mainHtml || blockquotesHtml) {
+  if (displayMainHtml || displayQuotedHtml) {
     return (
       <div className="flex flex-col">
-        {mainHtml && (
+        {displayMainHtml && (
           <iframe
             ref={bodyIframeRef}
             title="Email content"
@@ -85,7 +66,7 @@ const EmailMessageBody = ({
             className="w-full border-0 block overflow-hidden"
           />
         )}
-        {blockquotesHtml && (
+        {displayQuotedHtml && (
           <>
             <ToggleQuotesButton
               expanded={blockquotesExpanded}
@@ -105,18 +86,18 @@ const EmailMessageBody = ({
     );
   }
 
-  if (!mainText && !backquotesText) return null;
+  if (!mainText && !quotedText) return null;
 
   return (
     <div className="flex flex-col">
       <div className="text-sm whitespace-pre-wrap">{mainText}</div>
-      {backquotesText && (
+      {quotedText && (
         <>
           <ToggleQuotesButton
             expanded={blockquotesExpanded}
             toggle={() => setBlockquotesExpanded(!blockquotesExpanded)}
           />
-          {blockquotesExpanded && <div className="text-sm whitespace-pre-wrap">{backquotesText}</div>}
+          {blockquotesExpanded && <div className="text-sm whitespace-pre-wrap">{quotedText}</div>}
         </>
       )}
     </div>

@@ -3,6 +3,7 @@ import { BaseEntity } from '@/entities/base-entity';
 import type { Domain } from '@/entities/domain';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { GmailAttachment } from '@/entities/gmail-attachment';
+import { parseHtmlBody, parseTextBody } from '@/utils/email';
 
 export interface Participant {
   name: string | null;
@@ -142,8 +143,14 @@ export class EmailMessage extends BaseEntity {
       cc: this.cc,
       bcc: this.bcc,
       externalCreatedAt: this.externalCreatedAt,
-      bodyHtml: this.bodyHtml,
-      bodyText: this.bodyHtml ? undefined : this.bodyText,
+      ...{
+        mainHtml: null as string | null,
+        quotedHtml: null as string | null,
+        styles: null as string | null,
+        mainText: null as string | null,
+        quotedText: null as string | null,
+        ...(this.bodyHtml ? parseHtmlBody(this.bodyHtml) : parseTextBody(this.bodyText || '')),
+      },
     };
   }
 

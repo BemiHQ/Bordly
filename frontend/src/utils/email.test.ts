@@ -2,553 +2,244 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it } from 'vitest';
-import { parseTrailingBackquotes, parseTrailingBlockquotes, removeTrailingEmpty } from './email';
+import { formattedQuoteHeader, sanitizedDisplayHtml } from './email';
 
-describe('parseTrailingBackquotes', () => {
-  it('parses quotes in the middle of text', () => {
-    const input = `On 2026-02-12 15:08, teacher@school.edu wrote:
-> Good morning students,
->
-> I wanted to remind you about the class schedule.
-> We have three classes left.
->
-> Have a great week,
-> Teacher
+type Attachment = {
+  id: string;
+  mimeType: string;
+  filename: string;
+  contentId: string | null | undefined;
+};
 
-Sorry, I made a mistake.
-There are actually four classes left.`;
+describe('sanitizedDisplayHtml', () => {
+  it('replaces cid: references with proxy URLs for inline images by filename', () => {
+    const bodyHtml = '<div><img src="cid:image.png" /><p>Content</p></div>';
+    const gmailAttachments = [
+      {
+        id: 'att123',
+        mimeType: 'image/png',
+        filename: 'image.png',
+        contentId: null,
+      },
+    ];
 
-    const result = parseTrailingBackquotes(input);
-    expect(result.backquotesText).toContain('On 2026-02-12 15:08, teacher@school.edu wrote:');
-    expect(result.backquotesText).toContain('> Good morning students,');
-    expect(result.mainText).toContain('Sorry, I made a mistake');
-    expect(result.mainText).not.toContain('> Good morning students');
+    const result = sanitizedDisplayHtml({
+      bodyHtml,
+      gmailAttachments,
+      boardId: 'board1',
+      boardCardId: 'card1',
+    });
+
+    expect(result).toContain('gmailAttachmentId=att123');
+    expect(result).toContain('boardId=board1');
+    expect(result).toContain('boardCardId=card1');
+    expect(result).not.toContain('cid:image.png');
   });
 
-  it('parses trailing quotes at the end', () => {
-    const input = `Thank you for the update!
+  it('replaces cid: references with proxy URLs for inline images by contentId', () => {
+    const bodyHtml = '<div><img src="cid:abc123" /><p>Text</p></div>';
+    const gmailAttachments = [
+      {
+        id: 'att456',
+        mimeType: 'image/jpeg',
+        filename: 'photo.jpg',
+        contentId: 'abc123',
+      },
+    ];
 
-On 2026-02-11 10:30, sender@example.com wrote:
-> Here is the original message
-> with multiple lines
-> of quoted content`;
+    const result = sanitizedDisplayHtml({
+      bodyHtml,
+      gmailAttachments,
+      boardId: 'board2',
+      boardCardId: 'card2',
+    });
 
-    const result = parseTrailingBackquotes(input);
-    expect(result.mainText).toBe('Thank you for the update!');
-    expect(result.backquotesText).toContain('On 2026-02-11 10:30');
-    expect(result.backquotesText).toContain('> Here is the original message');
+    expect(result).toContain('gmailAttachmentId=att456');
+    expect(result).not.toContain('cid:abc123');
   });
 
-  it('handles text with no quotes', () => {
-    const input = 'This is just a plain email with no quotes.';
-    const result = parseTrailingBackquotes(input);
-    expect(result.mainText).toBe(input);
-    expect(result.backquotesText).toBe('');
+  it('handles multiple images with different cid references', () => {
+    const bodyHtml = `
+      <div>
+        <img src="cid:image1.png" />
+        <img src="cid:content-id-2" />
+        <p>Text content</p>
+      </div>
+    `;
+    const gmailAttachments = [
+      {
+        id: 'att1',
+        mimeType: 'image/png',
+        filename: 'image1.png',
+        contentId: null,
+      },
+      {
+        id: 'att2',
+        mimeType: 'image/gif',
+        filename: 'image2.gif',
+        contentId: 'content-id-2',
+      },
+    ];
+
+    const result = sanitizedDisplayHtml({
+      bodyHtml,
+      gmailAttachments,
+      boardId: 'board3',
+      boardCardId: 'card3',
+    });
+
+    expect(result).toContain('gmailAttachmentId=att1');
+    expect(result).toContain('gmailAttachmentId=att2');
+    expect(result).not.toContain('cid:image1.png');
+    expect(result).not.toContain('cid:content-id-2');
   });
 
-  it('handles quotes without "On ... wrote:" header', () => {
-    const input = `I have a comment.
+  it('does not replace non-image attachments', () => {
+    const bodyHtml = '<div><img src="cid:document.pdf" /><p>Content</p></div>';
+    const gmailAttachments = [
+      {
+        id: 'att789',
+        mimeType: 'application/pdf',
+        filename: 'document.pdf',
+        contentId: null,
+      },
+    ];
 
-> This is a quote
-> from someone
+    const result = sanitizedDisplayHtml({
+      bodyHtml,
+      gmailAttachments,
+      boardId: 'board4',
+      boardCardId: 'card4',
+    });
 
-And here is more text.`;
-
-    const result = parseTrailingBackquotes(input);
-    expect(result.mainText).toContain('I have a comment.');
-    expect(result.mainText).toContain('And here is more text.');
-    expect(result.backquotesText).toContain('> This is a quote');
+    // Should not replace since it's not an image
+    expect(result).toContain('cid:document.pdf');
+    expect(result).not.toContain('gmailAttachmentId=att789');
   });
 
-  it('handles multiple quote blocks and stop at first', () => {
-    const input = `Reply text here.
+  it('handles HTML without any images', () => {
+    const bodyHtml = '<div><p>Just text content</p></div>';
+    const gmailAttachments = [
+      {
+        id: 'att111',
+        mimeType: 'image/png',
+        filename: 'unused.png',
+        contentId: null,
+      },
+    ];
 
-On 2026-02-10 14:00, first@example.com wrote:
-> First quote block
-> with content
+    const result = sanitizedDisplayHtml({
+      bodyHtml,
+      gmailAttachments,
+      boardId: 'board5',
+      boardCardId: 'card5',
+    });
 
-This should be in main text.
-
-On 2026-02-09 12:00, second@example.com wrote:
-> Second quote block`;
-
-    const result = parseTrailingBackquotes(input);
-    expect(result.mainText).toContain('Reply text here.');
-    expect(result.mainText).toContain('This should be in main text.');
-    expect(result.backquotesText).toContain('On 2026-02-10 14:00');
-    expect(result.backquotesText).toContain('> First quote block');
-    expect(result.backquotesText).not.toContain('Second quote block');
+    expect(result).toBe('<div><p>Just text content</p></div>');
   });
 
-  it('parses forwarded messages with visible content before', () => {
-    const withContent = `Please review this.
+  it('preserves non-cid image sources', () => {
+    const bodyHtml = '<div><img src="https://example.com/image.png" /><p>Content</p></div>';
+    const gmailAttachments: Attachment[] = [];
 
----------- Forwarded message ---------
-From: John Doe <john@example.com>
-Date: Wed, Feb 18, 2026 at 5:17 PM
-Subject: Important update
-To: <jane@example.com>
+    const result = sanitizedDisplayHtml({
+      bodyHtml,
+      gmailAttachments,
+      boardId: 'board6',
+      boardCardId: 'card6',
+    });
 
-This is the forwarded content.`;
-
-    const result1 = parseTrailingBackquotes(withContent);
-    expect(result1.mainText).toBe('Please review this.');
-    expect(result1.backquotesText).toContain('Forwarded message');
-    expect(result1.backquotesText).toContain('forwarded content');
-
-    const withMiddleContent = `Hi there,
----------- Forwarded message ---------
-From: Alice <alice@example.com>
-> Content here.
-
-Let me know your thoughts.`;
-
-    const result2 = parseTrailingBackquotes(withMiddleContent);
-    expect(result2.mainText).toContain('Hi there,');
-    expect(result2.mainText).toContain('Let me know your thoughts.');
-    expect(result2.backquotesText).toContain('Forwarded message');
+    expect(result).toContain('https://example.com/image.png');
   });
 
-  it('does not blockquote forwarded message without visible content before it', () => {
-    const input = `---------- Forwarded message ---------
-From: Jane Smith <jane@example.com>
-Date: Fri, 20 Feb 2026 at 09:10
-Subject: Test email
-To: <recipient@example.com>
+  it('sanitizes HTML before processing', () => {
+    const bodyHtml = '<div><img src="cid:test.png" /><script>alert("bad")</script></div>';
+    const gmailAttachments = [
+      {
+        id: 'att1',
+        mimeType: 'image/png',
+        filename: 'test.png',
+        contentId: null,
+      },
+    ];
 
-Hey there, this is the forwarded content.`;
+    const result = sanitizedDisplayHtml({
+      bodyHtml,
+      gmailAttachments,
+      boardId: 'board7',
+      boardCardId: 'card7',
+    });
 
-    const result = parseTrailingBackquotes(input);
-    expect(result.mainText).toContain('Forwarded message');
-    expect(result.mainText).toContain('Hey there');
-    expect(result.backquotesText).toBe('');
+    expect(result).not.toContain('<script>');
+    expect(result).not.toContain('alert');
+    expect(result).toContain('gmailAttachmentId=att1');
+  });
+
+  it('removes dangerous event handlers via DOMPurify', () => {
+    const bodyHtml = '<div onclick="evilCode()"><p onmouseover="steal()">Hover me</p></div>';
+    const gmailAttachments: Attachment[] = [];
+
+    const result = sanitizedDisplayHtml({
+      bodyHtml,
+      gmailAttachments,
+      boardId: 'board8',
+      boardCardId: 'card8',
+    });
+
+    expect(result).not.toContain('onclick');
+    expect(result).not.toContain('onmouseover');
+    expect(result).not.toContain('evilCode');
+    expect(result).not.toContain('steal');
+    expect(result).toContain('Hover me');
+  });
+
+  it('preserves allowed style attributes via DOMPurify', () => {
+    const bodyHtml = '<div style="font-weight: bold; color: blue;"><p style="margin: 10px;">Styled content</p></div>';
+    const gmailAttachments: Attachment[] = [];
+
+    const result = sanitizedDisplayHtml({
+      bodyHtml,
+      gmailAttachments,
+      boardId: 'board9',
+      boardCardId: 'card9',
+    });
+
+    expect(result).toContain('style="font-weight: bold; color: blue;"');
+    expect(result).toContain('style="margin: 10px;"');
+    expect(result).toContain('Styled content');
   });
 });
 
-describe('parseTrailingBlockquotes', () => {
-  it('parses Gmail quote structure in the middle', () => {
-    const html = `<p>I reply to this</p>
-<div class="gmail_quote">
-  <div class="gmail_attr">On Wed, Feb 11, 2026 at 1:38 PM sender@example.com wrote:</div>
-  <blockquote class="gmail_quote">
-    <p>Original message content</p>
-  </blockquote>
-</div>`;
+describe('formattedQuoteHeader', () => {
+  it('formats quote header with name and email', () => {
+    const result = formattedQuoteHeader({
+      from: { name: 'John Doe', email: 'john@example.com' },
+      sentAt: new Date('2026-02-15T14:30:00Z'),
+    });
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].outerHTML).toContain('gmail_quote');
-    expect(result[0].outerHTML).toContain('On Wed, Feb 11, 2026');
+    expect(result).toContain('John Doe');
+    expect(result).toContain('john@example.com');
+    expect(result).toContain('wrote:');
+    expect(result).toContain('<a href="mailto:john@example.com"');
   });
 
-  it('does not capture blockquotes in main content', () => {
-    const html = `<p>Paragraph 1</p>
-<p>Paragraph 2</p>
-<blockquote><p>This is a regular quote in content</p></blockquote>
-<p>More content</p>
-<div class="gmail_quote">
-  <div class="gmail_attr">On Wed, Feb 11, 2026 at 1:38 PM sender@example.com wrote:</div>
-  <blockquote class="gmail_quote">
-    <p>Email quote</p>
-  </blockquote>
-</div>`;
+  it('includes day of week in the header', () => {
+    // Feb 15, 2026 is a Sunday
+    const result = formattedQuoteHeader({
+      from: { name: 'Bob Wilson', email: 'bob@example.com' },
+      sentAt: new Date('2026-02-15T12:00:00Z'),
+    });
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].outerHTML).toContain('gmail_quote');
-    expect(result[0].textContent).not.toContain('This is a regular quote in content');
+    expect(result).toMatch(/On (Sun|Mon|Tue|Wed|Thu|Fri|Sat),/);
   });
 
-  it('handles nested Gmail quotes', () => {
-    const html = `<p>I reply</p>
-<div class="gmail_quote">
-  <div class="gmail_attr">On Wed, Feb 11, 2026 at 5:28 PM person@example.com wrote:</div>
-  <blockquote class="gmail_quote">
-    <p>See attachment</p>
-    <div class="gmail_quote">
-      <div class="gmail_attr">On Wed, Feb 11, 2026 at 1:23 PM other@example.com wrote:</div>
-      <blockquote class="gmail_quote">
-        <p>Original message</p>
-      </blockquote>
-    </div>
-  </blockquote>
-</div>`;
+  it('formats the complete structure correctly', () => {
+    const result = formattedQuoteHeader({
+      from: { name: 'Test User', email: 'test@example.com' },
+      sentAt: new Date('2026-02-15T14:30:00Z'),
+    });
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].outerHTML).toContain('On Wed, Feb 11, 2026 at 5:28 PM');
-  });
-
-  it('handles content with blockquote but no quote structure', () => {
-    const html = `<p>Some text</p>
-<blockquote><p>A regular quote</p></blockquote>
-<p>More text</p>`;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(0);
-  });
-
-  it('handles multiple content elements before quote', () => {
-    const html = `<p>Paragraph 1</p>
-<p>Paragraph 2</p>
-<p><strong>Bold text</strong></p>
-<p><em>Italic text</em></p>
-<ul><li>List item</li></ul>
-<blockquote><p>Regular quote in content</p></blockquote>
-<p>More content</p>
-<div class="gmail_quote">
-  <div class="gmail_attr">On Mon, Feb 9, 2026 at 5:01 PM sender@example.com wrote:</div>
-  <blockquote class="gmail_quote">
-    <p>Hi, this is the email quote</p>
-  </blockquote>
-</div>`;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].outerHTML).toContain('email quote');
-    expect(result[0].outerHTML).not.toContain('Regular quote in content');
-  });
-
-  it('handles quote at the beginning', () => {
-    const html = `<div class="gmail_quote">
-  <div class="gmail_attr">On Wed, Feb 11, 2026 at 1:38 PM sender@example.com wrote:</div>
-  <blockquote class="gmail_quote">
-    <p>Original message</p>
-  </blockquote>
-</div>`;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].outerHTML).toContain('Original message');
-  });
-
-  it('stops at first quote and keep subsequent content in main', () => {
-    const html = `<p>First reply</p>
-<div class="gmail_quote">
-  <div class="gmail_attr">On Wed, Feb 11, 2026 at 2:00 PM sender@example.com wrote:</div>
-  <blockquote class="gmail_quote">
-    <p>First quote</p>
-  </blockquote>
-</div>
-<p>This should stay in main content</p>
-<div class="gmail_quote">
-  <div class="gmail_attr">On Wed, Feb 11, 2026 at 1:00 PM other@example.com wrote:</div>
-  <blockquote class="gmail_quote">
-    <p>Second quote</p>
-  </blockquote>
-</div>`;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].textContent).toContain('First quote');
-    expect(result[0].textContent).not.toContain('This should stay in main content');
-    expect(result[0].textContent).not.toContain('Second quote');
-  });
-
-  it('finds quote container nested in wrapper div', () => {
-    const html = `<div dir="ltr">
-  <div>I reply</div>
-  <br>
-  <div class="gmail_quote gmail_quote_container">
-    <div dir="ltr" class="gmail_attr">On Wed, Feb 11, 2026 at 1:38 PM sender@example.com wrote:</div>
-    <blockquote class="gmail_quote">
-      <div dir="ltr">
-        <div>See</div>
-        <div>This message</div>
-      </div>
-    </blockquote>
-  </div>
-</div>`;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].outerHTML).toContain('gmail_quote');
-    expect(result[0].textContent).toContain('See');
-    expect(result[0].textContent).toContain('This message');
-    expect(result[0].textContent).not.toContain('I reply');
-  });
-
-  it('handles "On ... wrote:" followed by sibling blockquote wrapper (Missive style)', () => {
-    const html = `<div>
-  <div>Thanks for update.</div>
-  <div><br></div>
-  <div>John Doe</div>
-  <div><br></div>
-  <div>On February 2, 2026 at 6:19 AM, Alice Smith (alice@example.com) wrote:</div>
-  <div class="missive_quote">
-    <blockquote style="margin-top:0;margin-bottom:0" type="cite">
-      <div dir="ltr">
-        Hi friends,<br>
-        <br>
-        <strong>Highlights</strong>
-      </div>
-      <ul style="margin-top:0;margin-bottom:0">
-        <li><div>Launched the rocket</div></li>
-      </ul>
-    </blockquote>
-  </div>
-</div>`;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(2);
-    // First element should be the "On ... wrote:" div
-    expect(result[0].textContent).toContain('On February 2, 2026');
-    // Second element should be the missive_quote div containing the blockquote
-    expect(result[1].classList.contains('missive_quote')).toBe(true);
-    expect(result[1].textContent).toContain('Hi friends');
-    expect(result[1].textContent).toContain('Highlights');
-    // The main message should not be in the quoted elements
-    expect(result[0].textContent).not.toContain('Thanks for update.');
-    expect(result[1].textContent).not.toContain('Thanks for update.');
-  });
-
-  it('parses forwarded message structures with visible content before', () => {
-    const withGmailQuote = `<p>Please see below.</p>
-<div class="gmail_quote">
-  <div dir="ltr" class="gmail_attr">
-    ---------- Forwarded message ---------<br>
-    From: <strong>John Doe</strong> <span>&lt;<a href="mailto:john@example.com">john@example.com</a>&gt;</span><br>
-  </div>
-  <div dir="ltr"><div>Content of the forwarded message.</div></div>
-</div>`;
-
-    const parser = new DOMParser();
-    const doc1 = parser.parseFromString(withGmailQuote, 'text/html');
-    const result1 = parseTrailingBlockquotes(doc1.body);
-
-    expect(result1).toHaveLength(1);
-    expect(result1[0].textContent).toContain('Forwarded message');
-    expect(result1[0].textContent).not.toContain('Please see below');
-
-    const withContainer = `<p>Review this.</p>
-<div>
-  <div>---------- Forwarded message ---------</div>
-  <div>
-    <div>From: Alice &lt;alice@example.com&gt;</div>
-    <div>Message content here.</div>
-  </div>
-</div>`;
-
-    const doc2 = parser.parseFromString(withContainer, 'text/html');
-    const result2 = parseTrailingBlockquotes(doc2.body);
-
-    expect(result2.length).toBeGreaterThan(0);
-    const combinedText = result2.map((el) => el.textContent).join(' ');
-    expect(combinedText).toContain('Forwarded message');
-    expect(combinedText).toContain('Message content here');
-  });
-
-  it('parses deeply nested gmail_quote inside wrapper divs', () => {
-    const html = `<div>
-  <div>
-    <div class="">Hello Alice - Thanks for thinking of me!</div>
-    <div class="gmail_signature"><b>Bob Smith</b></div>
-    <div>
-      <div class="gmail_quote">
-        On Wed, Feb 18, 2026 at 7:07 PM, Alice wrote:<br>
-        <blockquote class="gmail_quote">
-          <div>Hi Bob, would you be interested?</div>
-        </blockquote>
-      </div>
-    </div>
-  </div>
-</div>`;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].className).toContain('gmail_quote');
-    expect(result[0].textContent).toContain('On Wed, Feb 18, 2026');
-    expect(result[0].textContent).not.toContain('Hello Alice');
-    expect(result[0].textContent).not.toContain('Bob Smith');
-  });
-
-  it('does not blockquote forwarded message without visible content before it', () => {
-    const html = `<div dir="ltr">
-  <br>
-  <br>
-  <div class="gmail_quote gmail_quote_container">
-    <div dir="ltr" class="gmail_attr">
-      ---------- Forwarded message ---------<br>
-      From: <strong class="gmail_sendername" dir="auto">Jane Smith</strong> <span dir="auto">&lt;<a href="mailto:jane@example.com">jane@example.com</a>&gt;</span><br>
-      Date: Fri, 20 Feb 2026 at 09:10<br>
-      Subject: Test email<br>
-      To: &lt;<a href="mailto:recipient@example.com">recipient@example.com</a>&gt;<br>
-    </div><br>
-    <br>
-    <p style="margin:0px;line-height:1.5;font-size:14px;min-height:1.5em"><span style="font-family:ui-sans-serif,system-ui,sans-serif;font-size:14px">Hey there</span></p>
-  </div>
-</div>`;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(0);
-  });
-
-  it('blockquotes forwarded message when there is visible content before it', () => {
-    const html = `<div dir="ltr">
-  <p>Please see the message below.</p>
-  <div class="gmail_quote gmail_quote_container">
-    <div dir="ltr" class="gmail_attr">
-      ---------- Forwarded message ---------<br>
-      From: <strong class="gmail_sendername" dir="auto">John Doe</strong> <span dir="auto">&lt;<a href="mailto:john@example.com">john@example.com</a>&gt;</span><br>
-      Date: Fri, 20 Feb 2026 at 09:10<br>
-      Subject: Important<br>
-      To: &lt;<a href="mailto:recipient@example.com">recipient@example.com</a>&gt;<br>
-    </div><br>
-    <br>
-    <p>Message content here</p>
-  </div>
-</div>`;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const result = parseTrailingBlockquotes(doc.body);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].outerHTML).toContain('gmail_quote');
-    expect(result[0].textContent).toContain('Forwarded message');
-    expect(result[0].textContent).not.toContain('Please see the message below');
-  });
-});
-
-describe('removeTrailingEmpty', () => {
-  it('preserves images at the end of content', () => {
-    const html = `
-      <div>
-        <div>
-          <p>Name</p>
-          <a href="https://example.com/calendar">Book a meeting</a>
-        </div>
-        <div>
-          <br>
-        </div>
-        <a href="http://example.com"><img width="96" height="15" src="https://example.com/logo.png"></a>
-        <br>
-        <br>
-      </div>
-    `;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const container = doc.body.firstElementChild as Element;
-
-    removeTrailingEmpty(container);
-
-    const imgs = container.querySelectorAll('img');
-    expect(imgs.length).toBe(1);
-    expect(imgs[0].src).toContain('logo.png');
-  });
-
-  it('removes empty divs and br tags without removing images', () => {
-    const html = `
-      <div>
-        <p>Content</p>
-        <div><br></div>
-        <img src="https://example.com/image.png">
-        <br>
-      </div>
-    `;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const container = doc.body.firstElementChild as Element;
-
-    removeTrailingEmpty(container);
-
-    const img = container.querySelector('img');
-    expect(img).not.toBeNull();
-    expect(img?.src).toContain('image.png');
-  });
-
-  it('removes trailing empty elements but preserves content', () => {
-    const html = `
-      <div>
-        <p>Hello</p>
-        <div><br></div>
-        <div></div>
-      </div>
-    `;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const container = doc.body.firstElementChild as Element;
-
-    removeTrailingEmpty(container);
-
-    expect(container.textContent?.trim()).toBe('Hello');
-    const emptyDivs = Array.from(container.querySelectorAll('div')).filter((div) => !div.textContent?.trim());
-    expect(emptyDivs.length).toBe(0);
-  });
-
-  it('handles nested elements with images', () => {
-    const html = `
-      <div>
-        <div>
-          <div>Text content</div>
-          <div>
-            <a href="http://example.com"><img src="https://example.com/nested.png"></a>
-          </div>
-        </div>
-        <br>
-      </div>
-    `;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const container = doc.body.firstElementChild as Element;
-
-    removeTrailingEmpty(container);
-
-    const img = container.querySelector('img');
-    expect(img).not.toBeNull();
-    expect(container.textContent).toContain('Text content');
-  });
-
-  it('removes only trailing whitespace nodes', () => {
-    const html = `
-      <div>
-        <span>First</span>
-        <br>
-        <span>Second</span>
-        <br>
-        <br>
-      </div>
-    `;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const container = doc.body.firstElementChild as Element;
-
-    removeTrailingEmpty(container);
-
-    expect(container.textContent).toContain('First');
-    expect(container.textContent).toContain('Second');
+    // Should have the pattern: On [Day], [Date] [Name/Email] <[Email]> wrote:
+    expect(result).toMatch(/^On \w+,.*Test User.*<a href="mailto:test@example\.com".*>test@example\.com<\/a>> wrote:$/);
   });
 });
