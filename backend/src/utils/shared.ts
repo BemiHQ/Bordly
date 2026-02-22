@@ -25,3 +25,9 @@ export enum GmailAccountState {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
 }
+
+export enum MemoryFormality {
+  FORMAL = 'formal',
+  CASUAL = 'casual',
+  SEMI_FORMAL = 'semi-formal',
+}

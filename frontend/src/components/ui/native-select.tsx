@@ -5,11 +5,11 @@ import { cn } from '@/utils/strings';
 
 export const NativeSelect = React.forwardRef<
   HTMLSelectElement,
-  Omit<React.ComponentProps<'select'>, 'size'> & { size?: 'sm' | 'default' }
->(({ className, size = 'default', ...props }, ref) => {
+  Omit<React.ComponentProps<'select'>, 'size'> & { groupClassName?: string; size?: 'sm' | 'default' }
+>(({ className, groupClassName, size = 'default', ...props }, ref) => {
   return (
     <div
-      className="group/native-select relative w-fit has-[select:disabled]:opacity-50"
+      className={cn('group/native-select relative w-fit has-[select:disabled]:opacity-50', groupClassName)}
       data-slot="native-select-wrapper"
     >
       <select

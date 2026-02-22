@@ -68,6 +68,14 @@ export class SenderEmailAddressService {
     return orm.em.find(SenderEmailAddress, { gmailAccount });
   }
 
+  static async syncEmailAddresses() {
+    const gmailAccounts = await GmailAccountService.findActiveAccounts({ populate: ['senderEmailAddresses'] });
+
+    for (const gmailAccount of gmailAccounts) {
+      await SenderEmailAddressService.syncEmailAddressesForGmailAccount(gmailAccount);
+    }
+  }
+
   static async syncEmailAddressesForGmailAccount(gmailAccount: Loaded<GmailAccount, 'senderEmailAddresses'>) {
     const gmail = await GmailAccountService.initGmail(gmailAccount);
     const sendAsItems = await GmailApi.listSendAs(gmail);
@@ -109,13 +117,5 @@ export class SenderEmailAddressService {
     }
 
     await orm.em.flush();
-  }
-
-  static async syncEmailAddresses() {
-    const gmailAccounts = await GmailAccountService.findActiveAccounts({ populate: ['senderEmailAddresses'] });
-
-    for (const gmailAccount of gmailAccounts) {
-      await SenderEmailAddressService.syncEmailAddressesForGmailAccount(gmailAccount);
-    }
   }
 }

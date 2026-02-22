@@ -15,7 +15,7 @@ import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
 import type { User } from '@/entities/user';
-import { BoardMemberRole } from '@/utils/shared';
+import { BoardMemberRole, MemoryFormality } from '@/utils/shared';
 
 export { BoardMemberRole as Role };
 
@@ -32,8 +32,8 @@ export class BoardMemberMemory {
   opener?: string;
   @Property()
   signature?: string;
-  @Property()
-  formality?: string;
+  @Enum(() => MemoryFormality)
+  formality?: MemoryFormality;
   @Property()
   meetingLink?: string;
 }

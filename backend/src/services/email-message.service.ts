@@ -285,7 +285,7 @@ export class EmailMessageService {
     await orm.em.flush();
 
     const boardMember = board.boardMembers.find((member) => !member.isAgent)!;
-    await BoardMemberService.setMemory(boardMember);
+    await BoardMemberService.setInitialMemory(boardMember);
   }
 
   static async findLastByExternalThreadId(externalThreadId: string) {

@@ -8,6 +8,7 @@ import { AgentService } from '@/services/agent.service';
 import { parseTextBody } from '@/utils/email';
 import { reportError } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
+import { MemoryFormality } from '@/utils/shared';
 
 const AGENT_MEMORY_ANALYSIS = {
   name: 'Board Member Memory Analysis Agent',
@@ -17,7 +18,7 @@ Extract and return ONLY a valid JSON object with these fields (set to null if no
 - greeting: Common greeting pattern (e.g., "Hi [First Name],", "Hello [Full Name],", "Hey,")
 - opener: Common opening line after greeting (e.g., "Hope you're doing well!", "Thanks for reaching out.")
 - signature: Email signature style (e.g., "Best,\nJohn", "Cheers,\nJohn Smith\nCEO", "Thank you,\nJohn")
-- formality: Level of formality ("formal", "casual", "semi-formal")
+- formality: Level of formality (${Object.values(MemoryFormality).join(', ')})
 - meetingLink: Common meeting link if present (e.g., Calendly/Cal.com link)`,
 };
 
@@ -64,14 +65,34 @@ export class BoardMemberService {
     return orm.em.findOneOrFail(BoardMember, { board, id: boardMemberId }, { populate });
   }
 
-  private static async findByUserId<Hint extends string = never>(
+  static async findByUserId<Hint extends string = never>(
     board: Board,
     { userId, populate = [] }: { userId: string; populate?: Populate<BoardMember, Hint> },
   ) {
     return orm.em.findOneOrFail(BoardMember, { board, user: userId }, { populate });
   }
 
-  static async setMemory(boardMember: Loaded<BoardMember, 'user'>) {
+  static async setMemory(
+    boardMember: Loaded<BoardMember, 'user'>,
+    { greeting, opener, signature, formality, meetingLink }: Partial<BoardMemberMemory>,
+  ) {
+    if (boardMember.isAgent) throw new Error('Cannot set memory for agent board member');
+
+    const memory = new BoardMemberMemory();
+    if (greeting) memory.greeting = greeting;
+    if (opener) memory.opener = opener;
+    if (signature) memory.signature = signature;
+    if (formality) memory.formality = formality;
+    if (meetingLink) memory.meetingLink = meetingLink;
+
+    boardMember.setMemory(memory);
+    orm.em.persist(boardMember);
+    await orm.em.flush();
+
+    return boardMember;
+  }
+
+  static async setInitialMemory(boardMember: Loaded<BoardMember, 'user'>) {
     if (boardMember.isAgent) throw new Error('Cannot set memory for agent board member');
 
     const boardCards = await orm.em.find(

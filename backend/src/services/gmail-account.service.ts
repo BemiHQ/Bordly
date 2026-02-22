@@ -41,17 +41,13 @@ export class GmailAccountService {
   static findActiveAccounts<Hint extends string = never>(
     { populate }: { populate?: Populate<GmailAccount, Hint> } = { populate: [] },
   ) {
-    return orm.em.find(GmailAccount, { state: { $ne: GmailAccountState.ACTIVE } }, { populate });
+    return orm.em.find(GmailAccount, { state: GmailAccountState.ACTIVE }, { populate });
   }
 
   static findActiveAccountsWithBoards<Hint extends string = never>(
     { populate }: { populate?: Populate<GmailAccount, Hint> } = { populate: [] },
   ) {
-    return orm.em.find(
-      GmailAccount,
-      { boardAccounts: { $ne: null }, state: { $ne: GmailAccountState.ACTIVE } },
-      { populate },
-    );
+    return orm.em.find(GmailAccount, { boardAccounts: { $ne: null }, state: GmailAccountState.ACTIVE }, { populate });
   }
 
   static async addToBoard(gmailAccount: GmailAccount, { board }: { board: Board }) {

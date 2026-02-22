@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Ellipsis, Link2, ListFilter, MailPlus, UsersRound } from 'lucide-react';
+import { BrainCog, Ellipsis, Link2, ListFilter, MailPlus, UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { AgentMemoryDialog } from '@/components/board/agent-memory-dialog';
 import { BoardMembersDialog } from '@/components/board/board-members-dialog';
 import { EmailAccountsDialog } from '@/components/board/email-accounts-dialog';
 import { Button } from '@/components/ui/button';
@@ -139,6 +140,7 @@ const MenuButton = ({
 }) => {
   const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
   const [membersDialogOpen, setMembersDialogOpen] = useState(false);
+  const [agentMemoryDialogOpen, setAgentMemoryDialogOpen] = useState(false);
 
   return (
     <>
@@ -157,8 +159,13 @@ const MenuButton = ({
             <Link2 />
             Email accounts
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setAgentMemoryDialogOpen(true)}>
+            <BrainCog />
+            Agent memory
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <AgentMemoryDialog board={board} open={agentMemoryDialogOpen} onOpenChange={setAgentMemoryDialogOpen} />
       <EmailAccountsDialog
         board={board}
         boardAccounts={boardAccounts}
