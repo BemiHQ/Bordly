@@ -1,7 +1,7 @@
 import type { Loaded, Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
-import { EmailDraft, type Participant } from '@/entities/email-draft';
+import { EmailDraft } from '@/entities/email-draft';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { BoardCardService } from '@/services/board-card.service';
@@ -13,6 +13,7 @@ import { SenderEmailAddressService } from '@/services/sender-email-address.servi
 import { GmailApi } from '@/utils/gmail-api';
 import { orm } from '@/utils/orm';
 import { S3Client } from '@/utils/s3-client';
+import { type Participant, participantToString } from '@/utils/shared';
 
 export class EmailDraftService {
   static async findDraftsByBoardAndGmailAccount<Hint extends string = never>({
@@ -96,9 +97,11 @@ export class EmailDraftService {
     boardCard.setLastEventAt(boardCard.emailDraft.createdAt);
     orm.em.persist([boardCard.emailDraft, boardCard]);
 
-    const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
-    userBoardCardReadPosition.setLastReadAt(boardCard.lastEventAt);
-    orm.em.persist(userBoardCardReadPosition);
+    const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id);
+    if (userBoardCardReadPosition) {
+      userBoardCardReadPosition.setLastReadAt(boardCard.lastEventAt);
+      orm.em.persist(userBoardCardReadPosition);
+    }
 
     await orm.em.flush();
     return boardCard;
@@ -157,7 +160,6 @@ export class EmailDraftService {
     const toParticipants = to?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
     const ccParticipants = cc?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
     const bccParticipants = bcc?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
-    const participantToString = (p: Participant) => (p.name ? `${p.name} <${p.email}>` : p.email);
 
     const domainName = fromParticipant.email.split('@')[1]!;
     const domain = await DomainService.tryFindByName(domainName);
@@ -211,8 +213,10 @@ export class EmailDraftService {
     orm.em.persist(rebuiltBoardCard);
 
     const userBoardCardReadPosition = rebuiltBoardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
-    userBoardCardReadPosition.setLastReadAt(rebuiltBoardCard.lastEventAt);
-    orm.em.persist(userBoardCardReadPosition);
+    if (userBoardCardReadPosition) {
+      userBoardCardReadPosition.setLastReadAt(rebuiltBoardCard.lastEventAt);
+      orm.em.persist(userBoardCardReadPosition);
+    }
 
     if (rebuiltBoardCard.emailDraft) {
       const { emailDraft } = rebuiltBoardCard;

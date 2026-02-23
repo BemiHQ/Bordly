@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEditor } from '@tiptap/react';
+import { createQuotedHtml, type Participant, participantToString } from 'bordly-backend/utils/shared';
 import { ALargeSmall, Paperclip, Send, Trash } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -9,7 +10,7 @@ import { ToggleQuotesButton } from '@/components/board-card/toggle-quotes-button
 import { Attachment, UploadingAttachment } from '@/components/editor/attachment';
 import { Editor, editorConfig } from '@/components/editor/editor';
 import { MenuBar } from '@/components/editor/menu-bar';
-import { Participants, participantToInput } from '@/components/editor/participants';
+import { Participants } from '@/components/editor/participants';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
@@ -25,7 +26,6 @@ import {
   type EmailDraft,
   type EmailMessage,
   type FileAttachment,
-  type Participant,
   removeEmailDraftData,
   removeFileAttachmentFromEmailDraftData,
   replaceBoardCardData,
@@ -36,17 +36,18 @@ import {
   replaceBoardCardData as replaceBoardCardDataInList,
   setBoardCardEmailDraftData,
 } from '@/query-helpers/board-cards';
-import { createQuotedHtml, formattedQuoteHeader, sanitizedDisplayHtml } from '@/utils/email';
+import { sanitizedDisplayHtml } from '@/utils/email';
 import { reportError } from '@/utils/error-tracking';
 import { cn } from '@/utils/strings';
+import { shortDateTimeWithWeekday } from '@/utils/time';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 const AUTO_SAVE_INTERVAL_MS = 1_000;
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
-const participantsToInput = (participants?: Participant[]) =>
-  participants?.map((participant) => participantToInput(participant)).join(', ') ?? '';
+const participantsToString = (participants?: Participant[]) =>
+  participants?.map((participant) => participantToString(participant)).join(', ') ?? '';
 
 const parseParticipantsInput = (value: string) => {
   const participantStrings = value
@@ -71,10 +72,10 @@ export const EmailDraftCard = ({
 }) => {
   const navigate = useNavigate();
   const { queryClient, trpc } = useRouteContext();
-  const [from, setFrom] = useState(emailDraft ? participantToInput(emailDraft.from) : '');
-  const [to, setTo] = useState(emailDraft ? participantsToInput(emailDraft.to) : '');
-  const [cc, setCc] = useState(emailDraft ? participantsToInput(emailDraft.cc) : '');
-  const [bcc, setBcc] = useState(emailDraft ? participantsToInput(emailDraft.bcc) : '');
+  const [from, setFrom] = useState(emailDraft ? participantToString(emailDraft.from) : '');
+  const [to, setTo] = useState(emailDraft ? participantsToString(emailDraft.to) : '');
+  const [cc, setCc] = useState(emailDraft ? participantsToString(emailDraft.cc) : '');
+  const [bcc, setBcc] = useState(emailDraft ? participantsToString(emailDraft.bcc) : '');
 
   const noMessages = boardCard.emailMessageCount === 0;
 
@@ -85,29 +86,41 @@ export const EmailDraftCard = ({
   const lastEmailMessage = emailMessagesAsc[emailMessagesAsc.length - 1];
   const fromEmailAddresses = emailAddressesData?.senderEmailAddresses || [];
   useEffect(() => {
-    if (emailDraft || fromEmailAddresses.length === 0) return;
+    if (fromEmailAddresses.length === 0) return;
 
-    const lastEmailParticipantEmails = new Set<string>([
-      lastEmailMessage?.from.email,
-      ...(lastEmailMessage?.to?.map((p) => p.email) ?? []),
-      ...(lastEmailMessage?.cc?.map((p) => p.email) ?? []),
-      ...(lastEmailMessage?.bcc?.map((p) => p.email) ?? []),
-    ]);
-    const fromEmailAddress =
-      fromEmailAddresses.find((addr) => lastEmailParticipantEmails.has(addr.email)) ||
-      fromEmailAddresses.find((addr) => addr.isDefault) ||
-      fromEmailAddresses[0];
-    setFrom(participantToInput(fromEmailAddress));
+    if (emailDraft) {
+      setFrom((prevFrom) => {
+        // Expand "email@example.com" to "Full Name <email@example.com>" if possible
+        const fromEmailAddress = fromEmailAddresses.find((addr) => addr.email === prevFrom);
+        if (fromEmailAddress) return participantToString(fromEmailAddress as Participant);
+        return prevFrom;
+      });
+    } else {
+      // Set from
+      const lastEmailParticipantEmails = new Set<string>([
+        lastEmailMessage?.from.email,
+        ...(lastEmailMessage?.to?.map((p) => p.email) ?? []),
+        ...(lastEmailMessage?.cc?.map((p) => p.email) ?? []),
+        ...(lastEmailMessage?.bcc?.map((p) => p.email) ?? []),
+      ]);
+      const fromEmailAddress =
+        fromEmailAddresses.find((addr) => lastEmailParticipantEmails.has(addr.email)) ||
+        fromEmailAddresses.find((addr) => addr.isDefault) ||
+        fromEmailAddresses[0];
+      setFrom(participantToString(fromEmailAddress as Participant));
 
-    if (lastEmailMessage) {
-      setTo(
-        lastEmailMessage!.from.email === fromEmailAddress.email
-          ? participantsToInput(lastEmailMessage.to)
-          : lastEmailMessage.replyTo
-            ? participantToInput(lastEmailMessage.replyTo)
-            : participantToInput(lastEmailMessage.from),
-      );
-      setCc(participantsToInput(lastEmailMessage.cc));
+      if (lastEmailMessage) {
+        // Set to
+        setTo(
+          lastEmailMessage!.from.email === fromEmailAddress.email
+            ? participantsToString(lastEmailMessage.to)
+            : lastEmailMessage.replyTo
+              ? participantToString(lastEmailMessage.replyTo)
+              : participantToString(lastEmailMessage.from),
+        );
+        // Set cc
+        setCc(participantsToString(lastEmailMessage.cc));
+      }
     }
   }, [emailDraft, lastEmailMessage, fromEmailAddresses]);
 
@@ -159,10 +172,10 @@ export const EmailDraftCard = ({
           boardCardId,
           subject: previousEmailDraft.subject || '',
           bodyHtml: `${previousEmailDraft.mainHtml || ''}${previousEmailDraft.quotedHtml || ''}`,
-          from: previousEmailDraft.from ? participantToInput(previousEmailDraft.from) : '',
-          to: previousEmailDraft.to ? previousEmailDraft.to.map((p) => participantToInput(p)) : undefined,
-          cc: previousEmailDraft.cc ? previousEmailDraft.cc.map((p) => participantToInput(p)) : undefined,
-          bcc: previousEmailDraft.bcc ? previousEmailDraft.bcc.map((p) => participantToInput(p)) : undefined,
+          from: previousEmailDraft.from ? participantToString(previousEmailDraft.from) : '',
+          to: previousEmailDraft.to ? previousEmailDraft.to.map((p) => participantToString(p)) : undefined,
+          cc: previousEmailDraft.cc ? previousEmailDraft.cc.map((p) => participantToString(p)) : undefined,
+          bcc: previousEmailDraft.bcc ? previousEmailDraft.bcc.map((p) => participantToString(p)) : undefined,
         },
       };
     },
@@ -183,20 +196,16 @@ export const EmailDraftCard = ({
     }),
   );
 
-  const quotedHtml = useMemo(
-    () =>
-      lastEmailMessage
-        ? createQuotedHtml({
-            html: `${lastEmailMessage.mainHtml || ''}${lastEmailMessage.quotedHtml || ''}`,
-            text: `${lastEmailMessage.mainText || ''}${lastEmailMessage.quotedText || ''}`,
-            quoteHeader: formattedQuoteHeader({
-              from: lastEmailMessage.from,
-              sentAt: lastEmailMessage.externalCreatedAt,
-            }),
-          })
-        : '',
-    [lastEmailMessage],
-  );
+  const quotedHtml = useMemo(() => {
+    return lastEmailMessage
+      ? createQuotedHtml({
+          from: lastEmailMessage.from,
+          sentAt: shortDateTimeWithWeekday(lastEmailMessage.externalCreatedAt),
+          html: `${lastEmailMessage.mainHtml || ''}${lastEmailMessage.quotedHtml || ''}`,
+          text: `${lastEmailMessage.mainText || ''}${lastEmailMessage.quotedText || ''}`,
+        })
+      : '';
+  }, [lastEmailMessage]);
 
   const displayQuotedHtml = useMemo(
     () =>

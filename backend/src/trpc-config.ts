@@ -14,7 +14,8 @@ const DEVELOPMENT_MAX_DELAY_MS = 1_000;
 export const createContext = async ({ req }: CreateFastifyContextOptions) => {
   const userId = req.session.get('userId') as string | undefined;
   const user = await UserService.tryFindById(userId, { populate: ['boardMembers.board.boardMembers'] });
-  return { user };
+  const userTimeZone = req.headers['x-timezone'] as string | undefined;
+  return { user, userTimeZone };
 };
 export type Context = Awaited<ReturnType<typeof createContext>>;
 

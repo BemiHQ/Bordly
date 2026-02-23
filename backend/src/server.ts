@@ -49,7 +49,7 @@ fastify.register(cors, {
   origin: ENV.APP_ENDPOINT,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['content-type', 'authorization', 'trpc-accept'],
+  allowedHeaders: ['content-type', 'authorization', 'trpc-accept', 'x-timezone'],
   maxAge: 24 * 60 * 60, // 24 hours in seconds
 });
 fastify.register(secureSession, {

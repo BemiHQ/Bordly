@@ -1,4 +1,4 @@
-import { Entity, Property, Unique } from '@mikro-orm/postgresql';
+import { Entity, type Loaded, Property, Unique } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
 
@@ -27,10 +27,10 @@ export class Domain extends BaseEntity {
     }
   }
 
-  toJson() {
+  static toJson(domain: Loaded<Domain>) {
     return {
-      id: this.id,
-      iconUrl: this.iconUrl,
+      id: domain.id,
+      iconUrl: domain.iconUrl,
     };
   }
 

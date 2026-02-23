@@ -1,6 +1,5 @@
 import type { Loaded, Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
-import type { Participant } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { SenderEmailAddress } from '@/entities/sender-email-address';
 import type { User } from '@/entities/user';
@@ -9,6 +8,7 @@ import { GmailAccountService } from '@/services/gmail-account.service';
 import { GmailApi, VERIFICATION_STATUS_ACCEPTED } from '@/utils/gmail-api';
 import { groupBy, mapBy } from '@/utils/lists';
 import { orm } from '@/utils/orm';
+import type { Participant } from '@/utils/shared';
 
 export class SenderEmailAddressService {
   static toParticipant(emailAddress: SenderEmailAddress) {

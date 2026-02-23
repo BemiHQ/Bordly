@@ -5,6 +5,7 @@ import {
   Entity,
   Enum,
   Index,
+  type Loaded,
   ManyToOne,
   OneToMany,
   Property,
@@ -14,7 +15,7 @@ import {
 import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
-import type { User } from '@/entities/user';
+import { User } from '@/entities/user';
 import { BoardMemberRole, MemoryFormality } from '@/utils/shared';
 
 export { BoardMemberRole as Role };
@@ -77,16 +78,39 @@ export class BoardMember extends BaseEntity {
     return this.role === BoardMemberRole.AGENT;
   }
 
-  toJson() {
+  static toJson(boardMember: Loaded<BoardMember, 'user.gmailAccount.senderEmailAddresses'>) {
+    const user = boardMember.loadedUser;
+
     return {
-      id: this.id,
-      user: this.loadedUser.toJson(),
-      senderEmails: this.loadedUser.isBordly
-        ? []
-        : this.loadedUser.gmailAccount.senderEmailAddresses.map((a) => a.email),
-      role: this.role,
-      isAgent: this.isAgent,
+      id: boardMember.id,
+      user: User.toJson(user),
+      senderEmails: user.isBordly ? [] : user.gmailAccount.senderEmailAddresses.map((a) => a.email),
+      role: boardMember.role,
+      isAgent: boardMember.isAgent,
     };
+  }
+
+  static toText(boardMember: Loaded<BoardMember, 'user' | 'memory'>) {
+    const user = boardMember.loadedUser;
+    const { memory } = boardMember;
+    const items = [
+      `- ID: ${boardMember.id}`,
+      `- User: ${User.toStr(user)}`,
+      `- Role: ${boardMember.role}`,
+      `- Preferences:`,
+      memory?.greeting && `  - Greeting: ${memory.greeting}`,
+      memory?.opener && `  - Opener: ${memory.opener}`,
+      memory?.signature && `  - Signature: ${memory.signature}`,
+      memory?.formality && `  - Formality: ${memory.formality}`,
+      memory?.meetingLink && `  - Meeting Link: ${memory.meetingLink}`,
+    ];
+
+    return `Board Member:
+${items.filter(Boolean).join('\n')}`;
+  }
+
+  static toStr(boardMember: Loaded<BoardMember, 'user'>) {
+    return `${boardMember.loadedUser.fullName} (${boardMember.loadedUser.email}) - ${boardMember.role}`;
   }
 
   private validate() {

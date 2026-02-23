@@ -1,4 +1,4 @@
-import type { AutoPath, PopulatePath } from '@mikro-orm/postgresql';
+import type { AutoPath, Loaded, PopulatePath } from '@mikro-orm/postgresql';
 import { Board } from '@/entities/board';
 import { BoardAccount } from '@/entities/board-account';
 import { BoardMember, Role } from '@/entities/board-member';
@@ -11,11 +11,11 @@ import { orm } from '@/utils/orm';
 import { ERRORS } from '@/utils/shared';
 
 export class BoardService {
-  static tryFindAsAdmin(boardId: string, { user }: { user: User }) {
+  static tryFindAsAdmin(boardId: string, { user }: { user: Loaded<User, 'boardMembers'> }) {
     return user.boardMembers.find((bm) => bm.board.id === boardId && bm.role === Role.ADMIN)?.loadedBoard;
   }
 
-  static tryFindAsMember(boardId: string, { user }: { user: User }) {
+  static tryFindAsMember(boardId: string, { user }: { user: Loaded<User, 'boardMembers'> }) {
     return user.boardMembers.find((bm) => bm.board.id === boardId && [Role.ADMIN, Role.MEMBER].includes(bm.role))
       ?.loadedBoard;
   }

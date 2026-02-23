@@ -1,14 +1,10 @@
-import { Collection, Entity, Index, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/postgresql';
+import { Collection, Entity, Index, type Loaded, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
-import type { Domain } from '@/entities/domain';
+import { Domain } from '@/entities/domain';
 import type { GmailAccount } from '@/entities/gmail-account';
-import type { GmailAttachment } from '@/entities/gmail-attachment';
-import { parseHtmlBody, parseTextBody } from '@/utils/email';
-
-export interface Participant {
-  name: string | null;
-  email: string;
-}
+import { GmailAttachment } from '@/entities/gmail-attachment';
+import { htmlToText, parseHtmlBody, parseTextBody } from '@/utils/email';
+import { type Participant, participantToString } from '@/utils/shared';
 
 export interface EmailMessage {
   loadedGmailAccount: GmailAccount;
@@ -130,28 +126,57 @@ export class EmailMessage extends BaseEntity {
     this.labels = labels;
   }
 
-  toJson() {
+  static toJson(emailMessage: Loaded<EmailMessage, 'domain' | 'gmailAttachments'>) {
     return {
-      id: this.id,
-      domain: this.loadedDomain.toJson(),
-      gmailAttachments: this.gmailAttachments.map((attachment) => attachment.toJson()),
-      from: this.from,
-      subject: this.subject,
-      snippet: this.snippet,
-      to: this.to,
-      replyTo: this.replyTo,
-      cc: this.cc,
-      bcc: this.bcc,
-      externalCreatedAt: this.externalCreatedAt,
+      id: emailMessage.id,
+      domain: Domain.toJson(emailMessage.loadedDomain),
+      gmailAttachments: emailMessage.gmailAttachments.map(GmailAttachment.toJson),
+      from: emailMessage.from,
+      subject: emailMessage.subject,
+      snippet: emailMessage.snippet,
+      to: emailMessage.to,
+      replyTo: emailMessage.replyTo,
+      cc: emailMessage.cc,
+      bcc: emailMessage.bcc,
+      externalCreatedAt: emailMessage.externalCreatedAt,
       ...{
         mainHtml: null as string | null,
         quotedHtml: null as string | null,
         styles: null as string | null,
         mainText: null as string | null,
         quotedText: null as string | null,
-        ...(this.bodyHtml ? parseHtmlBody(this.bodyHtml) : parseTextBody(this.bodyText || '')),
+        ...(emailMessage.bodyHtml ? parseHtmlBody(emailMessage.bodyHtml) : parseTextBody(emailMessage.bodyText || '')),
       },
     };
+  }
+
+  static toText(emailMessage: Loaded<EmailMessage>) {
+    let mainText = '';
+    if (emailMessage.bodyText) {
+      mainText = parseTextBody(emailMessage.bodyText).mainText;
+    } else if (emailMessage.bodyHtml) {
+      mainText = htmlToText(parseHtmlBody(emailMessage.bodyHtml).mainHtml);
+    }
+
+    const items = [
+      `ID: ${emailMessage.id}`,
+      `Created At: ${emailMessage.externalCreatedAt.toISOString()}`,
+      `Subject: ${emailMessage.subject}`,
+      `From: ${participantToString(emailMessage.from)}`,
+      emailMessage.to && `To: ${emailMessage.to.map(participantToString).join(', ')}`,
+      emailMessage.replyTo && `Reply-To: ${participantToString(emailMessage.replyTo)}`,
+      emailMessage.cc && `CC: ${emailMessage.cc.map(participantToString).join(', ')}`,
+      emailMessage.bcc && `BCC: ${emailMessage.bcc.map(participantToString).join(', ')}`,
+      `Sent: ${emailMessage.sent}`,
+      `Body:
+\`\`\`
+${mainText}
+\`\`\`
+`,
+    ];
+
+    return `Email Message:
+${items.filter(Boolean).join('\n')}`;
   }
 
   private validate() {

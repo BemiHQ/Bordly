@@ -1,12 +1,19 @@
-import { Collection, Entity, ManyToOne, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
+import {
+  Collection,
+  Entity,
+  type Loaded,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  Property,
+  Unique,
+} from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCard } from '@/entities/board-card';
-import type { Participant } from '@/entities/email-message';
-import type { FileAttachment } from '@/entities/file-attachment';
+import { FileAttachment } from '@/entities/file-attachment';
 import type { GmailAccount } from '@/entities/gmail-account';
-import { parseHtmlBody } from '@/utils/email';
-
-export type { Participant } from '@/entities/email-message';
+import { htmlToText, parseHtmlBody } from '@/utils/email';
+import { type Participant, participantToString } from '@/utils/shared';
 
 export interface EmailDraft {
   loadedBoardCard: BoardCard;
@@ -106,22 +113,48 @@ export class EmailDraft extends BaseEntity {
     this.validate();
   }
 
-  toJson() {
-    const parsed = this.bodyHtml ? parseHtmlBody(this.bodyHtml) : { mainHtml: '', quotedHtml: '' };
+  static toJson(emailDraft: Loaded<EmailDraft, 'fileAttachments'>) {
+    const parsed = emailDraft.bodyHtml ? parseHtmlBody(emailDraft.bodyHtml) : { mainHtml: '', quotedHtml: '' };
 
     return {
-      id: this.id,
-      boardCardId: this.boardCard.id,
-      generated: this.generated,
-      from: this.from,
-      to: this.to,
-      cc: this.cc,
-      bcc: this.bcc,
-      subject: this.subject,
-      fileAttachments: this.fileAttachments.map((a) => a.toJson()),
+      id: emailDraft.id,
+      boardCardId: emailDraft.boardCard.id,
+      generated: emailDraft.generated,
+      from: emailDraft.from,
+      to: emailDraft.to,
+      cc: emailDraft.cc,
+      bcc: emailDraft.bcc,
+      subject: emailDraft.subject,
+      fileAttachments: emailDraft.fileAttachments.map(FileAttachment.toJson),
       mainHtml: parsed.mainHtml,
       quotedHtml: parsed.quotedHtml,
+      updatedAt: emailDraft.updatedAt,
     };
+  }
+
+  static toText(emailDraft: Loaded<EmailDraft, 'fileAttachments'>) {
+    const { fileAttachments } = emailDraft;
+
+    const parsed = emailDraft.bodyHtml ? parseHtmlBody(emailDraft.bodyHtml) : { mainHtml: '' };
+    const mainText = htmlToText(parsed.mainHtml);
+
+    const items = [
+      `ID: ${emailDraft.id}`,
+      `Subject: ${emailDraft.subject}`,
+      `From: ${emailDraft.from.email}`,
+      emailDraft.to && `To: ${emailDraft.to.map(participantToString).join(', ')}`,
+      emailDraft.cc && `CC: ${emailDraft.cc.map(participantToString).join(', ')}`,
+      emailDraft.bcc && `BCC: ${emailDraft.bcc.map(participantToString).join(', ')}`,
+      `File Attachments: ${fileAttachments.map(FileAttachment.toString).join(', ')}`,
+      `Body:
+\`\`\`
+${mainText}
+\`\`\`
+`,
+    ];
+
+    return `Email Draft:
+${items.join('\n')}`;
   }
 
   private validate() {

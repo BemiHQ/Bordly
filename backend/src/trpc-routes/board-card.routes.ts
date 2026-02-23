@@ -1,8 +1,9 @@
 import type { Loaded } from '@mikro-orm/postgresql';
 import type { TRPCRouterRecord } from '@trpc/server';
 import { z } from 'zod';
-import type { BoardCard } from '@/entities/board-card';
-import { State } from '@/entities/board-card';
+import { BoardCard, State } from '@/entities/board-card';
+import { Comment } from '@/entities/comment';
+import { EmailMessage } from '@/entities/email-message';
 import { BoardCardService } from '@/services/board-card.service';
 import { CommentService } from '@/services/comment.service';
 import { EmailMessageService } from '@/services/email-message.service';
@@ -19,7 +20,7 @@ export const toJson = (
   const boardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
 
   return {
-    ...boardCard.toJson(),
+    ...BoardCard.toJson(boardCard),
     unread: boardCardReadPosition.lastReadAt < boardCard.lastEventAt,
   };
 };
@@ -44,8 +45,8 @@ export const BOARD_CARD_ROUTES = {
       });
       return {
         boardCard: toJson(boardCard, ctx),
-        emailMessagesAsc: emailMessagesAsc.map((msg) => msg.toJson()),
-        commentsAsc: comments.map((comment) => comment.toJson()),
+        emailMessagesAsc: emailMessagesAsc.map(EmailMessage.toJson),
+        commentsAsc: comments.map(Comment.toJson),
       };
     }),
     createWithEmailDraft: publicProcedure.input(z.object({ boardId: z.uuid() })).mutation(async ({ input, ctx }) => {

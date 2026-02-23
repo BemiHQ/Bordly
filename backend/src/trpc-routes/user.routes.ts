@@ -1,5 +1,6 @@
 import type { TRPCRouterRecord } from '@trpc/server';
 import type { BoardMember } from '@/entities/board-member';
+import { User } from '@/entities/user';
 import { publicProcedure } from '@/trpc-config';
 
 const toBoardJson = (boardMember: BoardMember) => {
@@ -11,7 +12,7 @@ export const USER_ROUTES = {
     getCurrentUser: publicProcedure.query(({ ctx }) => {
       if (!ctx.user) return { currentUser: null };
       return {
-        currentUser: ctx.user.toJson(),
+        currentUser: User.toJson(ctx.user),
         boards: ctx.user.boardMembers.map(toBoardJson),
       };
     }),

@@ -3,6 +3,7 @@ import {
   Entity,
   Enum,
   Index,
+  type Loaded,
   ManyToOne,
   OneToMany,
   OneToOne,
@@ -11,14 +12,13 @@ import {
 } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCardReadPosition } from '@/entities/board-card-read-position';
-import type { BoardColumn } from '@/entities/board-column';
-import type { BoardMember } from '@/entities/board-member';
+import { BoardColumn } from '@/entities/board-column';
+import { BoardMember } from '@/entities/board-member';
 import type { Comment } from '@/entities/comment';
-import type { Domain } from '@/entities/domain';
-import type { EmailDraft } from '@/entities/email-draft';
-import type { Participant } from '@/entities/email-message';
+import { Domain } from '@/entities/domain';
+import { EmailDraft } from '@/entities/email-draft';
 import type { GmailAccount } from '@/entities/gmail-account';
-import { BoardCardState as State } from '@/utils/shared';
+import { type Participant, BoardCardState as State } from '@/utils/shared';
 
 const MAX_SNIPPET_LENGTH = 201;
 
@@ -212,25 +212,41 @@ export class BoardCard extends BaseEntity {
     }
   }
 
-  toJson() {
+  static toJson(boardCard: Loaded<BoardCard, 'domain' | 'emailDraft.fileAttachments'>) {
     return {
-      id: this.id,
-      domain: this.loadedDomain.toJson(),
-      assignedBoardMemberId: this.assignedBoardMember?.id,
-      emailDraft: this.emailDraft?.toJson(),
-      gmailAccountId: this.gmailAccount.id,
-      boardColumnId: this.boardColumn.id,
-      externalThreadId: this.externalThreadId,
-      state: this.state,
-      subject: this.subject,
-      snippet: this.snippet,
-      participantsAsc: this.participantsAsc,
-      participantUserIds: this.participantUserIds,
-      lastEventAt: this.lastEventAt,
-      hasAttachments: this.hasAttachments,
-      emailMessageCount: this.emailMessageCount,
-      pinnedPosition: this.pinnedPosition,
+      id: boardCard.id,
+      domain: Domain.toJson(boardCard.loadedDomain),
+      assignedBoardMemberId: boardCard.assignedBoardMember?.id,
+      emailDraft: boardCard.emailDraft && EmailDraft.toJson(boardCard.emailDraft),
+      gmailAccountId: boardCard.gmailAccount.id,
+      boardColumnId: boardCard.boardColumn.id,
+      externalThreadId: boardCard.externalThreadId,
+      state: boardCard.state,
+      subject: boardCard.subject,
+      snippet: boardCard.snippet,
+      participantsAsc: boardCard.participantsAsc,
+      participantUserIds: boardCard.participantUserIds,
+      lastEventAt: boardCard.lastEventAt,
+      hasAttachments: boardCard.hasAttachments,
+      emailMessageCount: boardCard.emailMessageCount,
+      pinnedPosition: boardCard.pinnedPosition,
     };
+  }
+
+  static toText(boardCard: Loaded<BoardCard, 'assignedBoardMember.user' | 'boardColumn'>) {
+    const assignedBoardMember = boardCard.loadedAssignedBoardMember;
+    const boardColumn = boardCard.loadedBoardColumn;
+
+    const items = [
+      `- ID: ${boardCard.id}`,
+      `- Board Column: ${BoardColumn.toStr(boardColumn)}`,
+      assignedBoardMember && `- Assigned Board Member: ${BoardMember.toStr(assignedBoardMember)}`,
+      `- Subject: ${boardCard.subject}`,
+      `- State: ${boardCard.state}`,
+    ];
+
+    return `Board Card:
+${items.filter(Boolean).join('\n')}`;
   }
 
   private validate() {

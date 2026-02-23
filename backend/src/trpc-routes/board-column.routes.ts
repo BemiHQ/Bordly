@@ -1,5 +1,6 @@
 import type { TRPCRouterRecord } from '@trpc/server';
 import { z } from 'zod';
+import { BoardColumn } from '@/entities/board-column';
 import { BoardColumnService } from '@/services/board-column.service';
 
 import { authAsBoardMember, publicProcedure } from '@/trpc-config';
@@ -14,7 +15,7 @@ export const BOARD_COLUMN_ROUTES = {
           boardColumnId: input.boardColumnId,
           name: input.name,
         });
-        return { boardColumn: boardColumn.toJson() };
+        return { boardColumn: BoardColumn.toJson(boardColumn) };
       }),
     setPosition: publicProcedure
       .input(z.object({ boardId: z.uuid(), boardColumnId: z.uuid(), position: z.number().int().min(0) }))

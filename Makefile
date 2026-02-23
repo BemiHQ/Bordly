@@ -49,7 +49,7 @@ format:
 	devbox run "pnpm run check"
 
 check: format
-	devbox run "cd backend && (pnpm run build && (cd ../frontend && pnpm tsc --noEmit); rm -rf ./dist)"
+	devbox run "cd backend && rm -rf ./dist && pnpm run build && cd ../frontend && pnpm tsc --noEmit"
 
 migrate:
 	devbox run --env-file backend/.env "cd backend && pnpm run migrate"

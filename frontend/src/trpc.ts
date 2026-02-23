@@ -18,13 +18,21 @@ export const createTrpcClient = (queryClient: QueryClient) => {
         url: isSsr() && ENV.SSR_API_ENDPOINT ? API_ENDPOINTS.TRPC_SSR : API_ENDPOINTS.TRPC,
         async fetch(url, options) {
           let cookie: string | null = null;
+          let timeZone: string | null = null;
           if (isSsr()) {
             cookie = await fetchSessionCookie(); // SSR: fetch the session cookie from the incoming request
+          } else {
+            timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
           }
+
           return fetch(url, {
             ...options,
             credentials: 'include',
-            headers: { ...options?.headers, ...(cookie ? { cookie } : {}) },
+            headers: {
+              ...options?.headers,
+              ...(cookie ? { cookie } : {}),
+              ...(timeZone ? { 'x-timezone': timeZone } : {}),
+            },
           });
         },
       }),

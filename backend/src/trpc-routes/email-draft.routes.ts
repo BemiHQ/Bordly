@@ -1,5 +1,6 @@
 import type { TRPCRouterRecord } from '@trpc/server';
 import { z } from 'zod';
+import { EmailMessage } from '@/entities/email-message';
 import { BoardCardService } from '@/services/board-card.service';
 import { EmailDraftService } from '@/services/email-draft.service';
 import { authAsBoardMember, publicProcedure } from '@/trpc-config';
@@ -80,7 +81,7 @@ export const EMAIL_DRAFT_ROUTES = {
           boardCard: typeof boardCard;
         };
         return {
-          emailMessage: emailMessage.toJson(),
+          emailMessage: EmailMessage.toJson(emailMessage),
           boardCard: boardCardToJson(updatedBoardCard, ctx),
         };
       }),

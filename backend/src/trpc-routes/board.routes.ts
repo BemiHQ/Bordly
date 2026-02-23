@@ -1,5 +1,7 @@
 import { TRPCError, type TRPCRouterRecord } from '@trpc/server';
 import { z } from 'zod';
+import { BoardColumn } from '@/entities/board-column';
+import { BoardMember } from '@/entities/board-member';
 import { BoardService } from '@/services/board.service';
 import { BoardMemberService } from '@/services/board-member.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
@@ -16,9 +18,9 @@ export const BOARD_ROUTES = {
       });
       return {
         board: board.toJson(),
-        boardColumnsAsc: [...board.boardColumns].sort((a, b) => a.position - b.position).map((col) => col.toJson()),
+        boardColumnsAsc: [...board.boardColumns].sort((a, b) => a.position - b.position).map(BoardColumn.toJson),
         boardAccounts: board.boardAccounts.map((boardAccount) => boardAccount.toJson()),
-        boardMembers: boardMembers.map((member) => member.toJson()),
+        boardMembers: boardMembers.map(BoardMember.toJson),
       };
     }),
     setName: publicProcedure

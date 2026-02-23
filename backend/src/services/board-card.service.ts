@@ -6,7 +6,7 @@ import type { BoardColumn } from '@/entities/board-column';
 import { Comment } from '@/entities/comment';
 import { Domain } from '@/entities/domain';
 import { EmailDraft } from '@/entities/email-draft';
-import type { EmailMessage, Participant } from '@/entities/email-message';
+import type { EmailMessage } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { BoardService } from '@/services/board.service';
@@ -19,7 +19,7 @@ import { SenderEmailAddressService } from '@/services/sender-email-address.servi
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
-import { FALLBACK_SUBJECT } from '@/utils/shared';
+import { FALLBACK_SUBJECT, type Participant } from '@/utils/shared';
 import { msAgoFrom } from '@/utils/time';
 
 export class BoardCardService {
@@ -49,7 +49,7 @@ export class BoardCardService {
   }
 
   static async findById<Hint extends string = never>(
-    board: Board,
+    board: Loaded<Board>,
     { boardCardId, populate = [] }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
   ) {
     return orm.em.findOneOrFail(BoardCard, { id: boardCardId, boardColumn: { board: { id: board.id } } }, { populate });

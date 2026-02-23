@@ -4,7 +4,7 @@ import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 import type { BoardCard } from '@/entities/board-card';
 import { BoardColumn } from '@/entities/board-column';
 import { Domain } from '@/entities/domain';
-import { EmailMessage, type Participant } from '@/entities/email-message';
+import { EmailMessage } from '@/entities/email-message';
 import { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
 import { AgentService } from '@/services/agent.service';
@@ -19,7 +19,7 @@ import { reportError } from '@/utils/error-tracking';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
-import { FALLBACK_SUBJECT } from '@/utils/shared';
+import { FALLBACK_SUBJECT, type Participant } from '@/utils/shared';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
 
@@ -53,6 +53,28 @@ Only output one of the above categories without any explanation.`,
 };
 
 export class EmailMessageService {
+  static async findLastByExternalThreadId(externalThreadId: string) {
+    return orm.em.findOneOrFail(EmailMessage, { externalThreadId }, { orderBy: { externalCreatedAt: 'DESC' } });
+  }
+
+  static async findById<Hint extends string = never>(
+    boardCard: BoardCard,
+    { id, populate }: { id: string; populate?: Populate<EmailMessage, Hint> },
+  ) {
+    return orm.em.findOneOrFail(EmailMessage, { id, externalThreadId: boardCard.externalThreadId }, { populate });
+  }
+
+  static async findEmailMessagesByBoardCard<Hint extends string = never>(
+    boardCard: Loaded<BoardCard>,
+    {
+      populate,
+      orderBy,
+      limit,
+    }: { populate?: Populate<EmailMessage, Hint>; orderBy?: OrderDefinition<EmailMessage>; limit?: number } = {},
+  ) {
+    return orm.em.find(EmailMessage, { externalThreadId: boardCard.externalThreadId }, { populate, orderBy, limit });
+  }
+
   static async createNewEmailMessages() {
     const promiseDataByGmailAccountId: Record<
       string,
@@ -286,25 +308,6 @@ export class EmailMessageService {
 
     const boardMember = board.boardMembers.find((member) => !member.isAgent)!;
     await BoardMemberService.setInitialMemory(boardMember);
-  }
-
-  static async findLastByExternalThreadId(externalThreadId: string) {
-    return orm.em.findOneOrFail(EmailMessage, { externalThreadId }, { orderBy: { externalCreatedAt: 'DESC' } });
-  }
-
-  static async findEmailMessagesByBoardCard<Hint extends string = never>(
-    boardCard: BoardCard,
-    {
-      populate,
-      orderBy,
-      limit,
-    }: { populate?: Populate<EmailMessage, Hint>; orderBy?: OrderDefinition<EmailMessage>; limit?: number } = {},
-  ) {
-    return orm.em.find(
-      EmailMessage,
-      { gmailAccount: boardCard.gmailAccount, externalThreadId: boardCard.externalThreadId },
-      { populate, orderBy, limit },
-    );
   }
 
   static parseParticipant(emailAddress?: string) {

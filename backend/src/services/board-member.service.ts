@@ -1,4 +1,4 @@
-import type { Loaded, Populate } from '@mikro-orm/postgresql';
+import type { AutoPath, Loaded, Populate, PopulatePath } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
 import { BoardCard } from '@/entities/board-card';
 import { BoardMember, BoardMemberMemory, type Role } from '@/entities/board-member';
@@ -25,6 +25,14 @@ Extract and return ONLY a valid JSON object with these fields (set to null if no
 const MAX_EMAILS_CONTENT_LENGTH_TO_ANALYZE = 1_000_000; // 1 million characters = ~250K tokens
 
 export class BoardMemberService {
+  static async populate<Hint extends string = never>(
+    boardMember: BoardMember,
+    populate: readonly AutoPath<BoardMember, Hint, PopulatePath.ALL>[],
+  ) {
+    await orm.em.populate(boardMember, populate);
+    return boardMember;
+  }
+
   static async findMembers<Hint extends string = never>(
     board: Board,
     { populate }: { populate?: Populate<BoardMember, Hint> } = {},

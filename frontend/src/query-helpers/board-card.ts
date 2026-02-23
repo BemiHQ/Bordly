@@ -10,7 +10,6 @@ export type EmailMessage = BoardCardData['emailMessagesAsc'][number];
 export type Comment = BoardCardData['commentsAsc'][number];
 
 export type EmailDraft = BoardCard['emailDraft'];
-export type Participant = NonNullable<EmailDraft>['from'];
 export type FileAttachment = NonNullable<EmailDraft>['fileAttachments'][number];
 
 export type GmailAttachment = EmailMessage['gmailAttachments'][number];
@@ -205,6 +204,47 @@ export const deleteCommentData = ({
     return {
       ...oldData,
       commentsAsc: oldData.commentsAsc.filter((c) => c.id !== commentId),
+    } satisfies typeof oldData;
+  });
+};
+
+export const addBordlyThinkingComment = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardCardId, bordlyUser },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardCardId: string; bordlyUser: Comment['user'] };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId }), (oldData) => {
+    if (!oldData) return oldData;
+    const thinkingComment = {
+      id: 'bordly-thinking',
+      boardCardId,
+      user: bordlyUser,
+      text: 'Thinking...',
+      createdAt: new Date(),
+      editedAt: undefined,
+    };
+    return { ...oldData, commentsAsc: [...oldData.commentsAsc, thinkingComment] } satisfies typeof oldData;
+  });
+};
+
+export const deleteBordlyThinkingComment = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardCardId },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardCardId: string };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      commentsAsc: oldData.commentsAsc.filter((c) => c.id !== 'bordly-thinking'),
     } satisfies typeof oldData;
   });
 };

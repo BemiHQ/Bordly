@@ -1,5 +1,6 @@
 import type { TRPCRouterRecord } from '@trpc/server';
 import { z } from 'zod';
+import { Comment } from '@/entities/comment';
 import { BoardCardService } from '@/services/board-card.service';
 import { CommentService } from '@/services/comment.service';
 import { authAsBoardMember, publicProcedure } from '@/trpc-config';
@@ -19,14 +20,19 @@ export const COMMENT_ROUTES = {
       )
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardMember({ ctx, input });
-        const user = ctx.user!;
         const boardCard = await BoardCardService.findById(board, {
           boardCardId: input.boardCardId,
           populate: BOARD_CARD_POPULATE,
         });
-        const comment = await CommentService.create(boardCard, { user, text: input.text, board });
+        const comment = await CommentService.create(boardCard, {
+          board,
+          user: ctx.user!,
+          text: input.text,
+          userTimeZone: ctx.userTimeZone,
+        });
+
         return {
-          comment: comment.toJson(),
+          comment: Comment.toJson(comment),
           boardCard: boardCardToJson(boardCard, ctx),
         };
       }),
@@ -43,15 +49,19 @@ export const COMMENT_ROUTES = {
         const { board } = authAsBoardMember({ ctx, input });
         const boardCard = await BoardCardService.findById(board, {
           boardCardId: input.boardCardId,
-          populate: BOARD_CARD_POPULATE,
+          populate: [...BOARD_CARD_POPULATE, 'boardColumn'],
         });
         const comment = await CommentService.edit(boardCard, {
+          board,
+          user: ctx.user!,
           commentId: input.commentId,
           text: input.text,
+          userTimeZone: ctx.userTimeZone,
           populate: POPULATE,
         });
+
         return {
-          comment: comment.toJson(),
+          comment: Comment.toJson(comment),
           boardCard: boardCardToJson(boardCard, ctx),
         };
       }),

@@ -60,3 +60,7 @@ export const shortDateTime = (date: Date) => {
 
   return `${dateStr} at ${timeStr}`;
 };
+
+export const shortDateTimeWithWeekday = (date: Date) => {
+  return `${date.toLocaleDateString('en-US', { weekday: 'short' })}, ${shortDateTime(date)}`;
+};

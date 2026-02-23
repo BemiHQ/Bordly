@@ -1,4 +1,4 @@
-import { Collection, Entity, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/postgresql';
+import { Collection, Entity, type Loaded, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
@@ -49,12 +49,16 @@ export class BoardColumn extends BaseEntity {
     this.validate();
   }
 
-  toJson() {
+  static toJson(boardColumn: Loaded<BoardColumn>) {
     return {
-      id: this.id,
-      name: this.name,
-      position: this.position,
+      id: boardColumn.id,
+      name: boardColumn.name,
+      position: boardColumn.position,
     };
+  }
+
+  static toStr(boardColumn: Loaded<BoardColumn>) {
+    return boardColumn.name;
   }
 
   private validate() {

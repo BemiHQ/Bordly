@@ -1,4 +1,4 @@
-import { Entity, Index, ManyToOne, Property, Unique } from '@mikro-orm/postgresql';
+import { Entity, Index, type Loaded, ManyToOne, Property, Unique } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
 import type { EmailMessage } from '@/entities/email-message';
@@ -57,13 +57,13 @@ export class GmailAttachment extends BaseEntity {
     this.validate();
   }
 
-  toJson() {
+  static toJson(gmailAttachment: Loaded<GmailAttachment>) {
     return {
-      id: this.id,
-      mimeType: this.mimeType,
-      filename: this.filename,
-      size: this.size,
-      contentId: this.contentId,
+      id: gmailAttachment.id,
+      mimeType: gmailAttachment.mimeType,
+      filename: gmailAttachment.filename,
+      size: gmailAttachment.size,
+      contentId: gmailAttachment.contentId,
     };
   }
 

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { FileAttachment } from '@/entities/file-attachment';
 import { BoardService } from '@/services/board.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { FileAttachmentService } from '@/services/file-attachment.service';
@@ -38,7 +39,7 @@ export const fileAttachmentRoutes = async (fastify: FastifyInstance) => {
         buffer,
       });
 
-      return reply.send({ fileAttachment: fileAttachment.toJson() });
+      return reply.send({ fileAttachment: FileAttachment.toJson(fileAttachment) });
     } catch (error) {
       reportError(error);
       return reply.status(500).send();

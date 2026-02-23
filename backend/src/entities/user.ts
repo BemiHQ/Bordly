@@ -1,4 +1,4 @@
-import { Collection, Entity, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
+import { Collection, Entity, type Loaded, OneToMany, OneToOne, Property, Unique } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCardReadPosition } from '@/entities/board-card-read-position';
@@ -59,14 +59,18 @@ export class User extends BaseEntity {
     this.lastSessionAt = new Date();
   }
 
-  toJson() {
+  static toJson(user: Loaded<User>) {
     return {
-      id: this.id,
-      fullName: this.fullName,
-      firstName: this.firstName,
-      email: this.isBordly ? '' : this.email,
-      photoUrl: this.photoUrl,
+      id: user.id,
+      fullName: user.fullName,
+      firstName: user.firstName,
+      email: user.isBordly ? '' : user.email,
+      photoUrl: user.photoUrl,
     };
+  }
+
+  static toStr(user: Loaded<User>) {
+    return `${user.fullName} <${user.email}>`;
   }
 
   private validate() {

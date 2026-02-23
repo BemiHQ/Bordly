@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it } from 'vitest';
-import { formattedQuoteHeader, sanitizedDisplayHtml } from './email';
+import { sanitizedDisplayHtml } from './email';
 
 type Attachment = {
   id: string;
@@ -207,39 +207,5 @@ describe('sanitizedDisplayHtml', () => {
     expect(result).toContain('style="font-weight: bold; color: blue;"');
     expect(result).toContain('style="margin: 10px;"');
     expect(result).toContain('Styled content');
-  });
-});
-
-describe('formattedQuoteHeader', () => {
-  it('formats quote header with name and email', () => {
-    const result = formattedQuoteHeader({
-      from: { name: 'John Doe', email: 'john@example.com' },
-      sentAt: new Date('2026-02-15T14:30:00Z'),
-    });
-
-    expect(result).toContain('John Doe');
-    expect(result).toContain('john@example.com');
-    expect(result).toContain('wrote:');
-    expect(result).toContain('<a href="mailto:john@example.com"');
-  });
-
-  it('includes day of week in the header', () => {
-    // Feb 15, 2026 is a Sunday
-    const result = formattedQuoteHeader({
-      from: { name: 'Bob Wilson', email: 'bob@example.com' },
-      sentAt: new Date('2026-02-15T12:00:00Z'),
-    });
-
-    expect(result).toMatch(/On (Sun|Mon|Tue|Wed|Thu|Fri|Sat),/);
-  });
-
-  it('formats the complete structure correctly', () => {
-    const result = formattedQuoteHeader({
-      from: { name: 'Test User', email: 'test@example.com' },
-      sentAt: new Date('2026-02-15T14:30:00Z'),
-    });
-
-    // Should have the pattern: On [Day], [Date] [Name/Email] <[Email]> wrote:
-    expect(result).toMatch(/^On \w+,.*Test User.*<a href="mailto:test@example\.com".*>test@example\.com<\/a>> wrote:$/);
   });
 });

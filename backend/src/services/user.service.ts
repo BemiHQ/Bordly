@@ -16,8 +16,8 @@ export class UserService {
     return orm.em.findOne(User, { id }, { populate });
   }
 
-  static async bordlyUser() {
-    return orm.em.findOneOrFail(User, { id: BORDLY_USER_ID });
+  static async bordlyUser<Hint extends string = never>({ populate }: { populate?: Populate<User, Hint> } = {}) {
+    return orm.em.findOneOrFail(User, { id: BORDLY_USER_ID }, { populate });
   }
 
   static async createWithGmailAccount({

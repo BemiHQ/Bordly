@@ -1,5 +1,4 @@
 import DOMPurify from 'dompurify';
-import { shortDateTime } from '@/utils/time';
 import { API_ENDPOINTS } from '@/utils/urls';
 
 type Attachment = {
@@ -7,13 +6,6 @@ type Attachment = {
   mimeType: string;
   filename: string;
   contentId: string | null | undefined;
-};
-
-const textToHtml = (text: string): string => {
-  return text
-    .split('\n')
-    .map((line) => `<div>${line || '<br>'}</div>`)
-    .join('');
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -56,39 +48,4 @@ export const sanitizedDisplayHtml = ({
   }
 
   return doc.body.innerHTML;
-};
-
-export const formattedQuoteHeader = ({
-  from,
-  sentAt,
-}: {
-  from: { name: string | null; email: string };
-  sentAt: Date;
-}): string => {
-  const dayOfWeek = sentAt.toLocaleDateString('en-US', { weekday: 'short' });
-  const formattedDate = shortDateTime(sentAt);
-
-  return (
-    `On ${dayOfWeek}, ${formattedDate} ` +
-    `${from.name || from.email} ` +
-    `<<a href="mailto:${from.email}" target="_blank" rel="noopener noreferrer">${from.email}</a>> wrote:`
-  );
-};
-
-export const createQuotedHtml = ({
-  html,
-  text,
-  quoteHeader,
-}: {
-  html: string;
-  text: string;
-  quoteHeader: string;
-}): string => {
-  return `
-<div class="gmail_quote">
-  <div dir="ltr" class="gmail_attr">${quoteHeader}<br></div>
-  <blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
-    ${html || (text ? textToHtml(text) : '')}
-  </blockquote>
-</div>`;
 };

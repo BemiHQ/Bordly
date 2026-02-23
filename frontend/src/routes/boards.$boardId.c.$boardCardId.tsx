@@ -195,6 +195,7 @@ function BoardCardComponent() {
                   />
                   {showReply && (
                     <EmailDraftCard
+                      key={boardCard.emailDraft?.updatedAt.getTime()}
                       boardId={boardId}
                       boardCard={boardCard}
                       emailDraft={boardCard.emailDraft}

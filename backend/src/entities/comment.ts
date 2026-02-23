@@ -1,8 +1,8 @@
-import { Entity, Index, ManyToOne, Property } from '@mikro-orm/postgresql';
+import { Entity, Index, type Loaded, ManyToOne, Property } from '@mikro-orm/postgresql';
 
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCard } from '@/entities/board-card';
-import type { User } from '@/entities/user';
+import { User } from '@/entities/user';
 
 export interface Comment {
   loadedBoardCard: BoardCard;
@@ -48,15 +48,28 @@ export class Comment extends BaseEntity {
     this.validate();
   }
 
-  toJson() {
+  static toJson(comment: Loaded<Comment, 'user'>) {
     return {
-      id: this.id,
-      boardCardId: this.boardCard.id,
-      user: this.loadedUser.toJson(),
-      text: this.text,
-      createdAt: this.createdAt,
-      editedAt: this.editedAt,
+      id: comment.id,
+      boardCardId: comment.boardCard.id,
+      user: User.toJson(comment.loadedUser),
+      text: comment.text,
+      createdAt: comment.createdAt,
+      editedAt: comment.editedAt,
     };
+  }
+
+  static toText(comment: Loaded<Comment, 'user'>) {
+    const user = comment.loadedUser;
+    const items = [
+      `- Comment ID: ${comment.id}`,
+      `- Created At: ${comment.createdAt.toISOString()}`,
+      `- User: ${User.toStr(user)}`,
+      `- Text: ${comment.text}`,
+    ];
+
+    return `Comment:
+${items.join('\n')}`;
   }
 
   private validate() {

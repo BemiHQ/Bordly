@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { isBordlyComment } from 'bordly-backend/utils/shared';
 import { ArrowDown } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import type { RouteContext } from '@/hooks/use-route-context';
 import { type BoardMember, solo } from '@/query-helpers/board';
-import { addFakeCommentData, replaceBoardCardData, replaceFakeCommentData } from '@/query-helpers/board-card';
+import {
+  addBordlyThinkingComment,
+  addFakeCommentData,
+  deleteBordlyThinkingComment,
+  replaceBoardCardData,
+  replaceFakeCommentData,
+} from '@/query-helpers/board-card';
 import { replaceBoardCardData as replaceBoardCardDataInList } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
 
@@ -30,7 +37,19 @@ export const CommentInput = ({
   const optimisticallyCreateComment = useOptimisticMutation({
     queryClient,
     queryKey: boardCardQueryKey,
-    onExecute: (params) => addFakeCommentData({ trpc, queryClient, params }),
+    onExecute: (params) => {
+      addFakeCommentData({ trpc, queryClient, params });
+      if (isBordlyComment(params.text)) {
+        const bordlyUser = boardMembers.find((member) => member.isAgent);
+        if (bordlyUser) {
+          addBordlyThinkingComment({
+            trpc,
+            queryClient,
+            params: { boardId, boardCardId, bordlyUser: bordlyUser.user },
+          });
+        }
+      }
+    },
     successToast: undefined,
     errorToast: 'Failed to add comment',
     mutation: useMutation(
@@ -38,6 +57,8 @@ export const CommentInput = ({
         onSuccess: ({ comment, boardCard }) => {
           replaceFakeCommentData({ trpc, queryClient, params: { boardId, boardCardId, comment } });
           replaceBoardCardData({ trpc, queryClient, params: { boardId, boardCard } });
+          deleteBordlyThinkingComment({ trpc, queryClient, params: { boardId, boardCardId } });
+
           replaceBoardCardDataInList({ trpc, queryClient, params: { boardId, boardCard } });
         },
       }),

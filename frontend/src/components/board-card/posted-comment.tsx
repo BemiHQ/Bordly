@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { isBordlyComment } from 'bordly-backend/utils/shared';
 import { Ellipsis, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
@@ -15,7 +16,13 @@ import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-w
 import { useRouteContext } from '@/hooks/use-route-context';
 import { type BoardMember, solo } from '@/query-helpers/board';
 import type { Comment } from '@/query-helpers/board-card';
-import { deleteCommentData, replaceBoardCardData, updateCommentData } from '@/query-helpers/board-card';
+import {
+  addBordlyThinkingComment,
+  deleteBordlyThinkingComment,
+  deleteCommentData,
+  replaceBoardCardData,
+  updateCommentData,
+} from '@/query-helpers/board-card';
 import { replaceBoardCardData as replaceBoardCardDataInList } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
 import { formattedShortTime } from '@/utils/time';
@@ -40,12 +47,26 @@ export const PostedComment = ({
   const optimisticallyEditComment = useOptimisticMutation({
     queryClient,
     queryKey: boardCardQueryKey,
-    onExecute: (params) => updateCommentData({ trpc, queryClient, params }),
+    onExecute: (params) => {
+      updateCommentData({ trpc, queryClient, params });
+      if (isBordlyComment(params.text)) {
+        const bordlyUser = boardMembers.find((member) => member.isAgent);
+        if (bordlyUser) {
+          addBordlyThinkingComment({
+            trpc,
+            queryClient,
+            params: { boardId, boardCardId, bordlyUser: bordlyUser.user },
+          });
+        }
+      }
+    },
     errorToast: 'Failed to edit comment',
     mutation: useMutation(
       trpc.comment.edit.mutationOptions({
         onSuccess: ({ boardCard }) => {
           replaceBoardCardData({ trpc, queryClient, params: { boardId, boardCard } });
+          deleteBordlyThinkingComment({ trpc, queryClient, params: { boardId, boardCardId } });
+
           replaceBoardCardDataInList({ trpc, queryClient, params: { boardId, boardCard } });
         },
       }),

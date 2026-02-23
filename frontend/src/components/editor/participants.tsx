@@ -1,11 +1,9 @@
+import { type Participant, participantToString } from 'bordly-backend/utils/shared';
 import { type ChangeEvent, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { EmailAddress } from '@/query-helpers/email-addresses';
-
-export const participantToInput = (participant: { name?: string | null; email: string }) =>
-  participant.name ? `${participant.name} <${participant.email}>` : participant.email;
 
 export const Participants = ({
   from,
@@ -55,8 +53,8 @@ export const Participants = ({
             <SelectContent>
               <SelectGroup>
                 {fromEmailAddresses.map((address: EmailAddress) => (
-                  <SelectItem size="sm" key={address.email} value={participantToInput(address)}>
-                    {participantToInput(address)}
+                  <SelectItem size="sm" key={address.email} value={participantToString(address as Participant)}>
+                    {participantToString(address as Participant)}
                   </SelectItem>
                 ))}
               </SelectGroup>
