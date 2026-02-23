@@ -2,7 +2,6 @@ import { Collection, Entity, Enum, Index, OneToMany, OneToOne, Property, Unique 
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardAccount } from '@/entities/board-account';
 import type { BoardCard } from '@/entities/board-card';
-import type { EmailDraft } from '@/entities/email-draft';
 import type { EmailMessage } from '@/entities/email-message';
 import type { GmailAttachment } from '@/entities/gmail-attachment';
 import type { SenderEmailAddress } from '@/entities/sender-email-address';
@@ -32,8 +31,6 @@ export class GmailAccount extends BaseEntity {
   gmailAttachments = new Collection<GmailAttachment>(this);
   @OneToMany({ mappedBy: (emailAddress: SenderEmailAddress) => emailAddress.gmailAccount })
   senderEmailAddresses = new Collection<SenderEmailAddress>(this);
-  @OneToMany({ mappedBy: (emailDraft: EmailDraft) => emailDraft.gmailAccount })
-  emailDrafts = new Collection<EmailDraft>(this);
 
   @Enum(() => GmailAccountState)
   state: GmailAccountState;

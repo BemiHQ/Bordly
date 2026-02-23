@@ -480,13 +480,7 @@ export class EmailMessageService {
         ...(await BoardCardService.findCardsByExternalThreadIds({
           gmailAccount,
           externalThreadIds: affectedExternalThreadIds,
-          populate: [
-            'domain',
-            'boardCardReadPositions',
-            'boardColumn.board.boardMembers',
-            'comments',
-            'emailDraft.gmailAccount',
-          ],
+          populate: ['domain', 'boardCardReadPositions', 'boardColumn.board.boardMembers', 'comments', 'emailDraft'],
         })),
       ],
       (boardCard) => boardCard.externalThreadId!,

@@ -1595,8 +1595,8 @@
           "nullable": false,
           "mappedType": "uuid"
         },
-        "gmail_account_id": {
-          "name": "gmail_account_id",
+        "last_edited_by_user_id": {
+          "name": "last_edited_by_user_id",
           "type": "uuid",
           "unsigned": false,
           "autoincrement": false,
@@ -1707,12 +1707,12 @@
           "referencedTableName": "public.board_cards",
           "updateRule": "cascade"
         },
-        "email_drafts_gmail_account_id_foreign": {
-          "constraintName": "email_drafts_gmail_account_id_foreign",
-          "columnNames": ["gmail_account_id"],
+        "email_drafts_last_edited_by_user_id_foreign": {
+          "constraintName": "email_drafts_last_edited_by_user_id_foreign",
+          "columnNames": ["last_edited_by_user_id"],
           "localTableName": "public.email_drafts",
           "referencedColumnNames": ["id"],
-          "referencedTableName": "public.gmail_accounts",
+          "referencedTableName": "public.users",
           "updateRule": "cascade"
         }
       },

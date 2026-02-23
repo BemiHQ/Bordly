@@ -66,7 +66,7 @@ export class EmailDraftService {
 
     if (boardCard.emailDraft) {
       boardCard.emailDraft.update({
-        gmailAccount,
+        lastEditedByUser: user,
         generated,
         from: fromParticipant,
         to: toParticipants,
@@ -77,8 +77,8 @@ export class EmailDraftService {
       });
     } else {
       boardCard.emailDraft = new EmailDraft({
-        gmailAccount,
         boardCard,
+        lastEditedByUser: user,
         generated,
         from: fromParticipant,
         to: toParticipants,
@@ -125,12 +125,7 @@ export class EmailDraftService {
   static async send(
     boardCard: Loaded<
       BoardCard,
-      | 'gmailAccount'
-      | 'emailDraft.fileAttachments'
-      | 'emailDraft.gmailAccount'
-      | 'boardColumn'
-      | 'boardCardReadPositions'
-      | 'comments'
+      'gmailAccount' | 'emailDraft.fileAttachments' | 'boardColumn' | 'boardCardReadPositions' | 'comments'
     >,
     {
       user,

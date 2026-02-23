@@ -63,7 +63,10 @@ export class BoardMemberService {
 
     const boardMember = await BoardMemberService.findByUserId(board, { userId });
 
-    await orm.em.remove(boardMember).flush();
+    await orm.em.transactional(async (em) => {
+      await em.nativeUpdate(BoardCard, { assignedBoardMember: boardMember }, { assignedBoardMember: null });
+      await em.nativeDelete(BoardMember, { id: boardMember.id });
+    });
   }
 
   static async findById<Hint extends string = never>(

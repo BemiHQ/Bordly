@@ -149,7 +149,7 @@ export class BoardCardService {
 
     boardCard.emailDraft = new EmailDraft({
       boardCard,
-      gmailAccount: firstSenderEmailAddress.loadedGmailAccount,
+      lastEditedByUser: user,
       generated: false,
       from: fromParticipant,
       to: undefined,
@@ -335,7 +335,7 @@ export class BoardCardService {
     boardCard,
     emailMessagesDesc,
   }: {
-    boardCard: Loaded<BoardCard, 'boardColumn' | 'boardCardReadPositions' | 'comments' | 'emailDraft.gmailAccount'>;
+    boardCard: Loaded<BoardCard, 'boardColumn' | 'boardCardReadPositions' | 'comments' | 'emailDraft'>;
     emailMessagesDesc: Loaded<EmailMessage, 'gmailAttachments' | 'gmailAccount'>[];
   }) {
     if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
@@ -370,7 +370,7 @@ export class BoardCardService {
       [
         ...emailMessagesDesc.map((msg) => msg.loadedGmailAccount.user.id),
         ...boardCard.comments.map((c) => c.user.id),
-        boardCard.emailDraft?.loadedGmailAccount.user.id,
+        boardCard.emailDraft?.lastEditedByUser.id,
       ].filter((id): id is string => !!id),
     );
 
@@ -391,9 +391,9 @@ export class BoardCardService {
 
   static async delete(boardCard: Loaded<BoardCard>) {
     await orm.em.transactional(async (em) => {
-      em.nativeDelete(Comment, { boardCard });
-      em.nativeDelete(BoardCardReadPosition, { boardCard });
-      em.nativeDelete(BoardCard, { id: boardCard.id });
+      await em.nativeDelete(Comment, { boardCard });
+      await em.nativeDelete(BoardCardReadPosition, { boardCard });
+      await em.nativeDelete(BoardCard, { id: boardCard.id });
     });
   }
 

@@ -67,7 +67,7 @@ export const EMAIL_DRAFT_ROUTES = {
           populate: [
             ...BOARD_CARD_POPULATE,
             'gmailAccount.senderEmailAddresses',
-            'emailDraft.gmailAccount',
+            'emailDraft',
             'boardColumn.board.boardMembers',
             'comments',
           ],

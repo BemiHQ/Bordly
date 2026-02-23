@@ -49,6 +49,7 @@ function BoardCardComponent() {
   const [subject, setSubject] = useState('');
   const [isEditingSubject, setIsEditingSubject] = useState(false);
   const [showReply, setShowReply] = useState(false);
+  const [draftChangeCount, setDraftChangeCount] = useState(0);
   const { isScrolled, scrollContainerRef, bottomRef, scrollToBottom, scrollToTop } = useScrollContainer();
 
   const {
@@ -119,6 +120,13 @@ function BoardCardComponent() {
 
   // Prefetch email addresses for EmailDraftCard
   usePrefetchQuery(queryClient, { ...trpc.senderEmailAddress.getAddressesForBoardMember.queryOptions({ boardId }) });
+
+  // Reload draft if changed by another user to keep it up to date
+  useEffect(() => {
+    if (boardCard?.emailDraft?.lastEditedByUserId !== currentUser.id) {
+      setDraftChangeCount((count) => count + 1);
+    }
+  }, [boardCard?.emailDraft?.lastEditedByUserId, currentUser.id]);
 
   const noMessages = boardCard?.emailMessageCount === 0;
 
@@ -195,7 +203,7 @@ function BoardCardComponent() {
                   />
                   {showReply && (
                     <EmailDraftCard
-                      key={boardCard.emailDraft?.updatedAt.getTime()}
+                      key={draftChangeCount}
                       boardId={boardId}
                       boardCard={boardCard}
                       emailDraft={boardCard.emailDraft}

@@ -4,6 +4,7 @@ import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCardReadPosition } from '@/entities/board-card-read-position';
 import type { BoardMember } from '@/entities/board-member';
 import type { Comment } from '@/entities/comment';
+import type { EmailDraft } from '@/entities/email-draft';
 import type { GmailAccount } from '@/entities/gmail-account';
 
 export const BORDLY_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -19,6 +20,8 @@ export class User extends BaseEntity {
   boardCardReadPositions = new Collection<BoardCardReadPosition>(this);
   @OneToMany({ mappedBy: (comment: Comment) => comment.user })
   comments = new Collection<Comment>(this);
+  @OneToMany({ mappedBy: (emailDraft: EmailDraft) => emailDraft.lastEditedByUser })
+  lastEditedEmailDrafts = new Collection<EmailDraft>(this);
 
   @Property()
   email: string;

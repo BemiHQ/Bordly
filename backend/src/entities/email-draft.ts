@@ -11,13 +11,13 @@ import {
 import { BaseEntity } from '@/entities/base-entity';
 import type { BoardCard } from '@/entities/board-card';
 import { FileAttachment } from '@/entities/file-attachment';
-import type { GmailAccount } from '@/entities/gmail-account';
+import type { User } from '@/entities/user';
 import { htmlToText, parseHtmlBody } from '@/utils/email';
 import { type Participant, participantToString } from '@/utils/shared';
 
 export interface EmailDraft {
   loadedBoardCard: BoardCard;
-  loadedGmailAccount: GmailAccount;
+  loadedLastEditedByUser: User;
 }
 
 @Entity({ tableName: 'email_drafts' })
@@ -26,7 +26,7 @@ export class EmailDraft extends BaseEntity {
   @OneToOne()
   boardCard: BoardCard;
   @ManyToOne()
-  gmailAccount: GmailAccount;
+  lastEditedByUser: User;
 
   @OneToMany({ mappedBy: (attachment: FileAttachment) => attachment.emailDraft })
   fileAttachments = new Collection<FileAttachment>(this);
@@ -50,7 +50,7 @@ export class EmailDraft extends BaseEntity {
 
   constructor({
     boardCard,
-    gmailAccount,
+    lastEditedByUser,
     generated,
     from,
     to,
@@ -60,7 +60,7 @@ export class EmailDraft extends BaseEntity {
     bodyHtml,
   }: {
     boardCard: BoardCard;
-    gmailAccount: GmailAccount;
+    lastEditedByUser: User;
     generated: boolean;
     from: Participant;
     to?: Participant[];
@@ -71,7 +71,7 @@ export class EmailDraft extends BaseEntity {
   }) {
     super();
     this.boardCard = boardCard;
-    this.gmailAccount = gmailAccount;
+    this.lastEditedByUser = lastEditedByUser;
     this.generated = generated;
     this.from = from;
     this.to = to;
@@ -84,7 +84,7 @@ export class EmailDraft extends BaseEntity {
   }
 
   update({
-    gmailAccount,
+    lastEditedByUser,
     generated,
     from,
     to,
@@ -93,7 +93,7 @@ export class EmailDraft extends BaseEntity {
     subject,
     bodyHtml,
   }: {
-    gmailAccount: GmailAccount;
+    lastEditedByUser: User;
     generated: boolean;
     from: Participant;
     to?: Participant[];
@@ -102,7 +102,7 @@ export class EmailDraft extends BaseEntity {
     subject?: string;
     bodyHtml?: string;
   }) {
-    this.gmailAccount = gmailAccount;
+    this.lastEditedByUser = lastEditedByUser;
     this.generated = generated;
     this.from = { ...from, email: from.email.toLowerCase() };
     this.to = to?.map((p) => ({ ...p, email: p.email.toLowerCase() }));
@@ -119,6 +119,7 @@ export class EmailDraft extends BaseEntity {
     return {
       id: emailDraft.id,
       boardCardId: emailDraft.boardCard.id,
+      lastEditedByUserId: emailDraft.lastEditedByUser.id,
       generated: emailDraft.generated,
       from: emailDraft.from,
       to: emailDraft.to,
@@ -158,8 +159,8 @@ ${items.join('\n')}`;
   }
 
   private validate() {
-    if (!this.gmailAccount) throw new Error('Gmail account is required');
     if (!this.boardCard) throw new Error('Board card is required');
+    if (!this.lastEditedByUser) throw new Error('Last edited by user is required');
     if (this.generated === undefined || this.generated === null) throw new Error('Generated status is required');
     if (!this.from) throw new Error('From address is required');
   }
