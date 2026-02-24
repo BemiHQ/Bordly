@@ -10,6 +10,7 @@ import { EmailMessageService } from '@/services/email-message.service';
 import { FileAttachmentService } from '@/services/file-attachment.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { SenderEmailAddressService } from '@/services/sender-email-address.service';
+import { htmlToText } from '@/utils/email';
 import { GmailApi } from '@/utils/gmail-api';
 import { orm } from '@/utils/orm';
 import { S3Client } from '@/utils/s3-client';
@@ -97,7 +98,8 @@ export class EmailDraftService {
       }
       boardCard.addParticipantUserId(gmailAccount.user.id);
     }
-    boardCard.setLastEventAt(boardCard.emailDraft.createdAt);
+    boardCard.setLastEventAt(boardCard.emailDraft.updatedAt);
+    boardCard.setSnippet(htmlToText(boardCard.emailDraft.bodyHtml || ''));
     orm.em.persist([boardCard.emailDraft, boardCard]);
 
     const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id);
@@ -120,6 +122,9 @@ export class EmailDraftService {
     if (boardCard.noMessages) {
       await BoardCardService.deleteAfterDeletingEmailDrafts(boardCard);
     }
+
+    await BoardCardService.rebuildLastEventAtAndSnippet(boardCard, { ignoreLastEventAt: emailDraft.updatedAt });
+    orm.em.persist(boardCard);
 
     await orm.em.flush();
   }

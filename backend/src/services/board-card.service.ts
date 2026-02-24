@@ -16,8 +16,10 @@ import { BoardColumnService } from '@/services/board-column.service';
 import { BoardMemberService } from '@/services/board-member.service';
 import { DomainService } from '@/services/domain.service';
 import { EmailDraftService } from '@/services/email-draft.service';
+import { EmailMessageService } from '@/services/email-message.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { SenderEmailAddressService } from '@/services/sender-email-address.service';
+import { htmlToText } from '@/utils/email';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
@@ -415,6 +417,50 @@ export class BoardCardService {
     });
 
     return boardCard;
+  }
+
+  static async rebuildLastEventAtAndSnippet(
+    boardCard: Loaded<BoardCard>,
+    { ignoreLastEventAt }: { ignoreLastEventAt: Date },
+  ) {
+    const { comments, emailDraft } = await BoardCardService.populate(boardCard, ['comments', 'emailDraft']);
+    const lastComment = [...comments]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .find((comment) => comment.createdAt.getTime() !== ignoreLastEventAt.getTime());
+
+    const lastEmailMessage = (
+      await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
+        orderBy: { externalCreatedAt: 'DESC' },
+        limit: 2,
+      })
+    ).find((msg) => msg.externalCreatedAt.getTime() !== ignoreLastEventAt.getTime());
+
+    const lastEventAtAndSnippet = [
+      lastComment && {
+        eventAt: lastComment.createdAt,
+        snippet: `${lastComment.user.firstName}: ${lastComment.contentText}`,
+      },
+      lastEmailMessage && {
+        eventAt: lastEmailMessage.externalCreatedAt,
+        snippet: lastEmailMessage.snippet,
+      },
+      emailDraft &&
+        emailDraft.updatedAt.getTime() !== ignoreLastEventAt.getTime() && {
+          eventAt: emailDraft.updatedAt,
+          snippet: `${htmlToText(emailDraft.bodyHtml || '')}`,
+        },
+    ]
+      .filter((e): e is { eventAt: Date; snippet: string } => !!e)
+      .sort((a, b) => b.eventAt.getTime() - a.eventAt.getTime())[0];
+
+    if (!lastEventAtAndSnippet) {
+      boardCard.setLastEventAt(boardCard.createdAt);
+      boardCard.setSnippet('');
+      return;
+    }
+
+    boardCard.setLastEventAt(lastEventAtAndSnippet.eventAt);
+    boardCard.setSnippet(lastEventAtAndSnippet.snippet);
   }
 
   static async deleteAfterDeletingEmailDrafts(boardCard: Loaded<BoardCard>) {

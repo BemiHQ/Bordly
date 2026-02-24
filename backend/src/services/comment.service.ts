@@ -4,8 +4,8 @@ import type { BoardCard } from '@/entities/board-card';
 import { Comment } from '@/entities/comment';
 import type { User } from '@/entities/user';
 import { AgentService } from '@/services/agent.service';
+import { BoardCardService } from '@/services/board-card.service';
 import { BoardMemberService } from '@/services/board-member.service';
-import { EmailMessageService } from '@/services/email-message.service';
 import { orm } from '@/utils/orm';
 import { isBordlyComment } from '@/utils/shared';
 
@@ -115,43 +115,10 @@ export class CommentService {
 
   static async delete(boardCard: BoardCard, { commentId }: { commentId: string }) {
     const comment = await CommentService.findById(boardCard, { commentId });
-
-    const wasLastBoardCardEvent = comment.createdAt.getTime() === boardCard.lastEventAt.getTime();
     orm.em.remove(comment);
 
-    if (wasLastBoardCardEvent) {
-      const lastComment = (
-        await orm.em.find(
-          Comment,
-          { boardCard, id: { $ne: commentId } },
-          { populate: ['user'], orderBy: { createdAt: 'DESC' }, limit: 1 },
-        )
-      )[0];
-
-      const lastEmailMessage = (
-        await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
-          orderBy: { externalCreatedAt: 'DESC' },
-          limit: 1,
-        })
-      )[0];
-
-      if (lastComment && lastEmailMessage) {
-        if (lastComment.createdAt.getTime() > lastEmailMessage.externalCreatedAt.getTime()) {
-          boardCard.setSnippet(`${lastComment.user.firstName}: ${lastComment.contentText}`);
-          boardCard.setLastEventAt(lastComment.createdAt);
-        } else {
-          boardCard.setSnippet(lastEmailMessage.snippet);
-          boardCard.setLastEventAt(lastEmailMessage.externalCreatedAt);
-        }
-      } else if (lastComment) {
-        boardCard.setSnippet(`${lastComment.user.firstName}: ${lastComment.contentText}`);
-        boardCard.setLastEventAt(lastComment.createdAt);
-      } else if (lastEmailMessage) {
-        boardCard.setSnippet(lastEmailMessage.snippet);
-        boardCard.setLastEventAt(lastEmailMessage.externalCreatedAt);
-      }
-      orm.em.persist(boardCard);
-    }
+    await BoardCardService.rebuildLastEventAtAndSnippet(boardCard, { ignoreLastEventAt: comment.createdAt });
+    orm.em.persist(boardCard);
 
     await orm.em.flush();
     return boardCard;
