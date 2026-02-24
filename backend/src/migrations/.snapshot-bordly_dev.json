@@ -1889,8 +1889,17 @@
           "nullable": false,
           "mappedType": "uuid"
         },
-        "text": {
-          "name": "text",
+        "content_text": {
+          "name": "content_text",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        },
+        "content_html": {
+          "name": "content_html",
           "type": "text",
           "unsigned": false,
           "autoincrement": false,

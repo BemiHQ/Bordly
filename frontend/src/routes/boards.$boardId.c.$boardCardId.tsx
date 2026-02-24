@@ -22,6 +22,8 @@ import {
 import { cn, extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
 
+const SCROLL_DELAY_MS = 100;
+
 export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
   component: BoardCardComponent,
   loader: async ({ context: { queryClient, trpc }, params }) => {
@@ -50,7 +52,8 @@ function BoardCardComponent() {
   const [isEditingSubject, setIsEditingSubject] = useState(false);
   const [showReply, setShowReply] = useState(false);
   const [draftChangeCount, setDraftChangeCount] = useState(0);
-  const { isScrolled, scrollContainerRef, bottomRef, scrollToBottom, scrollToTop } = useScrollContainer();
+  const [shouldMaintainScrollBottom, setShouldMaintainScrollBottom] = useState(false);
+  const { isScrolled, scrollContainerRef, scrollContainerElement, bottomRef, scrollToBottom } = useScrollContainer();
 
   const {
     data: boardCardData,
@@ -94,16 +97,18 @@ function BoardCardComponent() {
     }
   };
 
-  // Mark as read on open if there are unread messages and set document title to email subject
+  // Mark as read on open if there are unread messages and set document title to email subject, scroll to bottom if already read
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignore markAsReadMutation to avoid infinite loop
   useEffect(() => {
-    if (boardCard?.unread) {
-      markAsReadMutation.mutate({ boardId, boardCardId });
-    }
-
     if (boardCard) {
       document.title = `${boardCard.subject} | Bordly`;
       setSubject(boardCard.subject === FALLBACK_SUBJECT ? '' : boardCard.subject);
+
+      if (boardCard.unread) {
+        markAsReadMutation.mutate({ boardId, boardCardId });
+      } else {
+        setShouldMaintainScrollBottom(true);
+      }
     }
 
     if (boardCard?.emailDraft && !boardCard.emailDraft.generated) {
@@ -114,9 +119,29 @@ function BoardCardComponent() {
   // Scroll to bottom when reply card is shown
   useEffect(() => {
     if (showReply) {
-      setTimeout(() => scrollToTop(), 100);
+      setTimeout(() => scrollToBottom(), SCROLL_DELAY_MS);
     }
-  }, [showReply, scrollToTop]);
+  }, [showReply, scrollToBottom]);
+
+  // Maintain scroll at bottom when content changes for already-read cards
+  useEffect(() => {
+    if (!shouldMaintainScrollBottom) return;
+    const container = scrollContainerElement.current;
+    if (!container || !bottomRef.current) return;
+    // Scroll to bottom immediately
+    bottomRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
+    // Use MutationObserver to detect content changes and maintain scroll position
+    const observer = new MutationObserver(() => {
+      if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
+    });
+    observer.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+    // Stop maintaining scroll
+    const timeout = setTimeout(() => setShouldMaintainScrollBottom(false), SCROLL_DELAY_MS);
+    return () => {
+      observer.disconnect();
+      clearTimeout(timeout);
+    };
+  }, [shouldMaintainScrollBottom, scrollContainerElement, bottomRef]);
 
   // Prefetch email addresses for EmailDraftCard
   usePrefetchQuery(queryClient, {
@@ -129,10 +154,10 @@ function BoardCardComponent() {
 
   // Reload draft if changed by another user to keep it up to date
   useEffect(() => {
-    if (boardCard?.emailDraft?.lastEditedByUserId !== currentUser.id) {
+    if (boardCard?.emailDraft?.lastEditedByUserId !== currentUser.id && boardCard?.emailDraft?.updatedAt) {
       setDraftChangeCount((count) => count + 1);
     }
-  }, [boardCard?.emailDraft?.lastEditedByUserId, currentUser.id]);
+  }, [boardCard?.emailDraft?.lastEditedByUserId, boardCard?.emailDraft?.updatedAt, currentUser.id]);
 
   const noMessages = boardCard?.emailMessageCount === 0;
 
@@ -226,7 +251,7 @@ function BoardCardComponent() {
                 context={context}
                 boardMembers={boardMembers}
                 onCommentAdded={() => {
-                  setTimeout(() => scrollToBottom(), 100);
+                  setTimeout(() => scrollToBottom(), SCROLL_DELAY_MS);
                 }}
               />
             </>

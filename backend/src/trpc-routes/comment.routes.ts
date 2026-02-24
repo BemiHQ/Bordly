@@ -15,25 +15,27 @@ export const COMMENT_ROUTES = {
         z.object({
           boardId: z.uuid(),
           boardCardId: z.uuid(),
-          text: z.string().min(1),
+          contentHtml: z.string().min(1),
+          contentText: z.string().min(1),
         }),
       )
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardMember({ ctx, input });
-        const boardCard = await BoardCardService.findById(board, {
+        const initialBoardCard = await BoardCardService.findById(board, {
           boardCardId: input.boardCardId,
           populate: BOARD_CARD_POPULATE,
         });
-        const comment = await CommentService.create(boardCard, {
+        const { boardCard, comment } = await CommentService.create(initialBoardCard, {
           board,
           user: ctx.user!,
-          text: input.text,
+          contentHtml: input.contentHtml,
+          contentText: input.contentText,
           userTimeZone: ctx.userTimeZone,
         });
 
         return {
           comment: Comment.toJson(comment),
-          boardCard: boardCardToJson(boardCard, ctx),
+          boardCard: boardCardToJson(boardCard as typeof initialBoardCard, ctx),
         };
       }),
     edit: publicProcedure
@@ -42,39 +44,41 @@ export const COMMENT_ROUTES = {
           boardId: z.uuid(),
           boardCardId: z.uuid(),
           commentId: z.uuid(),
-          text: z.string().min(1),
+          contentHtml: z.string().min(1),
+          contentText: z.string().min(1),
         }),
       )
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardMember({ ctx, input });
-        const boardCard = await BoardCardService.findById(board, {
+        const initialBoardCard = await BoardCardService.findById(board, {
           boardCardId: input.boardCardId,
           populate: [...BOARD_CARD_POPULATE, 'boardColumn'],
         });
-        const comment = await CommentService.edit(boardCard, {
+        const { boardCard, comment } = await CommentService.edit(initialBoardCard, {
           board,
           user: ctx.user!,
           commentId: input.commentId,
-          text: input.text,
+          contentHtml: input.contentHtml,
+          contentText: input.contentText,
           userTimeZone: ctx.userTimeZone,
           populate: POPULATE,
         });
 
         return {
           comment: Comment.toJson(comment),
-          boardCard: boardCardToJson(boardCard, ctx),
+          boardCard: boardCardToJson(boardCard as typeof initialBoardCard, ctx),
         };
       }),
     delete: publicProcedure
       .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid(), commentId: z.uuid() }))
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardMember({ ctx, input });
-        const boardCard = await BoardCardService.findById(board, {
+        const initialBoardCard = await BoardCardService.findById(board, {
           boardCardId: input.boardCardId,
           populate: BOARD_CARD_POPULATE,
         });
-        await CommentService.delete(boardCard, { commentId: input.commentId });
-        return { boardCard: boardCardToJson(boardCard, ctx) };
+        const boardCard = await CommentService.delete(initialBoardCard, { commentId: input.commentId });
+        return { boardCard: boardCardToJson(boardCard as typeof initialBoardCard, ctx) };
       }),
   } satisfies TRPCRouterRecord,
 };

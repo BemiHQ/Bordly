@@ -32,7 +32,7 @@ export class BoardService {
     populate: readonly AutoPath<Board, Hint, PopulatePath.ALL>[],
   ) {
     await orm.em.populate(board, populate);
-    return board;
+    return board as Loaded<Board, Hint>;
   }
 
   static async setName(board: Board, { name }: { name: string }) {

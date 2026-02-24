@@ -14,18 +14,17 @@ import { Logger } from '@/utils/logger';
 export const boardCardReadTool = createTool({
   id: 'board-card-read',
   description: 'Read board card with email messages, an email draft, and comments',
-  inputSchema: z.object({
-    boardCardId: z.uuid().describe('The ID of the board card to read'),
-  }),
-  execute: async ({ boardCardId }, context) => {
-    Logger.info(`[AGENT] Tool board-card-read for board card ${boardCardId}`);
+  inputSchema: z.object({}),
+  execute: async (_, context) => {
     const { requestContext } = context as { requestContext: RequestContext<Context> };
-    const bordlyBoardMember = requestContext.get('bordlyBoardMember');
+    const initialBoardCard = requestContext.get('boardCard');
+    Logger.info(`[AGENT] Tool board-card-read for board card ${initialBoardCard.id}`);
 
-    const boardCard = await BoardCardService.findById(bordlyBoardMember.board, {
-      boardCardId,
-      populate: ['assignedBoardMember.user', 'boardColumn', 'emailDraft.fileAttachments'],
-    });
+    const boardCard = await BoardCardService.populate(initialBoardCard, [
+      'assignedBoardMember.user',
+      'boardColumn',
+      'emailDraft.fileAttachments',
+    ]);
 
     const [lastEmailMessage] = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
       populate: ['domain', 'gmailAttachments'],
@@ -50,6 +49,7 @@ export const boardCardReadTool = createTool({
     if (result.lastEmailMessage) Logger.log(result.lastEmailMessage);
     Logger.logObjects(result.commentsAsc);
 
+    requestContext.set('boardCard', boardCard);
     return result;
   },
 });

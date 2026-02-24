@@ -16,7 +16,6 @@ export const emailDraftUpsertTool = createTool({
   id: 'email-draft-upsert',
   description: 'Insert or update an email draft within a board card',
   inputSchema: z.object({
-    boardCardId: z.uuid().describe('The ID of the board card'),
     subject: z.string().describe('Email subject line'),
     from: z.string().min(1).describe('Sender email address'),
     to: z.array(z.string().min(1)).min(1).optional().describe('Recipient email addresses'),
@@ -26,8 +25,9 @@ export const emailDraftUpsertTool = createTool({
     replyToEmailMessageId: z.uuid().optional().describe('The ID of the email message this draft is replying to'),
   }),
   execute: async (data, context) => {
-    console.log(`[AGENT] Executing email-draft-upsert for board card ${data.boardCardId}: ${JSON.stringify(data)}`);
     const { requestContext } = context as { requestContext: RequestContext<Context> };
+    const initialBoardCard = requestContext.get('boardCard');
+    console.log(`[AGENT] Executing email-draft-upsert for board card ${initialBoardCard.id}: ${JSON.stringify(data)}`);
     const bordlyBoardMember = requestContext.get('bordlyBoardMember');
     const userTimeZone = requestContext.get('userTimeZone');
     if (!bordlyBoardMember) throw new Error('Board member context is required');
@@ -35,10 +35,11 @@ export const emailDraftUpsertTool = createTool({
     await BoardMemberService.populate(bordlyBoardMember, ['user.boardMembers']);
     const user = bordlyBoardMember.loadedUser as Loaded<User, 'boardMembers'>;
 
-    const boardCard = await BoardCardService.findById(bordlyBoardMember.board, {
-      boardCardId: data.boardCardId,
-      populate: ['emailDraft', 'boardColumn', 'boardCardReadPositions'],
-    });
+    const boardCard = await BoardCardService.populate(initialBoardCard, [
+      'emailDraft',
+      'boardColumn',
+      'boardCardReadPositions',
+    ]);
 
     const quotedEmailHtml = await quotedHtml({
       boardCard,
@@ -57,6 +58,7 @@ export const emailDraftUpsertTool = createTool({
       bodyHtml: `${data.mainHtml}${quotedEmailHtml}`,
     });
 
+    requestContext.set('boardCard', boardCard);
     return { success: true };
   },
 });

@@ -3,7 +3,6 @@ import { isBordlyComment } from 'bordly-backend/utils/shared';
 import { ArrowDown } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import type { RouteContext } from '@/hooks/use-route-context';
 import { type BoardMember, solo } from '@/query-helpers/board';
@@ -16,6 +15,7 @@ import {
 } from '@/query-helpers/board-card';
 import { replaceBoardCardData as replaceBoardCardDataInList } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
+import { MentionTextarea } from './mention-textarea';
 
 export const CommentInput = ({
   boardId,
@@ -31,7 +31,8 @@ export const CommentInput = ({
   onCommentAdded?: () => void;
 }) => {
   const { trpc, queryClient } = context;
-  const [text, setText] = useState('');
+  const [content, setContent] = useState({ html: '', text: '' });
+  const [isShowingMentions, setIsShowingMentions] = useState(false);
 
   const boardCardQueryKey = trpc.boardCard.get.queryKey({ boardId, boardCardId });
   const optimisticallyCreateComment = useOptimisticMutation({
@@ -39,7 +40,7 @@ export const CommentInput = ({
     queryKey: boardCardQueryKey,
     onExecute: (params) => {
       addFakeCommentData({ trpc, queryClient, params });
-      if (isBordlyComment(params.text)) {
+      if (isBordlyComment(params.contentText)) {
         const bordlyUser = boardMembers.find((member) => member.isAgent);
         if (bordlyUser) {
           addBordlyThinkingComment({
@@ -66,34 +67,39 @@ export const CommentInput = ({
   });
 
   const handleSubmit = () => {
-    if (!text.trim()) return;
+    if (!content.text.trim()) return;
 
-    optimisticallyCreateComment({ boardId, boardCardId, text: text.trim() });
-    setText('');
+    optimisticallyCreateComment({
+      boardId,
+      boardCardId,
+      contentHtml: content.html.trim(),
+      contentText: content.text.trim(),
+    });
+    setContent({ html: '', text: '' });
     onCommentAdded?.();
   };
 
   return (
     <div className="fixed bottom-0 w-full rounded-b-lg">
       <div className="relative z-10 mx-[19px] mb-5 rounded-lg bg-primary-foreground">
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
+        <MentionTextarea
+          boardMembers={boardMembers}
+          value={content.html}
+          onChange={setContent}
+          onMentionStateChange={setIsShowingMentions}
+          onKeyDown={(event: KeyboardEvent) => {
+            if (event.key === 'Enter' && !event.shiftKey && !isShowingMentions) {
+              event.preventDefault();
               handleSubmit();
             }
           }}
           placeholder={`Chat with @Bordly${solo(boardMembers) ? '' : ' and your team'}...`}
           className={cn(
             'bg-transparent pr-10 font-sans py-1.5',
-            text.trim() && 'border-semi-muted focus-visible:border-semi-muted focus-visible:ring-0 ',
+            content.text.trim() && 'border-semi-muted focus-visible:border-semi-muted focus-visible:ring-0 ',
           )}
-          rows={1}
-          autoResize
         />
-        {text.trim() && (
+        {content.text.trim() && (
           <div className="fixed right-7 bottom-[25px] z-10">
             <Button onClick={handleSubmit} size="icon" className="size-5.5 rounded-full">
               <ArrowDown className="size-3" />

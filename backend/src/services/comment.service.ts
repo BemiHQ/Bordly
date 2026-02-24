@@ -1,7 +1,6 @@
 import type { Loaded, OrderDefinition, Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
-import type { BoardMember } from '@/entities/board-member';
 import { Comment } from '@/entities/comment';
 import type { User } from '@/entities/user';
 import { AgentService } from '@/services/agent.service';
@@ -16,16 +15,23 @@ export class CommentService {
     {
       board,
       user,
-      text,
+      contentHtml,
+      contentText,
       userTimeZone,
-    }: { board: Loaded<Board>; user: Loaded<User, 'boardMembers'>; text: string; userTimeZone?: string },
+    }: {
+      board: Loaded<Board>;
+      user: Loaded<User, 'boardMembers'>;
+      contentHtml: string;
+      contentText: string;
+      userTimeZone?: string;
+    },
   ) {
-    const comment = new Comment({ boardCard, user, text });
+    const comment = new Comment({ boardCard, user, contentHtml, contentText });
     const boardMember = user.boardMembers.find((bm) => bm.board.id === board.id)!;
 
     if (!boardCard.assignedBoardMember) boardCard.assignToBoardMember(boardMember);
     boardCard.addParticipantUserId(user.id);
-    boardCard.setSnippet(`${user.firstName}: ${text}`);
+    boardCard.setSnippet(`${user.firstName}: ${contentText}`);
     boardCard.setLastEventAt(comment.createdAt);
 
     const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
@@ -35,16 +41,23 @@ export class CommentService {
 
     await orm.em.flush();
 
-    if (isBordlyComment(text)) {
+    if (isBordlyComment(contentText)) {
       const userBoardMember = await BoardMemberService.findById(board, {
         boardMemberId: boardMember.id,
         populate: ['user', 'memory'],
       });
-      const prompt = CommentService.bordlyPrompt(text);
-      await AgentService.runBordlyAgent({ board, boardCardId: boardCard.id, prompt, userBoardMember, userTimeZone });
+      const prompt = CommentService.bordlyPrompt(contentText);
+      const updatedBoardCard = await AgentService.runBordlyAgent({
+        board,
+        boardCard,
+        prompt,
+        userBoardMember,
+        userTimeZone,
+      });
+      return { boardCard: updatedBoardCard, comment };
     }
 
-    return comment;
+    return { boardCard, comment };
   }
 
   static async edit<Hint extends string = never>(
@@ -53,14 +66,16 @@ export class CommentService {
       board,
       user,
       commentId,
-      text,
+      contentHtml,
+      contentText,
       userTimeZone,
       populate,
     }: {
       board: Loaded<Board>;
       user: Loaded<User, 'boardMembers'>;
       commentId: string;
-      text: string;
+      contentHtml: string;
+      contentText: string;
       userTimeZone?: string;
       populate?: Populate<Comment, Hint>;
     },
@@ -69,26 +84,33 @@ export class CommentService {
     const boardMember = user.boardMembers.find((bm) => bm.board.id === board.id)!;
     const wasLastBoardCardEvent = comment.createdAt.getTime() === boardCard.lastEventAt.getTime();
 
-    comment.update({ text });
+    comment.update({ contentHtml, contentText });
     orm.em.persist(comment);
     if (wasLastBoardCardEvent) {
-      boardCard.setSnippet(`${comment.user.firstName}: ${text}`);
+      boardCard.setSnippet(`${comment.user.firstName}: ${contentText}`);
       orm.em.persist(boardCard);
     }
 
     await orm.em.flush();
 
-    if (isBordlyComment(text)) {
+    if (isBordlyComment(contentText)) {
       const userBoardMember = await BoardMemberService.findById(board, {
         boardMemberId: boardMember.id,
         populate: ['user', 'memory'],
       });
 
-      const prompt = CommentService.bordlyPrompt(text);
-      await AgentService.runBordlyAgent({ board, boardCardId: boardCard.id, prompt, userBoardMember, userTimeZone });
+      const prompt = CommentService.bordlyPrompt(contentText);
+      const updatedBoardCard = await AgentService.runBordlyAgent({
+        board,
+        boardCard,
+        prompt,
+        userBoardMember,
+        userTimeZone,
+      });
+      return { boardCard: updatedBoardCard, comment };
     }
 
-    return comment;
+    return { boardCard, comment };
   }
 
   static async delete(boardCard: BoardCard, { commentId }: { commentId: string }) {
@@ -99,11 +121,11 @@ export class CommentService {
 
     if (wasLastBoardCardEvent) {
       const lastComment = (
-        await CommentService.findCommentsByBoardCard(boardCard, {
-          populate: ['user'],
-          orderBy: { createdAt: 'DESC' },
-          limit: 1,
-        })
+        await orm.em.find(
+          Comment,
+          { boardCard, id: { $ne: commentId } },
+          { populate: ['user'], orderBy: { createdAt: 'DESC' }, limit: 1 },
+        )
       )[0];
 
       const lastEmailMessage = (
@@ -115,14 +137,14 @@ export class CommentService {
 
       if (lastComment && lastEmailMessage) {
         if (lastComment.createdAt.getTime() > lastEmailMessage.externalCreatedAt.getTime()) {
-          boardCard.setSnippet(`${lastComment.user.firstName}: ${lastComment.text}`);
+          boardCard.setSnippet(`${lastComment.user.firstName}: ${lastComment.contentText}`);
           boardCard.setLastEventAt(lastComment.createdAt);
         } else {
           boardCard.setSnippet(lastEmailMessage.snippet);
           boardCard.setLastEventAt(lastEmailMessage.externalCreatedAt);
         }
       } else if (lastComment) {
-        boardCard.setSnippet(`${lastComment.user.firstName}: ${lastComment.text}`);
+        boardCard.setSnippet(`${lastComment.user.firstName}: ${lastComment.contentText}`);
         boardCard.setLastEventAt(lastComment.createdAt);
       } else if (lastEmailMessage) {
         boardCard.setSnippet(lastEmailMessage.snippet);
@@ -132,6 +154,7 @@ export class CommentService {
     }
 
     await orm.em.flush();
+    return boardCard;
   }
 
   static async findCommentsByBoardCard<Hint extends string = never>(

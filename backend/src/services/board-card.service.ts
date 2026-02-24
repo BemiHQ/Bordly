@@ -1,4 +1,4 @@
-import type { Loaded, Populate } from '@mikro-orm/postgresql';
+import type { AutoPath, Loaded, Populate, PopulatePath } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
 import type { BoardAccount } from '@/entities/board-account';
 import { BoardCard, State } from '@/entities/board-card';
@@ -79,6 +79,14 @@ export class BoardCardService {
     populate?: Populate<BoardCard, Hint>;
   }) {
     return orm.em.find(BoardCard, { boardColumn: { board } }, { populate });
+  }
+
+  static async populate<Hint extends string = never>(
+    boardCard: Loaded<BoardCard>,
+    populate: readonly AutoPath<BoardCard, Hint, PopulatePath.ALL>[],
+  ) {
+    await orm.em.populate(boardCard, populate);
+    return boardCard as Loaded<BoardCard, Hint>;
   }
 
   static async createWithEmailDraft(

@@ -19,31 +19,37 @@ export class Comment extends BaseEntity {
   user: User;
 
   @Property({ columnType: 'text' })
-  text: string;
+  contentText: string;
+  @Property({ columnType: 'text' })
+  contentHtml: string;
   @Property()
   editedAt?: Date;
 
   constructor({
     boardCard,
     user,
-    text,
+    contentText,
+    contentHtml,
     createdAt,
   }: {
     boardCard: BoardCard;
     user: User;
-    text: string;
+    contentText: string;
+    contentHtml: string;
     createdAt?: Date;
   }) {
     super();
     this.boardCard = boardCard;
     this.user = user;
-    this.text = text;
+    this.contentText = contentText;
+    this.contentHtml = contentHtml;
     this.createdAt = createdAt ?? new Date();
     this.validate();
   }
 
-  update({ text }: { text: string }) {
-    this.text = text;
+  update({ contentText, contentHtml }: { contentText: string; contentHtml: string }) {
+    this.contentText = contentText;
+    this.contentHtml = contentHtml;
     this.editedAt = new Date();
     this.validate();
   }
@@ -53,7 +59,8 @@ export class Comment extends BaseEntity {
       id: comment.id,
       boardCardId: comment.boardCard.id,
       user: User.toJson(comment.loadedUser),
-      text: comment.text,
+      contentHtml: comment.contentHtml,
+      contentText: comment.contentText,
       createdAt: comment.createdAt,
       editedAt: comment.editedAt,
     };
@@ -62,10 +69,10 @@ export class Comment extends BaseEntity {
   static toText(comment: Loaded<Comment, 'user'>) {
     const user = comment.loadedUser;
     const items = [
-      `- Comment ID: ${comment.id}`,
+      `- ID: ${comment.id}`,
       `- Created At: ${comment.createdAt.toISOString()}`,
       `- User: ${User.toStr(user)}`,
-      `- Text: ${comment.text}`,
+      `- Content: ${comment.contentText}`,
     ];
 
     return `Comment:
@@ -75,6 +82,7 @@ ${items.join('\n')}`;
   private validate() {
     if (!this.boardCard) throw new Error('BoardCard is required');
     if (!this.user) throw new Error('User is required');
-    if (!this.text) throw new Error('Text is required');
+    if (!this.contentHtml) throw new Error('Content html is required');
+    if (!this.contentText) throw new Error('Content text is required');
   }
 }

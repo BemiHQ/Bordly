@@ -10,7 +10,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Textarea } from '@/components/ui/textarea';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
@@ -26,6 +25,7 @@ import {
 import { replaceBoardCardData as replaceBoardCardDataInList } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
 import { formattedShortTime } from '@/utils/time';
+import { MentionTextarea, renderCommentHtml } from './mention-textarea';
 
 export const PostedComment = ({
   comment,
@@ -40,8 +40,9 @@ export const PostedComment = ({
 }) => {
   const { trpc, queryClient, currentUser } = useRouteContext();
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(comment.text);
+  const [editContent, setEditContent] = useState({ html: comment.contentHtml, text: comment.contentText });
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isShowingMentions, setIsShowingMentions] = useState(false);
 
   const boardCardQueryKey = trpc.boardCard.get.queryKey({ boardId, boardCardId });
   const optimisticallyEditComment = useOptimisticMutation({
@@ -49,7 +50,7 @@ export const PostedComment = ({
     queryKey: boardCardQueryKey,
     onExecute: (params) => {
       updateCommentData({ trpc, queryClient, params });
-      if (isBordlyComment(params.text)) {
+      if (isBordlyComment(params.contentText)) {
         const bordlyUser = boardMembers.find((member) => member.isAgent);
         if (bordlyUser) {
           addBordlyThinkingComment({
@@ -90,17 +91,23 @@ export const PostedComment = ({
     ),
     undoMutationConfig: () => ({
       mutation: createCommentMutation,
-      params: { boardId, boardCardId, text: comment.text },
+      params: { boardId, boardCardId, contentHtml: comment.contentHtml, contentText: comment.contentText },
     }),
   });
 
   const handleEdit = () => {
-    if (!editText.trim() || editText === comment.text) {
+    if (!editContent.html.trim() || editContent.html === comment.contentHtml) {
       setIsEditing(false);
-      setEditText(comment.text);
+      setEditContent({ html: comment.contentHtml, text: comment.contentHtml });
       return;
     }
-    optimisticallyEditComment({ boardId, boardCardId, commentId: comment.id, text: editText.trim() });
+    optimisticallyEditComment({
+      boardId,
+      boardCardId,
+      commentId: comment.id,
+      contentHtml: editContent.html.trim(),
+      contentText: editContent.text.trim(),
+    });
     setIsEditing(false);
   };
 
@@ -125,24 +132,28 @@ export const PostedComment = ({
         </Avatar>
         {isEditing ? (
           <div className="flex-1">
-            <Textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
+            <MentionTextarea
+              boardMembers={boardMembers}
+              value={editContent.html}
+              onChange={setEditContent}
+              onMentionStateChange={setIsShowingMentions}
+              onKeyDown={(event: KeyboardEvent) => {
+                if (event.key === 'Enter' && !event.shiftKey && !isShowingMentions) {
+                  event.preventDefault();
                   handleEdit();
                 }
-                if (e.key === 'Escape') {
-                  e.preventDefault();
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  event.stopPropagation();
                   setIsEditing(false);
-                  setEditText(comment.text);
+                  setEditContent({ html: comment.contentHtml, text: comment.contentText });
                 }
               }}
               placeholder={`Chat with @Bordly${solo(boardMembers) ? '' : ' and your team'}...`}
-              className="text-sm bg-primary-foreground font-sans py-1.5"
-              rows={1}
-              autoResize
+              className={cn(
+                'bg-primary-foreground pr-10 font-sans py-1.5',
+                editContent.text.trim() && 'border-semi-muted focus-visible:border-semi-muted focus-visible:ring-0 ',
+              )}
               autoFocus
             />
             <div className="flex gap-2 mt-2">
@@ -152,7 +163,7 @@ export const PostedComment = ({
               <Button
                 onClick={() => {
                   setIsEditing(false);
-                  setEditText(comment.text);
+                  setEditContent({ html: comment.contentHtml, text: comment.contentText });
                 }}
                 variant="ghost"
                 size="sm"
@@ -164,7 +175,7 @@ export const PostedComment = ({
         ) : (
           <div className="flex flex-row gap-1 group">
             <div className="text-sm text-text-secondary font-normal bg-border rounded-md px-2.5 py-[3px] whitespace-pre-wrap">
-              {comment.text}
+              {renderCommentHtml(comment.contentHtml)}
             </div>
             {isOwnComment && (
               <DropdownMenu onOpenChange={setDropdownOpen}>

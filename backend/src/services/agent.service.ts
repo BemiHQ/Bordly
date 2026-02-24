@@ -4,6 +4,7 @@ import { RequestContext } from '@mastra/core/request-context';
 import type { ToolAction } from '@mastra/core/tools';
 import type { Loaded } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
+import type { BoardCard } from '@/entities/board-card';
 import { BoardMember } from '@/entities/board-member';
 import { BORDLY_USER_ID } from '@/entities/user';
 import { BoardMemberService } from '@/services/board-member.service';
@@ -17,6 +18,7 @@ export interface Context {
   userBoardMember?: Loaded<BoardMember>;
   userTimeZone?: string;
   bordlyBoardMember: Loaded<BoardMember>;
+  boardCard: Loaded<BoardCard>;
 }
 
 const BORDLY_AGENT = {
@@ -58,13 +60,13 @@ export class AgentService {
 
   static async runBordlyAgent({
     board,
-    boardCardId,
+    boardCard,
     prompt,
     userBoardMember,
     userTimeZone,
   }: {
     board: Loaded<Board>;
-    boardCardId: string;
+    boardCard: Loaded<BoardCard>;
     prompt: string;
     userBoardMember: Loaded<BoardMember, 'user' | 'memory'>;
     userTimeZone?: string;
@@ -78,19 +80,24 @@ export class AgentService {
     requestContext.set('bordlyBoardMember', bordlyBoardMember);
     requestContext.set('userBoardMember', userBoardMember);
     requestContext.set('userTimeZone', userTimeZone);
+    requestContext.set('boardCard', boardCard);
 
     const agent = AgentService.createAgent(BORDLY_AGENT);
     const messages: MessageListInput = [
-      { role: 'system', content: `You are assisting with email management for a board card with ID ${boardCardId}.` },
+      { role: 'system', content: `You are assisting with email management for a board card with ID ${boardCard.id}.` },
+      {
+        role: 'system',
+        content: `Current date and time: ${new Date().toLocaleString('en-US', { timeZone: userTimeZone })} (${userTimeZone})`,
+      },
       { role: 'system', content: `The user who sent the prompt: ${BoardMember.toText(userBoardMember)}` },
       { role: 'user', content: prompt },
     ];
 
-    Logger.info(`[AGENT] Running Bordly for board card ${boardCardId}`);
+    Logger.info(`[AGENT] Running Bordly for board card ${boardCard.id}`);
     Logger.logObjects(messages);
     const response = await agent.generate(messages, { requestContext });
-    Logger.info(`[AGENT] Completed Bordly for board card ${boardCardId}:\n${response.text}`);
+    Logger.info(`[AGENT] Completed Bordly for board card ${boardCard.id}:\n${response.text}`);
 
-    return response;
+    return requestContext.get('boardCard') as typeof boardCard;
   }
 }

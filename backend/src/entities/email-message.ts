@@ -3,7 +3,7 @@ import { BaseEntity } from '@/entities/base-entity';
 import { Domain } from '@/entities/domain';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
-import { htmlToText, parseHtmlBody, parseTextBody } from '@/utils/email';
+import { parseHtmlBody, parseTextBody } from '@/utils/email';
 import { type Participant, participantToString } from '@/utils/shared';
 
 export interface EmailMessage {

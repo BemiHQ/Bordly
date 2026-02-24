@@ -132,11 +132,11 @@ export const addEmailMessageData = ({
 export const addFakeCommentData = ({
   trpc,
   queryClient,
-  params: { boardId, boardCardId, text },
+  params: { boardId, boardCardId, contentHtml, contentText },
 }: {
   trpc: TrpcProxy;
   queryClient: QueryClient;
-  params: { boardId: string; boardCardId: string; text: string };
+  params: { boardId: string; boardCardId: string; contentHtml: string; contentText: string };
 }) => {
   const currentUser = queryClient.getQueryData(trpc.user.getCurrentUser.queryKey())?.currentUser;
 
@@ -146,7 +146,8 @@ export const addFakeCommentData = ({
       id: 'fake-id',
       boardCardId,
       user: currentUser,
-      text,
+      contentHtml,
+      contentText,
       createdAt: new Date(),
       editedAt: undefined,
     };
@@ -175,17 +176,19 @@ export const replaceFakeCommentData = ({
 export const updateCommentData = ({
   trpc,
   queryClient,
-  params: { boardId, boardCardId, commentId, text },
+  params: { boardId, boardCardId, commentId, contentHtml, contentText },
 }: {
   trpc: TrpcProxy;
   queryClient: QueryClient;
-  params: { boardId: string; boardCardId: string; commentId: string; text: string };
+  params: { boardId: string; boardCardId: string; commentId: string; contentHtml: string; contentText: string };
 }) => {
   queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId }), (oldData) => {
     if (!oldData) return oldData;
     return {
       ...oldData,
-      commentsAsc: oldData.commentsAsc.map((c) => (c.id === commentId ? { ...c, text, editedAt: new Date() } : c)),
+      commentsAsc: oldData.commentsAsc.map((c) =>
+        c.id === commentId ? { ...c, contentHtml, contentText, editedAt: new Date() } : c,
+      ),
     } satisfies typeof oldData;
   });
 };
@@ -223,7 +226,8 @@ export const addBordlyThinkingComment = ({
       id: 'bordly-thinking',
       boardCardId,
       user: bordlyUser,
-      text: 'Thinking...',
+      contentHtml: '<i>Thinking...</i>',
+      contentText: 'Thinking...',
       createdAt: new Date(),
       editedAt: undefined,
     };

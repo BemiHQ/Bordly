@@ -30,7 +30,7 @@ export class BoardMemberService {
     populate: readonly AutoPath<BoardMember, Hint, PopulatePath.ALL>[],
   ) {
     await orm.em.populate(boardMember, populate);
-    return boardMember;
+    return boardMember as Loaded<BoardMember, Hint>;
   }
 
   static async findMembers<Hint extends string = never>(
