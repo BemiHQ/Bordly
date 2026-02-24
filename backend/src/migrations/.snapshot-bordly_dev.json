@@ -1330,8 +1330,8 @@
           "length": 6,
           "mappedType": "datetime"
         },
-        "gmail_account_id": {
-          "name": "gmail_account_id",
+        "board_account_id": {
+          "name": "board_account_id",
           "type": "uuid",
           "unsigned": false,
           "autoincrement": false,
@@ -1492,8 +1492,8 @@
           "unique": false
         },
         {
-          "keyName": "board_cards_gmail_account_id_index",
-          "columnNames": ["gmail_account_id"],
+          "keyName": "board_cards_board_account_id_index",
+          "columnNames": ["board_account_id"],
           "composite": false,
           "constraint": false,
           "primary": false,
@@ -1518,12 +1518,12 @@
       ],
       "checks": [],
       "foreignKeys": {
-        "board_cards_gmail_account_id_foreign": {
-          "constraintName": "board_cards_gmail_account_id_foreign",
-          "columnNames": ["gmail_account_id"],
+        "board_cards_board_account_id_foreign": {
+          "constraintName": "board_cards_board_account_id_foreign",
+          "columnNames": ["board_account_id"],
           "localTableName": "public.board_cards",
           "referencedColumnNames": ["id"],
-          "referencedTableName": "public.gmail_accounts",
+          "referencedTableName": "public.board_accounts",
           "updateRule": "cascade"
         },
         "board_cards_board_column_id_foreign": {

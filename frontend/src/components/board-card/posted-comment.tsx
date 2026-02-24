@@ -18,8 +18,8 @@ import { type BoardMember, solo } from '@/query-helpers/board';
 import type { Comment } from '@/query-helpers/board-card';
 import {
   addBordlyThinkingComment,
-  deleteBordlyThinkingComment,
-  deleteCommentData,
+  removeBordlyThinkingComment,
+  removeCommentData,
   replaceBoardCardData,
   updateCommentData,
 } from '@/query-helpers/board-card';
@@ -65,7 +65,7 @@ export const PostedComment = ({
       trpc.comment.edit.mutationOptions({
         onSuccess: ({ boardCard }) => {
           replaceBoardCardData({ trpc, queryClient, params: { boardId, boardCard } });
-          deleteBordlyThinkingComment({ trpc, queryClient, params: { boardId, boardCardId } });
+          removeBordlyThinkingComment({ trpc, queryClient, params: { boardId, boardCardId } });
 
           replaceBoardCardDataInList({ trpc, queryClient, params: { boardId, boardCard } });
         },
@@ -77,7 +77,7 @@ export const PostedComment = ({
   const optimisticallyDeleteComment = useOptimisticMutationWithUndo({
     queryClient,
     queryKey: boardCardQueryKey,
-    onExecute: (params) => deleteCommentData({ trpc, queryClient, params }),
+    onExecute: (params) => removeCommentData({ trpc, queryClient, params }),
     successToast: 'Comment deleted',
     errorToast: 'Failed to delete the comment',
     mutation: useMutation(

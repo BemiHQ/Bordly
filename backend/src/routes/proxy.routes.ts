@@ -47,28 +47,22 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
     try {
       const userId = request.session.get('userId') as string | undefined;
       const user = await UserService.tryFindById(userId, { populate: ['boardMembers.board'] });
-      if (!user) {
-        throw new Error(`User not found for ID: ${userId}`);
-      }
-
+      if (!user) throw new Error(`User not found for ID: ${userId}`);
       const board = BoardService.tryFindAsMember(boardId, { user });
-      if (!board) {
-        throw new Error(`Board not found or user is not a member: ${boardId} (user ID: ${userId})`);
-      }
+      if (!board) throw new Error(`Board not found or user is not a member: ${boardId} (user ID: ${userId})`);
       const boardCard = await BoardCardService.findById(board, { boardCardId });
       if (!boardCard.externalThreadId) {
         throw new Error(`Board card does not have an external thread ID: ${boardCardId} (user ID: ${userId})`);
       }
       const attachment = await GmailAttachmentService.findByIdAndExternalThreadId(gmailAttachmentId, {
         externalThreadId: boardCard.externalThreadId,
-        populate: ['emailMessage'],
+        populate: ['emailMessage.gmailAccount'],
       });
-
       if (attachment.size > MAX_ATTACHMENT_SIZE) {
         throw new Error(`Attachment size (${attachment.size} bytes) exceeds maximum limit`);
       }
 
-      const gmailAccount = await GmailAccountService.findById(boardCard.gmailAccount.id);
+      const gmailAccount = attachment.loadedEmailMessage.loadedGmailAccount;
       const gmail = await GmailAccountService.initGmail(gmailAccount);
 
       const { data: attachmentData } = await GmailApi.getAttachment(gmail, {

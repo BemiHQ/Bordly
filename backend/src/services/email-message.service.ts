@@ -22,6 +22,7 @@ import { orm } from '@/utils/orm';
 import { FALLBACK_SUBJECT, type Participant } from '@/utils/shared';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
+import { BoardService } from './board.service';
 
 const CREATE_NEW_EMAIL_MESSAGES_READ_DB_INTERVAL_MS = 60 * 1_000; // 60 seconds
 const CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS = 5 * 1_000; // 5 seconds
@@ -174,11 +175,16 @@ export class EmailMessageService {
   }
 
   // Creates: EmailMessage, Attachment, *BoardColumn*, Domain, BoardCard
-  static async createInitialBoardEmailMessages(boardAccountId: string) {
-    const boardAccount = await BoardAccountService.findById(boardAccountId, {
-      populate: ['board.boardMembers.user', 'gmailAccount'],
-    });
-    const { loadedBoard: board, loadedGmailAccount: gmailAccount } = boardAccount;
+  static async createInitialBoardEmailMessages({
+    boardId,
+    boardAccountId,
+  }: {
+    boardId: string;
+    boardAccountId: string;
+  }) {
+    const board = await BoardService.findById(boardId, { populate: ['boardMembers.user'] });
+    const boardAccount = await BoardAccountService.findById(board, { id: boardAccountId, populate: ['gmailAccount'] });
+    const { loadedGmailAccount: gmailAccount } = boardAccount;
 
     const gmail = await GmailAccountService.initGmail(gmailAccount);
     console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
@@ -291,7 +297,7 @@ export class EmailMessageService {
         }
 
         const boardCard = BoardCardService.buildFromEmailMessages({
-          gmailAccount,
+          boardAccount,
           boardColumn: boardColumnsByCategory[category]!,
           emailMessagesDesc: emailMessagesDescByThreadId[threadId]!,
         });
@@ -580,7 +586,7 @@ export class EmailMessageService {
           emailMessages: emailMessagesDesc,
         });
         const boardCard = BoardCardService.buildFromEmailMessages({
-          gmailAccount,
+          boardAccount,
           boardColumn: boardColumnsAsc.find((col) => col.name === category) || boardColumnsAsc[0]!,
           emailMessagesDesc,
         });

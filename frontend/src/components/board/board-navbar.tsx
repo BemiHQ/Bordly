@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { BrainCog, Ellipsis, Link2, ListFilter, MailPlus, UsersRound } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AgentMemoryDialog } from '@/components/board/agent-memory-dialog';
 import { BoardMembersDialog } from '@/components/board/board-members-dialog';
 import { EmailAccountsDialog } from '@/components/board/email-accounts-dialog';
@@ -11,6 +11,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -27,31 +28,64 @@ import { ROUTES } from '@/utils/urls';
 
 export const LOCAL_STORAGE_KEY_FILTERS_PREFIX = 'board-filters';
 
-const ComposeButton = ({ boardId }: { boardId: string }) => {
+const ComposeButton = ({ boardId, boardAccounts }: { boardId: string; boardAccounts: BoardAccount[] }) => {
+  if (boardAccounts.length === 0) {
+    return null;
+  }
+
+  if (boardAccounts.length === 1) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon-sm" className="px-2" asChild>
+            <Link
+              to={ROUTES.BOARD_COMPOSE.replace('$boardId', boardId).replace('$boardAccountId', boardAccounts[0]!.id)}
+            >
+              <MailPlus className="text-muted-foreground" />
+            </Link>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">New email</TooltipContent>
+      </Tooltip>
+    );
+  }
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon-sm" className="px-2" asChild>
-          <Link to={ROUTES.BOARD_COMPOSE.replace('$boardId', boardId)}>
-            <MailPlus className="text-muted-foreground" />
-          </Link>
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="left">New email</TooltipContent>
-    </Tooltip>
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" className="px-2">
+              <MailPlus className="text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="left">New email</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Select account</DropdownMenuLabel>
+        {boardAccounts.map((account) => (
+          <DropdownMenuItem key={account.id} asChild>
+            <Link to={ROUTES.BOARD_COMPOSE.replace('$boardId', boardId).replace('$boardAccountId', account.id)}>
+              {account.receivingEmails ? account.receivingEmails[0] : account.gmailAccount.email}
+            </Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
 const FilterButton = ({ boardAccounts }: { boardAccounts: BoardAccount[] }) => {
   const { filters, setFilters } = useBoardFilters();
   const hasActiveFilters =
-    filters.unread || filters.hasAttachments || filters.draft || filters.assigned || filters.gmailAccountIds.length > 0;
-  const toggleEmailAccount = (accountId: string) => {
+    filters.unread || filters.hasAttachments || filters.draft || filters.assigned || filters.boardAccountIds.length > 0;
+  const toggleBoardAccount = (accountId: string) => {
     setFilters({
       ...filters,
-      gmailAccountIds: filters.gmailAccountIds.includes(accountId)
-        ? filters.gmailAccountIds.filter((id) => id !== accountId)
-        : [...filters.gmailAccountIds, accountId],
+      boardAccountIds: filters.boardAccountIds.includes(accountId)
+        ? filters.boardAccountIds.filter((id) => id !== accountId)
+        : [...filters.boardAccountIds, accountId],
     });
   };
 
@@ -114,8 +148,8 @@ const FilterButton = ({ boardAccounts }: { boardAccounts: BoardAccount[] }) => {
                 {boardAccounts.map((account) => (
                   <Label key={account.id} className="flex gap-2">
                     <Checkbox
-                      checked={filters.gmailAccountIds.includes(account.gmailAccount.id)}
-                      onCheckedChange={() => toggleEmailAccount(account.gmailAccount.id)}
+                      checked={filters.boardAccountIds.includes(account.id)}
+                      onCheckedChange={() => toggleBoardAccount(account.id)}
                     />
                     <span>{account.receivingEmails ? account.receivingEmails[0] : account.gmailAccount.email}</span>
                   </Label>
@@ -198,11 +232,12 @@ export const BoardNavbar = ({
     hasAttachments: false,
     draft: false,
     assigned: false,
-    gmailAccountIds: [],
+    boardAccountIds: [],
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(board.name);
   const { queryClient, trpc } = useRouteContext();
+  const filtersInitialized = useRef(false);
 
   const boardQueryKey = trpc.board.get.queryKey({ boardId: board.id });
   const optimisticallySetName = useOptimisticMutation({
@@ -237,6 +272,8 @@ export const BoardNavbar = ({
 
   // Load filters from localStorage
   useEffect(() => {
+    if (filtersInitialized.current) return;
+    filtersInitialized.current = true;
     const savedFiltersJson = !isSsr() && localStorage.getItem(`${LOCAL_STORAGE_KEY_FILTERS_PREFIX}-${board.id}`);
     if (savedFiltersJson) setFilters(JSON.parse(savedFiltersJson));
   }, [board.id]);
@@ -267,7 +304,7 @@ export const BoardNavbar = ({
           </h1>
         )}
         <div className="flex items-center gap-2">
-          <ComposeButton boardId={board.id} />
+          <ComposeButton boardId={board.id} boardAccounts={boardAccounts} />
           <FilterButton boardAccounts={boardAccounts} />
           <MenuButton board={board} boardMembers={boardMembers} boardAccounts={boardAccounts} />
         </div>

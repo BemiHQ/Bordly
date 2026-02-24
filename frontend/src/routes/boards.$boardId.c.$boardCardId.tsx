@@ -119,7 +119,13 @@ function BoardCardComponent() {
   }, [showReply, scrollToTop]);
 
   // Prefetch email addresses for EmailDraftCard
-  usePrefetchQuery(queryClient, { ...trpc.senderEmailAddress.getAddressesForBoardMember.queryOptions({ boardId }) });
+  usePrefetchQuery(queryClient, {
+    ...trpc.senderEmailAddress.getAddressesForBoardMember.queryOptions({
+      boardId,
+      boardAccountId: boardCard?.boardAccountId || '',
+    }),
+    enabled: !!boardCard?.boardAccountId,
+  });
 
   // Reload draft if changed by another user to keep it up to date
   useEffect(() => {

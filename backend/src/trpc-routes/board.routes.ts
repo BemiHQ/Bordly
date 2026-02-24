@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { BoardColumn } from '@/entities/board-column';
 import { BoardMember } from '@/entities/board-member';
 import { BoardService } from '@/services/board.service';
+import { BoardAccountService } from '@/services/board-account.service';
 import { BoardMemberService } from '@/services/board-member.service';
-import { GmailAccountService } from '@/services/gmail-account.service';
 
 import { authAsBoardAdmin, authAsBoardMember, publicProcedure } from '@/trpc-config';
 
@@ -41,11 +41,11 @@ export const BOARD_ROUTES = {
         });
         return { board: board?.toJson(), error };
       }),
-    deleteGmailAccount: publicProcedure
-      .input(z.object({ boardId: z.uuid(), gmailAccountId: z.uuid() }))
+    deleteBoardAccount: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardAccountId: z.uuid() }))
       .mutation(async ({ input, ctx }) => {
         const { board } = authAsBoardAdmin({ ctx, input });
-        await GmailAccountService.deleteFromBoard(board, { gmailAccountId: input.gmailAccountId });
+        await BoardAccountService.deleteFromBoard(board, { boardAccountId: input.boardAccountId });
       }),
   } satisfies TRPCRouterRecord,
 };

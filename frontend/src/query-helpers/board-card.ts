@@ -190,7 +190,7 @@ export const updateCommentData = ({
   });
 };
 
-export const deleteCommentData = ({
+export const removeCommentData = ({
   trpc,
   queryClient,
   params: { boardId, boardCardId, commentId },
@@ -231,7 +231,7 @@ export const addBordlyThinkingComment = ({
   });
 };
 
-export const deleteBordlyThinkingComment = ({
+export const removeBordlyThinkingComment = ({
   trpc,
   queryClient,
   params: { boardId, boardCardId },

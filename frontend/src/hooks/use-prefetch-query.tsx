@@ -11,9 +11,10 @@ export const usePrefetchQuery = <
   TQueryKey extends QueryKey = QueryKey,
 >(
   queryClient: QueryClient,
-  options: FetchQueryOptions<TQueryFnData, TError, TData, TQueryKey>,
+  options: FetchQueryOptions<TQueryFnData, TError, TData, TQueryKey> & { enabled?: boolean },
 ) => {
   useEffect(() => {
+    if (options.enabled === false) return;
     const timeoutId = setTimeout(() => queryClient.prefetchQuery(options), DELAY_MS);
     return () => clearTimeout(timeoutId);
   }, [queryClient, options]);

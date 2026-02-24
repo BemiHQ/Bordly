@@ -1,8 +1,8 @@
 import type { Loaded, Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
+import type { BoardAccount } from '@/entities/board-account';
 import type { BoardCard } from '@/entities/board-card';
 import { EmailDraft } from '@/entities/email-draft';
-import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { BoardCardService } from '@/services/board-card.service';
 import { DomainService } from '@/services/domain.service';
@@ -16,16 +16,14 @@ import { S3Client } from '@/utils/s3-client';
 import { type Participant, participantToString } from '@/utils/shared';
 
 export class EmailDraftService {
-  static async findDraftsByBoardAndGmailAccount<Hint extends string = never>({
-    board,
-    gmailAccount,
+  static async findDraftsByBoardAccount<Hint extends string = never>({
+    boardAccount,
     populate,
   }: {
-    board: Board;
-    gmailAccount: GmailAccount;
+    boardAccount: Loaded<BoardAccount>;
     populate?: Populate<EmailDraft, Hint>;
   }) {
-    return orm.em.find(EmailDraft, { boardCard: { gmailAccount, boardColumn: { board } } }, { populate });
+    return orm.em.find(EmailDraft, { boardCard: { boardAccount } }, { populate });
   }
 
   static async upsert(
@@ -59,7 +57,12 @@ export class EmailDraftService {
     const ccParticipants = cc?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
     const bccParticipants = bcc?.map(EmailMessageService.parseParticipant).filter((p): p is Participant => !!p);
 
-    const gmailAccount = await EmailDraftService.gmailAccountFromFromParticipant({ board, fromParticipant, user });
+    const gmailAccount = await EmailDraftService.gmailAccountFromFromParticipant({
+      board,
+      fromParticipant,
+      user,
+      boardAccountId: boardCard.boardAccount.id,
+    });
     if (!gmailAccount) {
       throw new Error(`No Gmail account found for sender email ${fromParticipant.email} on board ${board.id}`);
     }
@@ -123,10 +126,7 @@ export class EmailDraftService {
 
   // Returns originally passed { boardCard } type
   static async send(
-    boardCard: Loaded<
-      BoardCard,
-      'gmailAccount' | 'emailDraft.fileAttachments' | 'boardColumn' | 'boardCardReadPositions' | 'comments'
-    >,
+    boardCard: Loaded<BoardCard, 'emailDraft.fileAttachments' | 'boardColumn' | 'boardCardReadPositions' | 'comments'>,
     {
       user,
       from,
@@ -169,7 +169,12 @@ export class EmailDraftService {
       : undefined;
 
     const board = boardCard.loadedBoardColumn.board;
-    const gmailAccount = await EmailDraftService.gmailAccountFromFromParticipant({ board, fromParticipant, user });
+    const gmailAccount = await EmailDraftService.gmailAccountFromFromParticipant({
+      board,
+      fromParticipant,
+      user,
+      boardAccountId: boardCard.boardAccount.id,
+    });
     if (!gmailAccount) {
       throw new Error(`No Gmail account found for sender email ${fromParticipant.email} on board ${board.id}`);
     }
@@ -229,13 +234,16 @@ export class EmailDraftService {
     board,
     fromParticipant,
     user,
+    boardAccountId,
   }: {
     board: Loaded<Board>;
     fromParticipant: Participant;
     user: Loaded<User>;
+    boardAccountId: string;
   }) {
-    const senderEmailAddresses = await SenderEmailAddressService.findAddressesByBoard(board, {
+    const senderEmailAddresses = await SenderEmailAddressService.findAddressesByBoardAccountAndUser(board, {
       user,
+      boardAccountId,
       populate: ['gmailAccount'],
     });
 

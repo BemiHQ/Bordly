@@ -156,6 +156,24 @@ export const removeBoardCardData = ({
   });
 };
 
+export const removeBoardCardsByBoardAccountIdData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardAccountId },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardAccountId: string };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardCardsDesc: oldData.boardCardsDesc.filter((card) => card.boardAccountId !== boardAccountId),
+    } satisfies typeof oldData;
+  });
+};
+
 export const changeBoardCardColumnData = ({
   trpc,
   queryClient,

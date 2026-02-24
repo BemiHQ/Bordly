@@ -64,13 +64,7 @@ export const EMAIL_DRAFT_ROUTES = {
         const { board } = authAsBoardMember({ ctx, input });
         const boardCard = await BoardCardService.findById(board, {
           boardCardId: input.boardCardId,
-          populate: [
-            ...BOARD_CARD_POPULATE,
-            'gmailAccount.senderEmailAddresses',
-            'emailDraft',
-            'boardColumn.board.boardMembers',
-            'comments',
-          ],
+          populate: [...BOARD_CARD_POPULATE, 'emailDraft', 'boardColumn.board.boardMembers', 'comments'],
         });
 
         const { emailMessage, boardCard: updatedBoardCard } = (await EmailDraftService.send(boardCard, {

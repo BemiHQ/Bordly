@@ -6,13 +6,18 @@ import { authAsBoardMember, publicProcedure } from '@/trpc-config';
 
 export const SENDER_EMAIL_ADDRESS_ROUTES = {
   senderEmailAddress: {
-    getAddressesForBoardMember: publicProcedure.input(z.object({ boardId: z.uuid() })).query(async ({ input, ctx }) => {
-      const { board, user } = authAsBoardMember({ ctx, input });
-      const senderEmailAddresses = await SenderEmailAddressService.findAddressesByBoard(board, { user });
-      return {
-        senderEmailAddresses: senderEmailAddresses.map((emailAddress) => emailAddress.toJson()),
-      };
-    }),
+    getAddressesForBoardMember: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardAccountId: z.uuid() }))
+      .query(async ({ input, ctx }) => {
+        const { board, user } = authAsBoardMember({ ctx, input });
+        const senderEmailAddresses = await SenderEmailAddressService.findAddressesByBoardAccountAndUser(board, {
+          user,
+          boardAccountId: input.boardAccountId,
+        });
+        return {
+          senderEmailAddresses: senderEmailAddresses.map((emailAddress) => emailAddress.toJson()),
+        };
+      }),
     getGmailAccountAddresses: publicProcedure.query(async ({ ctx }) => {
       if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
       const senderEmailAddresses = await SenderEmailAddressService.findAddressesByGmailAccount(ctx.user.gmailAccount);

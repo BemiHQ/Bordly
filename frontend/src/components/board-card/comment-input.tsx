@@ -10,7 +10,7 @@ import { type BoardMember, solo } from '@/query-helpers/board';
 import {
   addBordlyThinkingComment,
   addFakeCommentData,
-  deleteBordlyThinkingComment,
+  removeBordlyThinkingComment,
   replaceBoardCardData,
   replaceFakeCommentData,
 } from '@/query-helpers/board-card';
@@ -57,7 +57,7 @@ export const CommentInput = ({
         onSuccess: ({ comment, boardCard }) => {
           replaceFakeCommentData({ trpc, queryClient, params: { boardId, boardCardId, comment } });
           replaceBoardCardData({ trpc, queryClient, params: { boardId, boardCard } });
-          deleteBordlyThinkingComment({ trpc, queryClient, params: { boardId, boardCardId } });
+          removeBordlyThinkingComment({ trpc, queryClient, params: { boardId, boardCardId } });
 
           replaceBoardCardDataInList({ trpc, queryClient, params: { boardId, boardCard } });
         },

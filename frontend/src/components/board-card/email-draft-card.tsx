@@ -81,7 +81,10 @@ export const EmailDraftCard = ({
 
   // Set default "From" address using loaded email addresses
   const { data: emailAddressesData } = useQuery({
-    ...trpc.senderEmailAddress.getAddressesForBoardMember.queryOptions({ boardId }),
+    ...trpc.senderEmailAddress.getAddressesForBoardMember.queryOptions({
+      boardId,
+      boardAccountId: boardCard.boardAccountId,
+    }),
   });
   const lastEmailMessage = emailMessagesAsc[emailMessagesAsc.length - 1];
   const fromEmailAddresses = emailAddressesData?.senderEmailAddresses || [];
@@ -211,11 +214,11 @@ export const EmailDraftCard = ({
     () =>
       sanitizedDisplayHtml({
         bodyHtml: quotedHtml,
-        gmailAttachments: lastEmailMessage.gmailAttachments,
+        gmailAttachments: lastEmailMessage?.gmailAttachments || [],
         boardId,
         boardCardId,
       }),
-    [quotedHtml, lastEmailMessage.gmailAttachments, boardId, boardCardId],
+    [quotedHtml, lastEmailMessage?.gmailAttachments, boardId, boardCardId],
   );
 
   useEmailIframe(blockquotesIframeRef, {

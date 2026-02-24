@@ -11,13 +11,13 @@ import {
   Unique,
 } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
+import type { BoardAccount } from '@/entities/board-account';
 import type { BoardCardReadPosition } from '@/entities/board-card-read-position';
 import { BoardColumn } from '@/entities/board-column';
 import { BoardMember } from '@/entities/board-member';
 import type { Comment } from '@/entities/comment';
 import { Domain } from '@/entities/domain';
 import { EmailDraft } from '@/entities/email-draft';
-import type { GmailAccount } from '@/entities/gmail-account';
 import { type Participant, BoardCardState as State } from '@/utils/shared';
 
 const MAX_SNIPPET_LENGTH = 201;
@@ -25,7 +25,7 @@ const MAX_SNIPPET_LENGTH = 201;
 export { State };
 
 export interface BoardCard {
-  loadedGmailAccount: GmailAccount;
+  loadedBoardAccount: BoardAccount;
   loadedBoardColumn: BoardColumn;
   loadedDomain: Domain;
   loadedAssignedBoardMember?: BoardMember;
@@ -33,12 +33,12 @@ export interface BoardCard {
 
 @Entity({ tableName: 'board_cards' })
 @Unique({ properties: ['boardColumn', 'pinnedPosition'] })
-@Index({ properties: ['gmailAccount'] })
+@Index({ properties: ['boardAccount'] })
 @Index({ properties: ['lastEventAt'] })
 @Index({ properties: ['assignedBoardMember'] })
 export class BoardCard extends BaseEntity {
   @ManyToOne()
-  gmailAccount: GmailAccount; // BoardAccount's or BoardMember.User's Gmail account
+  boardAccount: BoardAccount;
   @ManyToOne()
   boardColumn: BoardColumn;
   @ManyToOne()
@@ -80,7 +80,7 @@ export class BoardCard extends BaseEntity {
   movedToTrashAt?: Date;
 
   constructor({
-    gmailAccount,
+    boardAccount,
     boardColumn,
     domain,
     externalThreadId,
@@ -95,7 +95,7 @@ export class BoardCard extends BaseEntity {
     movedToTrashAt,
     participantUserIds,
   }: {
-    gmailAccount: GmailAccount;
+    boardAccount: BoardAccount;
     boardColumn: BoardColumn;
     domain: Domain;
     externalThreadId?: string;
@@ -111,7 +111,7 @@ export class BoardCard extends BaseEntity {
     participantUserIds?: string[];
   }) {
     super();
-    this.gmailAccount = gmailAccount;
+    this.boardAccount = boardAccount;
     this.boardColumn = boardColumn;
     this.domain = domain;
     this.externalThreadId = externalThreadId;
@@ -218,7 +218,7 @@ export class BoardCard extends BaseEntity {
       domain: Domain.toJson(boardCard.loadedDomain),
       assignedBoardMemberId: boardCard.assignedBoardMember?.id,
       emailDraft: boardCard.emailDraft && EmailDraft.toJson(boardCard.emailDraft),
-      gmailAccountId: boardCard.gmailAccount.id,
+      boardAccountId: boardCard.boardAccount.id,
       boardColumnId: boardCard.boardColumn.id,
       externalThreadId: boardCard.externalThreadId,
       state: boardCard.state,
@@ -250,7 +250,7 @@ ${items.filter(Boolean).join('\n')}`;
   }
 
   private validate() {
-    if (!this.gmailAccount) throw new Error('GmailAccount is required');
+    if (!this.boardAccount) throw new Error('BoardAccount is required');
     if (!this.boardColumn) throw new Error('BoardColumn is required');
     if (!this.domain) throw new Error('Domain is required');
     if (!this.state) throw new Error('State is required');

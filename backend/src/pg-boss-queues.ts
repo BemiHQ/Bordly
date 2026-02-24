@@ -14,7 +14,7 @@ export const QUEUES = {
 } as const;
 
 interface QueueDataMap {
-  [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: { boardAccountId: string };
+  [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: { boardId: string; boardAccountId: string };
   [QUEUES.SYNC_EMAIL_ADDRESSES]: {};
 }
 
@@ -23,8 +23,8 @@ const CONFIG_BY_QUEUE = {
     options: { retryLimit: 5, retryDelay: 5, retryBackoff: true },
     schedule: null,
     handler: async (job) => {
-      const { boardAccountId } = job.data;
-      await EmailMessageService.createInitialBoardEmailMessages(boardAccountId);
+      const { boardId, boardAccountId } = job.data;
+      await EmailMessageService.createInitialBoardEmailMessages({ boardId, boardAccountId });
     },
   },
   [QUEUES.SYNC_EMAIL_ADDRESSES]: {

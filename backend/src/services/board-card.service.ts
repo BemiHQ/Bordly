@@ -1,5 +1,6 @@
 import type { Loaded, Populate } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
+import type { BoardAccount } from '@/entities/board-account';
 import { BoardCard, State } from '@/entities/board-card';
 import { BoardCardReadPosition } from '@/entities/board-card-read-position';
 import type { BoardColumn } from '@/entities/board-column';
@@ -10,6 +11,7 @@ import type { EmailMessage } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { BoardService } from '@/services/board.service';
+import { BoardAccountService } from '@/services/board-account.service';
 import { BoardColumnService } from '@/services/board-column.service';
 import { BoardMemberService } from '@/services/board-member.service';
 import { DomainService } from '@/services/domain.service';
@@ -33,7 +35,11 @@ export class BoardCardService {
     populate?: Populate<BoardCard, Hint>;
   }) {
     if (externalThreadIds.length === 0) return [];
-    return orm.em.find(BoardCard, { gmailAccount, externalThreadId: { $in: externalThreadIds } }, { populate });
+    return orm.em.find(
+      BoardCard,
+      { boardAccount: { gmailAccount }, externalThreadId: { $in: externalThreadIds } },
+      { populate },
+    );
   }
 
   static async findInboxCardsByBoardId<Hint extends string = never>(
@@ -55,16 +61,14 @@ export class BoardCardService {
     return orm.em.findOneOrFail(BoardCard, { id: boardCardId, boardColumn: { board: { id: board.id } } }, { populate });
   }
 
-  static async findByBoardAndGmailAccount<Hint extends string = never>({
-    board,
-    gmailAccount,
+  static async findByBoardAccount<Hint extends string = never>({
+    boardAccount,
     populate = [],
   }: {
-    board: Board;
-    gmailAccount: GmailAccount;
+    boardAccount: BoardAccount;
     populate?: Populate<BoardCard, Hint>;
   }) {
-    return orm.em.find(BoardCard, { gmailAccount, boardColumn: { board } }, { populate });
+    return orm.em.find(BoardCard, { boardAccount }, { populate });
   }
 
   static async findByBoard<Hint extends string = never>({
@@ -77,41 +81,19 @@ export class BoardCardService {
     return orm.em.find(BoardCard, { boardColumn: { board } }, { populate });
   }
 
-  static async markAsRead<Hint extends string = never>(
-    board: Board,
-    { boardCardId, populate }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
+  static async createWithEmailDraft(
+    board: Loaded<Board>,
+    { user, boardAccountId }: { user: Loaded<User, 'boardMembers'>; boardAccountId: string },
   ) {
-    const boardCard = await BoardCardService.findById(board, {
-      boardCardId,
-      populate: ['gmailAccount', 'boardCardReadPositions', ...(populate || [])] as Populate<BoardCard, Hint>,
+    const boardAccount = await BoardAccountService.findById(board, {
+      id: boardAccountId,
+      populate: ['gmailAccount.senderEmailAddresses'],
     });
-
-    for (const boardCardReadPosition of boardCard.boardCardReadPositions) {
-      boardCardReadPosition.setLastReadAt(boardCard.lastEventAt);
-      orm.em.persist(boardCardReadPosition);
-    }
-
-    if (board.solo && boardCard.externalThreadId) {
-      console.log('[GMAIL] Marking thread as read:', boardCard.externalThreadId);
-      const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
-      await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
-    }
-    await orm.em.flush();
-
-    return boardCard;
-  }
-
-  static async createWithEmailDraft(board: Loaded<Board>, { user }: { user: Loaded<User, 'boardMembers'> }) {
-    const senderEmailAddresses = await SenderEmailAddressService.findAddressesByBoard(board, {
-      user,
-      populate: ['gmailAccount'],
-    });
+    const { senderEmailAddresses } = boardAccount.loadedGmailAccount;
     if (senderEmailAddresses.length === 0) {
       throw new Error('No sender email addresses available for this board');
     }
-
-    const firstSenderEmailAddress = senderEmailAddresses[0]!;
-    const fromParticipant = SenderEmailAddressService.toParticipant(firstSenderEmailAddress);
+    const fromParticipant = SenderEmailAddressService.toParticipant(senderEmailAddresses[0]!);
 
     const domainName = fromParticipant.email.split('@')[1]!;
     let domain = await DomainService.tryFindByName(domainName);
@@ -125,7 +107,7 @@ export class BoardCardService {
     const firstBoardColumn = [...board.boardColumns].sort((a, b) => a.position - b.position)[0]!;
 
     const boardCard = new BoardCard({
-      gmailAccount: firstSenderEmailAddress.loadedGmailAccount,
+      boardAccount,
       boardColumn: firstBoardColumn,
       domain,
       state: State.INBOX,
@@ -165,13 +147,40 @@ export class BoardCardService {
     return boardCard as Loaded<BoardCard, 'emailDraft.fileAttachments' | 'domain' | 'boardCardReadPositions'>;
   }
 
+  static async markAsRead<Hint extends string = never>(
+    board: Board,
+    { boardCardId, populate }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
+  ) {
+    const boardCard = await BoardCardService.findById(board, {
+      boardCardId,
+      populate: ['boardAccount.gmailAccount', 'boardCardReadPositions', ...(populate || [])] as Populate<
+        BoardCard,
+        Hint
+      >,
+    });
+
+    for (const boardCardReadPosition of boardCard.boardCardReadPositions) {
+      boardCardReadPosition.setLastReadAt(boardCard.lastEventAt);
+      orm.em.persist(boardCardReadPosition);
+    }
+
+    if (board.solo && boardCard.externalThreadId) {
+      console.log('[GMAIL] Marking thread as read:', boardCard.externalThreadId);
+      const gmail = await GmailAccountService.initGmail(boardCard.loadedBoardAccount.loadedGmailAccount);
+      await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
+    }
+    await orm.em.flush();
+
+    return boardCard;
+  }
+
   static async markAsUnread<Hint extends string = never>(
     board: Board,
     { boardCardId, populate }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
   ) {
     const boardCard = await BoardCardService.findById(board, {
       boardCardId,
-      populate: ['gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
+      populate: ['boardAccount.gmailAccount', ...(populate || [])] as Populate<BoardCard, Hint>,
     });
 
     for (const boardCardReadPosition of boardCard.boardCardReadPositions) {
@@ -181,7 +190,7 @@ export class BoardCardService {
 
     if (board.solo && boardCard.externalThreadId) {
       console.log('[GMAIL] Marking thread as unread:', boardCard.externalThreadId);
-      const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
+      const gmail = await GmailAccountService.initGmail(boardCard.loadedBoardAccount.loadedGmailAccount);
       await GmailApi.markThreadAsUnread(gmail, boardCard.externalThreadId);
     }
     await orm.em.flush();
@@ -212,23 +221,34 @@ export class BoardCardService {
   ) {
     const boardCard = await BoardCardService.findById(board, {
       boardCardId,
-      populate: ['gmailAccount', 'emailDraft.fileAttachments', ...(populate || [])] as Populate<BoardCard, Hint>,
+      populate: ['boardAccount.gmailAccount', 'emailDraft.fileAttachments', ...(populate || [])] as Populate<
+        BoardCard,
+        Hint
+      >,
     });
-
-    const gmail = await GmailAccountService.initGmail(boardCard.loadedGmailAccount);
 
     boardCard.setState(state);
 
-    if (state === State.ARCHIVED && boardCard.externalThreadId) {
-      await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
+    if (state === State.ARCHIVED) {
+      if (board.solo && boardCard.externalThreadId) {
+        console.log('[GMAIL] Marking thread as read (archived):', boardCard.externalThreadId);
+        const gmail = await GmailAccountService.initGmail(boardCard.loadedBoardAccount.loadedGmailAccount);
+        await GmailApi.markThreadAsRead(gmail, boardCard.externalThreadId);
+      }
       await EmailDraftService.delete(boardCard as Loaded<BoardCard, 'emailDraft.fileAttachments'>);
-    } else if (state === State.TRASH && boardCard.externalThreadId) {
-      console.log('[GMAIL] Marking thread as trash:', boardCard.externalThreadId);
-      await GmailApi.markThreadAsTrash(gmail, boardCard.externalThreadId);
+    } else if (state === State.TRASH) {
+      if (board.solo && boardCard.externalThreadId) {
+        const gmail = await GmailAccountService.initGmail(boardCard.loadedBoardAccount.loadedGmailAccount);
+        console.log('[GMAIL] Marking thread as trash:', boardCard.externalThreadId);
+        await GmailApi.markThreadAsTrash(gmail, boardCard.externalThreadId);
+      }
       await EmailDraftService.delete(boardCard as Loaded<BoardCard, 'emailDraft.fileAttachments'>);
     } else if (state === State.SPAM && boardCard.externalThreadId) {
-      console.log('[GMAIL] Marking thread as spam:', boardCard.externalThreadId);
-      await GmailApi.markThreadAsSpam(gmail, boardCard.externalThreadId);
+      if (board.solo && boardCard.externalThreadId) {
+        console.log('[GMAIL] Marking thread as spam:', boardCard.externalThreadId);
+        const gmail = await GmailAccountService.initGmail(boardCard.loadedBoardAccount.loadedGmailAccount);
+        await GmailApi.markThreadAsSpam(gmail, boardCard.externalThreadId);
+      }
       await EmailDraftService.delete(boardCard as Loaded<BoardCard, 'emailDraft.fileAttachments'>);
     }
 
@@ -277,11 +297,11 @@ export class BoardCardService {
 
   static buildFromEmailMessages({
     boardColumn,
-    gmailAccount,
+    boardAccount,
     emailMessagesDesc,
   }: {
     boardColumn: BoardColumn;
-    gmailAccount: GmailAccount;
+    boardAccount: BoardAccount;
     emailMessagesDesc: Loaded<EmailMessage, 'gmailAttachments' | 'gmailAccount'>[];
   }) {
     if (emailMessagesDesc.length === 0) throw new Error('Cannot build BoardCard from empty email messages list');
@@ -295,7 +315,7 @@ export class BoardCardService {
     const participantUserIds = unique(emailMessagesDesc.map((msg) => msg.loadedGmailAccount.user.id));
 
     const boardCard = new BoardCard({
-      gmailAccount,
+      boardAccount,
       boardColumn,
       domain: firstEmailMessage.domain,
       externalThreadId: lastEmailMessage.externalThreadId,

@@ -1,7 +1,7 @@
-import { Entity, Index, ManyToOne, Property, Unique } from '@mikro-orm/postgresql';
-
+import { Collection, Entity, Index, ManyToOne, OneToMany, Property, Unique } from '@mikro-orm/postgresql';
 import { BaseEntity } from '@/entities/base-entity';
 import type { Board } from '@/entities/board';
+import type { BoardCard } from '@/entities/board-card';
 import type { GmailAccount } from '@/entities/gmail-account';
 
 export interface BoardAccount {
@@ -17,6 +17,9 @@ export class BoardAccount extends BaseEntity {
   board: Board;
   @ManyToOne()
   gmailAccount: GmailAccount;
+
+  @OneToMany({ mappedBy: (boardCard: BoardCard) => boardCard.boardAccount })
+  boardCards = new Collection<BoardCard>(this);
 
   @Property()
   receivingEmails?: string[]; // TODO: Make unique together with gmailAccount

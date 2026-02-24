@@ -106,11 +106,11 @@ export class BoardMemberService {
   static async setInitialMemory(boardMember: Loaded<BoardMember, 'user'>) {
     if (boardMember.isAgent) throw new Error('Cannot set memory for agent board member');
 
-    const boardCards = await orm.em.find(
-      BoardCard,
-      { boardColumn: { board: boardMember.board }, participantUserIds: { $contains: [boardMember.user.id] } },
-      { populate: ['gmailAccount'] },
-    );
+    const boardCards = await orm.em.find(BoardCard, {
+      boardColumn: { board: boardMember.board },
+      participantUserIds: { $contains: [boardMember.user.id] },
+    });
+
     if (boardCards.length === 0) return;
 
     const externalThreadIds = boardCards.map((card) => card.externalThreadId).filter((id): id is string => !!id);

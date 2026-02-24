@@ -17,6 +17,7 @@ import {
   removeBoardAccountData,
   setReceivingEmailsToBoardAccountData,
 } from '@/query-helpers/board';
+import { removeBoardCardsByBoardAccountIdData } from '@/query-helpers/board-cards';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
 
 const RemoveAccountPopover = ({
@@ -35,9 +36,10 @@ const RemoveAccountPopover = ({
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { gmailAccount } = boardAccount;
+  const boardAccountId = boardAccount.id;
 
   const deleteAccountMutation = useMutation(
-    trpc.board.deleteGmailAccount.mutationOptions({
+    trpc.board.deleteBoardAccount.mutationOptions({
       onSuccess: () => {
         if (isLastAccount) {
           queryClient.removeQueries({ queryKey: trpc.board.get.queryKey({ boardId: board.id }), exact: true });
@@ -46,9 +48,10 @@ const RemoveAccountPopover = ({
         } else {
           setFilters((prev) => ({
             ...prev,
-            gmailAccountIds: prev.gmailAccountIds.filter((id) => id !== gmailAccount.id),
+            boardAccountIds: prev.boardAccountIds.filter((id) => id !== boardAccount.id),
           }));
-          removeBoardAccountData({ trpc, queryClient, params: { boardId: board.id, boardAccountId: boardAccount.id } });
+          removeBoardAccountData({ trpc, queryClient, params: { boardId: board.id, boardAccountId } });
+          removeBoardCardsByBoardAccountIdData({ trpc, queryClient, params: { boardId: board.id, boardAccountId } });
           toast.success('Email account removed successfully', { position: 'top-center' });
         }
         setOpen(false);
@@ -74,7 +77,7 @@ const RemoveAccountPopover = ({
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => deleteAccountMutation.mutate({ boardId: board.id, gmailAccountId: gmailAccount.id })}
+            onClick={() => deleteAccountMutation.mutate({ boardId: board.id, boardAccountId })}
             disabled={deleteAccountMutation.isPending}
           >
             {deleteAccountMutation.isPending ? (
@@ -116,13 +119,15 @@ const EditReceivingEmailsPopover = ({
     emailsToSubmit = undefined;
   }
 
+  const boardAccountId = boardAccount.id;
+
   const editBoardAccountMutation = useMutation(
     trpc.boardAccount.edit.mutationOptions({
       onSuccess: () => {
         setReceivingEmailsToBoardAccountData({
           trpc,
           queryClient,
-          params: { boardId: board.id, boardAccountId: boardAccount.id, receivingEmails: emailsToSubmit },
+          params: { boardId: board.id, boardAccountId, receivingEmails: emailsToSubmit },
         });
         setOpen(false);
       },
@@ -131,11 +136,7 @@ const EditReceivingEmailsPopover = ({
   );
 
   const handleSave = () => {
-    editBoardAccountMutation.mutate({
-      boardId: board.id,
-      boardAccountId: boardAccount.id,
-      receivingEmails: emailsToSubmit,
-    });
+    editBoardAccountMutation.mutate({ boardId: board.id, boardAccountId, receivingEmails: emailsToSubmit });
   };
 
   return (

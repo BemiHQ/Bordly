@@ -1,4 +1,4 @@
-import type { AutoPath, Loaded, PopulatePath } from '@mikro-orm/postgresql';
+import type { AutoPath, Loaded, Populate, PopulatePath } from '@mikro-orm/postgresql';
 import { Board } from '@/entities/board';
 import { BoardAccount } from '@/entities/board-account';
 import { BoardMember, Role } from '@/entities/board-member';
@@ -11,6 +11,13 @@ import { orm } from '@/utils/orm';
 import { ERRORS } from '@/utils/shared';
 
 export class BoardService {
+  static async findById<Hint extends string = never>(
+    boardId: string,
+    { populate }: { populate?: Populate<Board, Hint> } = {},
+  ) {
+    return orm.em.findOneOrFail(Board, { id: boardId }, { populate });
+  }
+
   static tryFindAsAdmin(boardId: string, { user }: { user: Loaded<User, 'boardMembers'> }) {
     return user.boardMembers.find((bm) => bm.board.id === boardId && bm.role === Role.ADMIN)?.loadedBoard;
   }
@@ -60,7 +67,7 @@ export class BoardService {
     orm.em.persist([board, boardMember, bordlyBoardMember, gmailAccount, boardAccount]);
 
     await orm.em.flush();
-    await enqueue(QUEUES.CREATE_INITIAL_EMAIL_MESSAGES, { boardAccountId: boardAccount.id });
+    await enqueue(QUEUES.CREATE_INITIAL_EMAIL_MESSAGES, { boardId: board.id, boardAccountId: boardAccount.id });
 
     return { board, error: undefined };
   }

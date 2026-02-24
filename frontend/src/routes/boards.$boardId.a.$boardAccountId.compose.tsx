@@ -7,7 +7,7 @@ import { addBoardCardData as addBoardCardDataInList } from '@/query-helpers/boar
 import { extractUuid } from '@/utils/strings';
 import { ROUTES } from '@/utils/urls';
 
-export const Route = createFileRoute('/boards/$boardId/compose')({
+export const Route = createFileRoute('/boards/$boardId/a/$boardAccountId/compose')({
   component: BoardComposeComponent,
   beforeLoad: ensureLoggedIn(ROUTES.BOARD_COMPOSE),
 });
@@ -20,6 +20,7 @@ function BoardComposeComponent() {
   const mounted = useRef(false);
 
   const boardId = extractUuid(params.boardId);
+  const boardAccountId = extractUuid(params.boardAccountId);
   const createEmailDraftMutation = useMutation(trpc.boardCard.createWithEmailDraft.mutationOptions());
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: run this on mount
@@ -27,7 +28,7 @@ function BoardComposeComponent() {
     if (mounted.current) return;
     mounted.current = true;
     (async () => {
-      const { boardCard } = await createEmailDraftMutation.mutateAsync({ boardId });
+      const { boardCard } = await createEmailDraftMutation.mutateAsync({ boardId, boardAccountId });
       addBoardCardData({ queryClient, trpc, params: { boardId, boardCard: boardCard } });
       addBoardCardDataInList({ queryClient, trpc, params: { boardId, boardCard: boardCard } });
       navigate({ to: ROUTES.BOARD_CARD.replace('$boardId', params.boardId).replace('$boardCardId', boardCard.id) });

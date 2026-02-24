@@ -202,7 +202,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
                 if (!matchesUnread && !matchesHasAttachments && !matchesHasDraft && !matchesAssigned) return false;
               }
 
-              if (filters.gmailAccountIds.length > 0 && !filters.gmailAccountIds.includes(card.gmailAccountId)) {
+              if (filters.boardAccountIds.length > 0 && !filters.boardAccountIds.includes(card.boardAccountId)) {
                 return false;
               }
               return true;

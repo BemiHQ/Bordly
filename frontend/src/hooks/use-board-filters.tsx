@@ -5,7 +5,7 @@ export interface BoardFilters {
   hasAttachments: boolean;
   draft: boolean;
   assigned: boolean;
-  gmailAccountIds: string[];
+  boardAccountIds: string[];
 }
 
 export interface BoardFiltersContext {

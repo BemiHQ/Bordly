@@ -6,7 +6,7 @@ import type { User } from '@/entities/user';
 import { BoardAccountService } from '@/services/board-account.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { GmailApi, VERIFICATION_STATUS_ACCEPTED } from '@/utils/gmail-api';
-import { groupBy, mapBy } from '@/utils/lists';
+import { mapBy } from '@/utils/lists';
 import { orm } from '@/utils/orm';
 import type { Participant } from '@/utils/shared';
 
@@ -41,26 +41,28 @@ export class SenderEmailAddressService {
     return emailAddresses;
   }
 
-  static async findAddressesByBoard<Hint extends string = never>(
+  static async findAddressesByBoardAccountAndUser<Hint extends string = never>(
     board: Board,
-    { user, populate = [] }: { user: User; populate?: Populate<SenderEmailAddress, Hint> },
+    {
+      user,
+      boardAccountId,
+      populate = [],
+    }: { user: User; boardAccountId: string; populate?: Populate<SenderEmailAddress, Hint> },
   ) {
-    const boardAccounts = await BoardAccountService.findAccountsByBoard(board, { populate: ['gmailAccount'] });
-    const boardAccountsByGmailAccountId = groupBy(boardAccounts, (ba) => ba.gmailAccount.id);
+    const boardAccount = await BoardAccountService.findById(board, { id: boardAccountId });
 
     const senderEmailAddresses = await orm.em.find(
       SenderEmailAddress,
-      { gmailAccount: { $or: [{ user }, { id: { $in: boardAccounts.map((ba) => ba.gmailAccount.id) } }] } },
-      { populate },
+      { gmailAccount: { $or: [{ user }, { id: boardAccount.gmailAccount.id }] } },
+      { populate: [...(populate || []), 'gmailAccount'] as Populate<SenderEmailAddress, Hint> },
     );
 
     return senderEmailAddresses.filter((emailAddress) => {
       // Current user's email addresses
       if (emailAddress.loadedGmailAccount.user.id === user.id) return true;
 
-      // Board accounts' email addresses
-      const boardAccounts = boardAccountsByGmailAccountId[emailAddress.gmailAccount.id]!;
-      return boardAccounts.some((ba) => !ba.receivingEmails || ba.receivingEmails.includes(emailAddress.email));
+      // Board account's email addresses
+      return boardAccount.syncAll || boardAccount.receivingEmails!.includes(emailAddress.email);
     });
   }
 

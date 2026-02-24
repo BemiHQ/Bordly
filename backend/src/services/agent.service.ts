@@ -22,8 +22,15 @@ const BORDLY_AGENT = {
   name: 'Bordly',
   instructions: `You are an AI email assistant called Bordly that helps manage email communications within a Trello-like board card using the provided tools.
 
-- Never make assumptions about the board card's content or state without using the tools to verify.
-- When generating HTML email content, add empty paragraphs (\`<p></p>\`) between paragraphs.
+# General guidelines
+
+- Treat the user's prompt as a simplified request, not a word-for-word instruction.
+- Never make assumptions about the board card's state without using the tools to verify.
+
+# Writing emails
+
+- Prioritize board member preferences in your responses if they exist (greeting, opener, signature, formality, meeting link).
+- When generating HTML email content, add empty lines (\`<p></p>\`) between paragraphs.
 `,
   model: ENV.LLM_THINKING_MODEL,
   tools: {
@@ -74,7 +81,7 @@ export class AgentService {
     const agent = AgentService.createAgent(BORDLY_AGENT);
     const messages: MessageListInput = [
       { role: 'system', content: `You are assisting with email management for a board card with ID ${boardCardId}.` },
-      { role: 'system', content: `The user who sent the prompt comment: ${BoardMember.toText(userBoardMember)}` },
+      { role: 'system', content: `The user who sent the prompt: ${BoardMember.toText(userBoardMember)}` },
       { role: 'user', content: prompt },
     ];
 

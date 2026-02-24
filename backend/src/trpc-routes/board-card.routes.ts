@@ -49,12 +49,16 @@ export const BOARD_CARD_ROUTES = {
         commentsAsc: comments.map(Comment.toJson),
       };
     }),
-    createWithEmailDraft: publicProcedure.input(z.object({ boardId: z.uuid() })).mutation(async ({ input, ctx }) => {
-      const { board } = authAsBoardMember({ ctx, input });
-      const user = ctx.user!;
-      const boardCard = await BoardCardService.createWithEmailDraft(board, { user });
-      return { boardCard: toJson(boardCard, ctx) };
-    }),
+    createWithEmailDraft: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardAccountId: z.uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        const { board } = authAsBoardMember({ ctx, input });
+        const boardCard = await BoardCardService.createWithEmailDraft(board, {
+          user: ctx.user!,
+          boardAccountId: input.boardAccountId,
+        });
+        return { boardCard: toJson(boardCard, ctx) };
+      }),
     markAsRead: publicProcedure
       .input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() }))
       .mutation(async ({ input, ctx }) => {
