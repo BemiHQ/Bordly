@@ -151,13 +151,6 @@ export class EmailMessage extends BaseEntity {
   }
 
   static toText(emailMessage: Loaded<EmailMessage>) {
-    let mainText = '';
-    if (emailMessage.bodyText) {
-      mainText = parseTextBody(emailMessage.bodyText).mainText;
-    } else if (emailMessage.bodyHtml) {
-      mainText = htmlToText(parseHtmlBody(emailMessage.bodyHtml).mainHtml);
-    }
-
     const items = [
       `ID: ${emailMessage.id}`,
       `Created At: ${emailMessage.externalCreatedAt.toISOString()}`,
@@ -170,7 +163,7 @@ export class EmailMessage extends BaseEntity {
       `Sent: ${emailMessage.sent}`,
       `Body:
 \`\`\`
-${mainText}
+${emailMessage.bodyText || emailMessage.bodyHtml}
 \`\`\`
 `,
     ];

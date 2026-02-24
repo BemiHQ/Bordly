@@ -9,6 +9,7 @@ import type { Context } from '@/services/agent.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { CommentService } from '@/services/comment.service';
 import { EmailMessageService } from '@/services/email-message.service';
+import { Logger } from '@/utils/logger';
 
 export const boardCardReadTool = createTool({
   id: 'board-card-read',
@@ -17,7 +18,7 @@ export const boardCardReadTool = createTool({
     boardCardId: z.uuid().describe('The ID of the board card to read'),
   }),
   execute: async ({ boardCardId }, context) => {
-    console.log(`[AGENT] Executing board-card-read for board card ${boardCardId}`);
+    Logger.info(`[AGENT] Tool board-card-read for board card ${boardCardId}`);
     const { requestContext } = context as { requestContext: RequestContext<Context> };
     const bordlyBoardMember = requestContext.get('bordlyBoardMember');
 
@@ -26,9 +27,10 @@ export const boardCardReadTool = createTool({
       populate: ['assignedBoardMember.user', 'boardColumn', 'emailDraft.fileAttachments'],
     });
 
-    const emailMessagesAsc = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
+    const [lastEmailMessage] = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
       populate: ['domain', 'gmailAttachments'],
-      orderBy: { externalCreatedAt: 'ASC' },
+      orderBy: { externalCreatedAt: 'DESC' },
+      limit: 1,
     });
 
     const comments = await CommentService.findCommentsByBoardCard(boardCard, {
@@ -36,11 +38,18 @@ export const boardCardReadTool = createTool({
       orderBy: { createdAt: 'ASC' },
     });
 
-    return {
+    const result = {
       boardCard: BoardCard.toText(boardCard),
       emailDraft: boardCard.emailDraft && EmailDraft.toText(boardCard.emailDraft),
-      emailMessagesAsc: emailMessagesAsc.map(EmailMessage.toText),
+      lastEmailMessage: lastEmailMessage && EmailMessage.toText(lastEmailMessage),
       commentsAsc: comments.map(Comment.toText),
     };
+
+    Logger.log(result.boardCard);
+    if (result.emailDraft) Logger.log(result.emailDraft);
+    if (result.lastEmailMessage) Logger.log(result.lastEmailMessage);
+    Logger.logObjects(result.commentsAsc);
+
+    return result;
   },
 });

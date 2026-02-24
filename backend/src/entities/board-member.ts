@@ -100,9 +100,14 @@ export class BoardMember extends BaseEntity {
       `- Preferences:`,
       memory?.greeting && `  - Greeting: ${memory.greeting}`,
       memory?.opener && `  - Opener: ${memory.opener}`,
-      memory?.signature && `  - Signature: ${memory.signature}`,
       memory?.formality && `  - Formality: ${memory.formality}`,
       memory?.meetingLink && `  - Meeting Link: ${memory.meetingLink}`,
+      memory?.signature &&
+        `  - Signature:
+\`\`\`
+${memory.signature}
+\`\`\`
+`,
     ];
 
     return `Board Member:

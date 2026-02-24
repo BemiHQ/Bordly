@@ -70,7 +70,7 @@ export class BoardMemberService {
   }
 
   static async findById<Hint extends string = never>(
-    board: Board,
+    board: Loaded<Board>,
     { boardMemberId, populate = [] }: { boardMemberId: string; populate?: Populate<BoardMember, Hint> },
   ) {
     return orm.em.findOneOrFail(BoardMember, { board, id: boardMemberId }, { populate });

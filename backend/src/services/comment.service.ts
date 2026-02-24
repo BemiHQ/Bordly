@@ -36,10 +36,10 @@ export class CommentService {
     await orm.em.flush();
 
     if (isBordlyComment(text)) {
-      const userBoardMember: Loaded<BoardMember, 'memory'> = await BoardMemberService.populate(boardMember, [
-        'user',
-        'memory',
-      ]);
+      const userBoardMember = await BoardMemberService.findById(board, {
+        boardMemberId: boardMember.id,
+        populate: ['user', 'memory'],
+      });
       const prompt = CommentService.bordlyPrompt(text);
       await AgentService.runBordlyAgent({ board, boardCardId: boardCard.id, prompt, userBoardMember, userTimeZone });
     }
@@ -79,10 +79,11 @@ export class CommentService {
     await orm.em.flush();
 
     if (isBordlyComment(text)) {
-      const userBoardMember: Loaded<BoardMember, 'memory'> = await BoardMemberService.populate(boardMember, [
-        'user',
-        'memory',
-      ]);
+      const userBoardMember = await BoardMemberService.findById(board, {
+        boardMemberId: boardMember.id,
+        populate: ['user', 'memory'],
+      });
+
       const prompt = CommentService.bordlyPrompt(text);
       await AgentService.runBordlyAgent({ board, boardCardId: boardCard.id, prompt, userBoardMember, userTimeZone });
     }

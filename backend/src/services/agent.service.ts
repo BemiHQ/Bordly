@@ -10,6 +10,7 @@ import { BoardMemberService } from '@/services/board-member.service';
 import { boardCardReadTool } from '@/tools/board-card-read.tool';
 import { emailDraftUpsertTool } from '@/tools/email-draft-upsert.tool';
 import { ENV } from '@/utils/env';
+import { Logger } from '@/utils/logger';
 import { slugify } from '@/utils/strings';
 
 export interface Context {
@@ -85,9 +86,10 @@ export class AgentService {
       { role: 'user', content: prompt },
     ];
 
-    console.log(`[AGENT] Running Bordly for board card ${boardCardId}: ${JSON.stringify(messages)}`);
+    Logger.info(`[AGENT] Running Bordly for board card ${boardCardId}`);
+    Logger.logObjects(messages);
     const response = await agent.generate(messages, { requestContext });
-    console.log(`[AGENT] Bordly completed for board card ${boardCardId}: ${response.text}`);
+    Logger.info(`[AGENT] Completed Bordly for board card ${boardCardId}:\n${response.text}`);
 
     return response;
   }
