@@ -6,7 +6,7 @@ import { API_ENDPOINTS } from '@/utils/urls';
 const DEFAULT_HEADERS = {
   'Content-Security-Policy': [
     "default-src 'none'",
-    "img-src 'self' https:",
+    "img-src 'self' https: data:",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     `connect-src 'self' ${ENV.SSR_API_ENDPOINT}`,

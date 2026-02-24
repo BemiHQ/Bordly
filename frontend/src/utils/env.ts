@@ -14,4 +14,5 @@ export const ENV = {
 
   // Runtime
   SSR_API_ENDPOINT: process.env.SSR_API_ENDPOINT,
+  NODE_ENV: process.env.NODE_ENV,
 };

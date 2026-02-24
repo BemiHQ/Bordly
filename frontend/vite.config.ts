@@ -16,7 +16,7 @@ const config = defineConfig({
           headers: { // Sync with frontend/src/routes/auth.tsx
             'Content-Security-Policy': [
               "default-src 'none'",
-              "img-src 'self' https:",
+              "img-src 'self' https: data:",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               `connect-src 'self' ${process.env.VITE_API_ENDPOINT}`,

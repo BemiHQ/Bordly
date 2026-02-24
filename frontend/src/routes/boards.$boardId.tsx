@@ -37,6 +37,7 @@ import {
   changeBoardCardColumnData,
   removeBoardCardData,
 } from '@/query-helpers/board-cards';
+import { updateFaviconBadge } from '@/utils/favicon';
 import { isSsr } from '@/utils/ssr';
 import { cn, extractUuid } from '@/utils/strings';
 import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
@@ -343,6 +344,8 @@ function BoardComponent() {
   const boardName = boardData?.board.name;
   const unreadBoardCardCount = Object.values(boardCardsData?.boardCardsDesc || []).filter((card) => card.unread).length;
   useEffect(() => {
+    updateFaviconBadge(unreadBoardCardCount > 0);
+
     if (matches.length > 2) return; // Not direct board route
     if (!boardName) {
       document.title = `Bordly`;
