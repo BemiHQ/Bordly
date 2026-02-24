@@ -118,7 +118,7 @@ export class EmailDraftService {
     await FileAttachmentService.deleteAllForDraft(emailDraft);
 
     if (boardCard.noMessages) {
-      await BoardCardService.delete(boardCard);
+      await BoardCardService.deleteAfterDeletingEmailDrafts(boardCard);
     }
 
     await orm.em.flush();

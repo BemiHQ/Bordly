@@ -4,7 +4,7 @@ import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortabl
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet, useMatches } from '@tanstack/react-router';
 import { BoardCardState, GmailAccountState, QUERY_PARAMS } from 'bordly-backend/utils/shared';
-import { Archive } from 'lucide-react';
+import { Archive, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BoardCardContent, BoardCardDragged, DRAG_TYPE as DRAG_TYPE_CARD } from '@/components/board/board-card';
@@ -16,6 +16,7 @@ import {
 } from '@/components/board/board-column';
 import { BoardNavbar } from '@/components/board/board-navbar';
 import { Navbar } from '@/components/navbar';
+import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
 import { useBoardFilters } from '@/hooks/use-board-filters';
@@ -23,7 +24,13 @@ import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { RouteProvider, useRouteContext } from '@/hooks/use-route-context';
 import { ensureLoggedIn } from '@/loaders/authentication';
-import { type BoardColumn as BoardColumnType, type BoardData, reorderBoardColumnsData } from '@/query-helpers/board';
+import {
+  addFakeBoardColumnData,
+  type BoardColumn as BoardColumnType,
+  type BoardData,
+  reorderBoardColumnsData,
+  replaceFakeBoardColumnData,
+} from '@/query-helpers/board';
 import {
   type BoardCard,
   type BoardCardsData,
@@ -109,7 +116,6 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
       params: { boardId, boardCardId, state: BoardCardState.INBOX },
     }),
   });
-
   const optimisticallyMoveBoardCard = useOptimisticMutation({
     queryClient,
     queryKey: boardCardsQueryKey,
@@ -118,13 +124,34 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
     mutation: useMutation(trpc.boardCard.setBoardColumn.mutationOptions()),
   });
 
+  const boardQueryKey = trpc.board.get.queryKey({ boardId: board.id });
   const optimisticallyMoveBoardColumn = useOptimisticMutation({
     queryClient,
-    queryKey: trpc.board.get.queryKey({ boardId: board.id }),
+    queryKey: boardQueryKey,
     onExecute: (params) => reorderBoardColumnsData({ trpc, queryClient, params }),
     errorToast: 'Failed to reorder column. Please try again.',
     mutation: useMutation(trpc.boardColumn.setPosition.mutationOptions()),
   });
+  const optimisticallyCreateBoardColumn = useOptimisticMutation({
+    queryClient,
+    queryKey: boardQueryKey,
+    onExecute: ({ boardId, name }) => {
+      addFakeBoardColumnData({ trpc, queryClient, params: { boardId, name, position: boardColumnsAsc.length } });
+    },
+    errorToast: 'Failed to create column. Please try again.',
+    mutation: useMutation(
+      trpc.boardColumn.create.mutationOptions({
+        onSuccess: ({ boardColumn }) => {
+          replaceFakeBoardColumnData({ trpc, queryClient, params: { boardId: board.id, boardColumn } });
+        },
+      }),
+    ),
+  });
+
+  const handleCreateColumn = () => {
+    const columnName = `New Column ${boardColumnsAsc.length + 1}`;
+    optimisticallyCreateBoardColumn({ boardId: board.id, name: columnName });
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -215,6 +242,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
                 key={boardColumn.id}
                 board={board}
                 boardColumn={boardColumn}
+                boardCards={boardCards}
                 unreadBoardCardCount={unreadBoardCards?.length || 0}
                 isDraggingColumn={!!activeBoardColumn}
               >
@@ -222,6 +250,14 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
               </BoardColumn>
             );
           })}
+          <Button
+            variant="ghost"
+            onClick={handleCreateColumn}
+            className="bg-primary-foreground hover:bg-secondary min-w-68 w-68 h-fit flex items-center justify-start gap-2 text-sm rounded-lg border border-secondary px-3 pt-2.5 pb-4 text-muted-foreground hover:text-foreground hover:border-semi-muted transition-colors"
+          >
+            <Plus className="size-4" />
+            Add new column
+          </Button>
         </div>
       </SortableContext>
       <DragOverlay dropAnimation={null}>

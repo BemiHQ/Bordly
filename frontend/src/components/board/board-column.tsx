@@ -2,6 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMutation } from '@tanstack/react-query';
+import { Ellipsis } from 'lucide-react';
 import { useState } from 'react';
 import {
   BoardCard,
@@ -10,13 +11,22 @@ import {
   DRAG_TYPE as DRAG_TYPE_CARD,
 } from '@/components/board/board-card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
+import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
 import {
   type Board,
   type BoardColumn as BoardColumnType,
   type BoardMember,
+  removeBoardColumnData,
   renameBoardColumnData,
 } from '@/query-helpers/board';
 import type { BoardCard as BoardCardType } from '@/query-helpers/board-cards';
@@ -27,12 +37,14 @@ export const DRAG_TYPE = 'board-column';
 export const BoardColumn = ({
   board,
   boardColumn,
+  boardCards,
   unreadBoardCardCount,
   children,
   isDraggingColumn,
 }: {
   board: Board;
   boardColumn: BoardColumnType;
+  boardCards: BoardCardType[];
   unreadBoardCardCount: number;
   children: React.ReactNode;
   isDraggingColumn: boolean;
@@ -50,13 +62,29 @@ export const BoardColumn = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(boardColumn.name);
 
+  const boardQueryKey = trpc.board.get.queryKey({ boardId: board.id });
+
   const optimisticallySetName = useOptimisticMutation({
     queryClient,
-    queryKey: trpc.board.get.queryKey({ boardId: board.id }),
+    queryKey: boardQueryKey,
     onExecute: ({ name }) =>
       renameBoardColumnData({ trpc, queryClient, params: { boardId: board.id, boardColumnId: boardColumn.id, name } }),
     errorToast: 'Failed to rename column. Please try again.',
     mutation: useMutation(trpc.boardColumn.setName.mutationOptions()),
+  });
+
+  const createMutation = useMutation(trpc.boardColumn.create.mutationOptions());
+  const optimisticallyDeleteColumn = useOptimisticMutationWithUndo({
+    queryClient,
+    queryKey: boardQueryKey,
+    onExecute: (params) => removeBoardColumnData({ trpc, queryClient, params }),
+    successToast: 'Column deleted',
+    errorToast: 'Failed to delete column. Please try again.',
+    mutation: useMutation(trpc.boardColumn.delete.mutationOptions()),
+    undoMutationConfig: () => ({
+      mutation: createMutation,
+      params: { boardId: board.id, name: boardColumn.name },
+    }),
   });
 
   const handleNameClick = () => {
@@ -78,6 +106,14 @@ export const BoardColumn = ({
     } else if (e.key === 'Escape') {
       setIsEditing(false);
       setEditedName(boardColumn.name);
+    }
+  };
+
+  const hasBoardCards = boardCards.length > 0;
+
+  const handleDelete = () => {
+    if (!hasBoardCards) {
+      optimisticallyDeleteColumn({ boardId: board.id, boardColumnId: boardColumn.id });
     }
   };
 
@@ -113,14 +149,30 @@ export const BoardColumn = ({
             autoFocus
           />
         ) : (
-          <h2 className="text-sm font-semibold cursor-pointer hover:text-primary w-full" onClick={handleNameClick}>
-            {editedName}
-          </h2>
-        )}
-        {unreadBoardCardCount > 0 && (
-          <Badge variant="default" size="sm">
-            {unreadBoardCardCount}
-          </Badge>
+          <>
+            <div className="flex items-center gap-2 flex-1">
+              <h2 className="text-sm font-semibold cursor-pointer hover:text-primary" onClick={handleNameClick}>
+                {editedName}
+              </h2>
+              {unreadBoardCardCount > 0 && (
+                <Badge variant="default" size="sm">
+                  {unreadBoardCardCount}
+                </Badge>
+              )}
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon-sm" className="size-5 p-0 focus-visible:ring-0">
+                  <Ellipsis className="size-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleDelete} disabled={hasBoardCards} className="text-sm">
+                  Delete column
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
         )}
       </div>
       <div

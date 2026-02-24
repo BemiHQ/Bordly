@@ -12,6 +12,7 @@ import { BoardAccountService } from '@/services/board-account.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { BoardMemberService } from '@/services/board-member.service';
 import { DomainService } from '@/services/domain.service';
+import { EmailDraftService } from '@/services/email-draft.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { htmlToText } from '@/utils/email';
 import { ENV } from '@/utils/env';
@@ -19,7 +20,7 @@ import { reportError } from '@/utils/error-tracking';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
 import { orm } from '@/utils/orm';
-import { FALLBACK_SUBJECT, type Participant } from '@/utils/shared';
+import { BoardCardState, FALLBACK_SUBJECT, type Participant } from '@/utils/shared';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
 import { BoardService } from './board.service';
@@ -486,7 +487,13 @@ export class EmailMessageService {
         ...(await BoardCardService.findCardsByExternalThreadIds({
           gmailAccount,
           externalThreadIds: affectedExternalThreadIds,
-          populate: ['domain', 'boardCardReadPositions', 'boardColumn.board.boardMembers', 'comments', 'emailDraft'],
+          populate: [
+            'domain',
+            'boardCardReadPositions',
+            'boardColumn.board.boardMembers',
+            'comments',
+            'emailDraft.fileAttachments',
+          ],
         })),
       ],
       (boardCard) => boardCard.externalThreadId!,
@@ -624,6 +631,7 @@ export class EmailMessageService {
 
     // Handle label changes (read / unread / trash / spam): update EmailMessages, update BoardCards
     console.log(`[GMAIL] Processing label changes for ${gmailAccount.email}...`);
+    const nonInboxBoardCards = [];
     for (const labelChange of labelChanges) {
       const { externalMessageId } = labelChange;
       const emailMessage = affectedEmailMessageByExternalId[externalMessageId];
@@ -645,6 +653,10 @@ export class EmailMessageService {
 
       let boardCard = boardCardByThreadId[threadId]!;
       boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc }) as typeof boardCard;
+      if (boardCard.state !== BoardCardState.INBOX) {
+        nonInboxBoardCards.push(boardCard);
+      }
+
       orm.em.persist(boardCard);
       boardCardByThreadId[threadId] = boardCard;
     }
@@ -655,6 +667,10 @@ export class EmailMessageService {
     }
 
     await orm.em.flush();
+
+    for (const boardCard of nonInboxBoardCards) {
+      await EmailDraftService.delete(boardCard);
+    }
   }
 
   private static boardAccountToSyncWhenNoBoardCard({

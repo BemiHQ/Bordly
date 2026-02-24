@@ -7,6 +7,19 @@ import { authAsBoardMember, publicProcedure } from '@/trpc-config';
 
 export const BOARD_COLUMN_ROUTES = {
   boardColumn: {
+    create: publicProcedure
+      .input(z.object({ boardId: z.uuid(), name: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        const { board } = authAsBoardMember({ ctx, input });
+        const boardColumn = await BoardColumnService.create(board, { name: input.name });
+        return { boardColumn: BoardColumn.toJson(boardColumn) };
+      }),
+    delete: publicProcedure
+      .input(z.object({ boardId: z.uuid(), boardColumnId: z.uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        const { board } = authAsBoardMember({ ctx, input });
+        await BoardColumnService.delete(board, { boardColumnId: input.boardColumnId });
+      }),
     setName: publicProcedure
       .input(z.object({ boardId: z.uuid(), boardColumnId: z.uuid(), name: z.string().min(1) }))
       .mutation(async ({ input, ctx }) => {

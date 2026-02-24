@@ -47,7 +47,7 @@ export class BoardCard extends BaseEntity {
   assignedBoardMember?: BoardMember;
 
   @OneToOne({ mappedBy: (emailDraft: EmailDraft) => emailDraft.boardCard, nullable: true })
-  emailDraft?: EmailDraft;
+  emailDraft?: EmailDraft; // Email draft are deleted if state is not INBOX
   @OneToMany({ mappedBy: (comment: Comment) => comment.boardCard })
   comments = new Collection<Comment>(this);
   @OneToMany({ mappedBy: (readPosition: BoardCardReadPosition) => readPosition.boardCard })
@@ -130,33 +130,27 @@ export class BoardCard extends BaseEntity {
 
   update({
     externalThreadId,
-    state,
     snippet,
     participantsAsc,
     lastEventAt,
     hasAttachments,
     emailMessageCount,
-    movedToTrashAt,
     participantUserIds,
   }: {
     externalThreadId: string;
-    state: State;
     snippet: string;
     participantsAsc: Participant[];
     lastEventAt: Date;
     hasAttachments: boolean;
     emailMessageCount: number;
-    movedToTrashAt?: Date;
     participantUserIds?: string[];
   }) {
     this.externalThreadId = externalThreadId;
-    this.state = state;
     this.snippet = snippet.slice(0, MAX_SNIPPET_LENGTH);
     this.participantsAsc = participantsAsc.map((p) => ({ ...p, email: p.email.toLowerCase() }));
     this.lastEventAt = lastEventAt;
     this.hasAttachments = hasAttachments;
     this.emailMessageCount = emailMessageCount;
-    this.movedToTrashAt = movedToTrashAt;
     this.participantUserIds = participantUserIds;
     this.validate();
   }
@@ -173,7 +167,7 @@ export class BoardCard extends BaseEntity {
   setState(state: State) {
     this.state = state;
     if (state === State.TRASH) {
-      this.movedToTrashAt = new Date();
+      if (!this.movedToTrashAt) this.movedToTrashAt = new Date();
     } else if (this.movedToTrashAt) {
       this.movedToTrashAt = undefined;
     }

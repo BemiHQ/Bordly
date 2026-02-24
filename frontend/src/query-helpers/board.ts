@@ -146,3 +146,57 @@ export const removeBoardMemberData = ({
     } satisfies typeof oldData;
   });
 };
+
+export const addFakeBoardColumnData = ({
+  trpc,
+  queryClient,
+  params: { boardId, name, position },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; name: string; position: number };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardColumnsAsc: [...oldData.boardColumnsAsc, { id: 'fake-id', name, position }],
+    } satisfies typeof oldData;
+  });
+};
+
+export const replaceFakeBoardColumnData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardColumn },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardColumn: BoardColumn };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardColumnsAsc: oldData.boardColumnsAsc.map((col) => (col.id === 'fake-id' ? boardColumn : col)),
+    } satisfies typeof oldData;
+  });
+};
+
+export const removeBoardColumnData = ({
+  trpc,
+  queryClient,
+  params: { boardId, boardColumnId },
+}: {
+  trpc: TrpcProxy;
+  queryClient: QueryClient;
+  params: { boardId: string; boardColumnId: string };
+}) => {
+  queryClient.setQueryData(queryKey(trpc, { boardId }), (oldData) => {
+    if (!oldData) return oldData;
+    return {
+      ...oldData,
+      boardColumnsAsc: oldData.boardColumnsAsc.filter((col) => col.id !== boardColumnId),
+    } satisfies typeof oldData;
+  });
+};

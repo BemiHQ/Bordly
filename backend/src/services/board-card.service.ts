@@ -402,22 +402,22 @@ export class BoardCardService {
       ].filter((id): id is string => !!id),
     );
 
+    boardCard.setState(state);
+
     boardCard.update({
-      state,
       snippet: lastEmailMessage.snippet,
       externalThreadId: lastEmailMessage.externalThreadId,
       participantsAsc: BoardCardService.participantsAsc({ emailMessagesDesc }),
       lastEventAt,
       hasAttachments: emailMessagesDesc.some((msg) => msg.gmailAttachments.length > 0),
       emailMessageCount: emailMessagesDesc.length,
-      movedToTrashAt: state === State.TRASH ? boardCard.movedToTrashAt || new Date() : undefined,
       participantUserIds: participantUserIds.length > 0 ? participantUserIds : undefined,
     });
 
     return boardCard;
   }
 
-  static async delete(boardCard: Loaded<BoardCard>) {
+  static async deleteAfterDeletingEmailDrafts(boardCard: Loaded<BoardCard>) {
     await orm.em.transactional(async (em) => {
       await em.nativeDelete(Comment, { boardCard });
       await em.nativeDelete(BoardCardReadPosition, { boardCard });
