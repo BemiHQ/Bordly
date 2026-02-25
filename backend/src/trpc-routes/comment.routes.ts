@@ -77,7 +77,10 @@ export const COMMENT_ROUTES = {
           boardCardId: input.boardCardId,
           populate: BOARD_CARD_POPULATE,
         });
-        const boardCard = await CommentService.delete(initialBoardCard, { commentId: input.commentId });
+        const boardCard = await CommentService.delete(initialBoardCard, {
+          user: ctx.user!,
+          commentId: input.commentId,
+        });
         return { boardCard: boardCardToJson(boardCard as typeof initialBoardCard, ctx) };
       }),
   } satisfies TRPCRouterRecord,

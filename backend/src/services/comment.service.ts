@@ -7,7 +7,7 @@ import { AgentService } from '@/services/agent.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { BoardMemberService } from '@/services/board-member.service';
 import { orm } from '@/utils/orm';
-import { isBordlyComment } from '@/utils/shared';
+import { isCommentForBordly } from '@/utils/shared';
 
 export class CommentService {
   static async create(
@@ -34,14 +34,17 @@ export class CommentService {
     boardCard.setSnippet(`${user.firstName}: ${contentText}`);
     boardCard.setLastEventAt(comment.createdAt);
 
-    const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
-    userBoardCardReadPosition.setLastReadAt(boardCard.lastEventAt);
+    if (!user.isBordly) {
+      const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
+      userBoardCardReadPosition.setLastReadAt(boardCard.lastEventAt);
+      orm.em.persist(userBoardCardReadPosition);
+    }
 
-    orm.em.persist([comment, boardCard, userBoardCardReadPosition]);
+    orm.em.persist([comment, boardCard]);
 
     await orm.em.flush();
 
-    if (isBordlyComment(contentText)) {
+    if (isCommentForBordly(contentText) && !user.isBordly) {
       const userBoardMember = await BoardMemberService.findById(board, {
         boardMemberId: boardMember.id,
         populate: ['user', 'memory'],
@@ -80,7 +83,12 @@ export class CommentService {
       populate?: Populate<Comment, Hint>;
     },
   ) {
-    const comment = await CommentService.findById(boardCard, { commentId, populate });
+    const comment = await CommentService.findById(boardCard, {
+      commentId,
+      populate: [...(populate || []), 'user'] as Populate<Comment, Hint>,
+    });
+    if (comment.user.id !== user.id) throw new Error('You can only edit your own comments');
+
     const boardMember = user.boardMembers.find((bm) => bm.board.id === board.id)!;
     const wasLastBoardCardEvent = comment.createdAt.getTime() === boardCard.lastEventAt.getTime();
 
@@ -93,7 +101,7 @@ export class CommentService {
 
     await orm.em.flush();
 
-    if (isBordlyComment(contentText)) {
+    if (isCommentForBordly(contentText)) {
       const userBoardMember = await BoardMemberService.findById(board, {
         boardMemberId: boardMember.id,
         populate: ['user', 'memory'],
@@ -113,8 +121,12 @@ export class CommentService {
     return { boardCard, comment };
   }
 
-  static async delete(boardCard: BoardCard, { commentId }: { commentId: string }) {
-    const comment = await CommentService.findById(boardCard, { commentId });
+  static async delete(boardCard: BoardCard, { user, commentId }: { user: Loaded<User>; commentId: string }) {
+    const comment = await CommentService.findById(boardCard, { commentId, populate: ['user'] });
+    if (comment.user.id !== user.id && !comment.loadedUser.isBordly) {
+      throw new Error('You can only delete your own comments or comments from Bordly');
+    }
+
     orm.em.remove(comment);
 
     await BoardCardService.rebuildLastEventAtAndSnippet(boardCard, { ignoreLastEventAt: comment.createdAt });

@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { isBordlyComment } from 'bordly-backend/utils/shared';
+import { isCommentForBordly } from 'bordly-backend/utils/shared';
 import { Ellipsis, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
@@ -50,7 +50,7 @@ export const PostedComment = ({
     queryKey: boardCardQueryKey,
     onExecute: (params) => {
       updateCommentData({ trpc, queryClient, params });
-      if (isBordlyComment(params.contentText)) {
+      if (isCommentForBordly(params.contentText)) {
         const bordlyUser = boardMembers.find((member) => member.isAgent);
         if (bordlyUser) {
           addBordlyThinkingComment({
@@ -116,6 +116,7 @@ export const PostedComment = ({
   };
 
   const isOwnComment = currentUser?.id === comment.user.id;
+  const isBordlyComment = comment.user.isBordly;
 
   return (
     <div className="flex flex-col gap-1">
@@ -174,10 +175,10 @@ export const PostedComment = ({
           </div>
         ) : (
           <div className="flex flex-row gap-1 group">
-            <div className="text-sm text-text-secondary font-normal bg-border rounded-md px-2.5 py-[3px] whitespace-pre-wrap">
+            <div className="text-sm text-text-secondary font-normal bg-border rounded-md px-2.5 py-[3px]">
               {renderCommentHtml(comment.contentHtml)}
             </div>
-            {isOwnComment && (
+            {(isOwnComment || isBordlyComment) && (
               <DropdownMenu onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -192,10 +193,12 @@ export const PostedComment = ({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                    <Pencil className="size-4" />
-                    Edit
-                  </DropdownMenuItem>
+                  {isOwnComment && (
+                    <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                      <Pencil className="size-4" />
+                      Edit
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={handleDelete} variant="destructive">
                     <Trash2 className="size-4" />
                     Delete

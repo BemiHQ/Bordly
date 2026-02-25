@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { isBordlyComment } from 'bordly-backend/utils/shared';
+import { isCommentForBordly } from 'bordly-backend/utils/shared';
 import { ArrowDown } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -40,7 +40,7 @@ export const CommentInput = ({
     queryKey: boardCardQueryKey,
     onExecute: (params) => {
       addFakeCommentData({ trpc, queryClient, params });
-      if (isBordlyComment(params.contentText)) {
+      if (isCommentForBordly(params.contentText)) {
         const bordlyUser = boardMembers.find((member) => member.isAgent);
         if (bordlyUser) {
           addBordlyThinkingComment({

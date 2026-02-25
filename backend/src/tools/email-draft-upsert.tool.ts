@@ -28,12 +28,12 @@ export const emailDraftUpsertTool = createTool({
     const { requestContext } = context as { requestContext: RequestContext<Context> };
     const initialBoardCard = requestContext.get('boardCard');
     console.log(`[AGENT] Executing email-draft-upsert for board card ${initialBoardCard.id}: ${JSON.stringify(data)}`);
-    const bordlyBoardMember = requestContext.get('bordlyBoardMember');
+    const userBoardMember = requestContext.get('userBoardMember');
     const userTimeZone = requestContext.get('userTimeZone');
-    if (!bordlyBoardMember) throw new Error('Board member context is required');
+    if (!userBoardMember) throw new Error('Board member context is required');
 
-    await BoardMemberService.populate(bordlyBoardMember, ['user.boardMembers']);
-    const user = bordlyBoardMember.loadedUser as Loaded<User, 'boardMembers'>;
+    await BoardMemberService.populate(userBoardMember, ['user.boardMembers']);
+    const user = userBoardMember.loadedUser as Loaded<User, 'boardMembers'>;
 
     const boardCard = await BoardCardService.populate(initialBoardCard, [
       'emailDraft',

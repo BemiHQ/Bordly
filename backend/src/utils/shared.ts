@@ -39,7 +39,7 @@ export interface Participant {
 
 export const participantToString = (p: Participant) => (p.name ? `${p.name} <${p.email}>` : p.email);
 
-export const isBordlyComment = (text: string) => text.trim().toLowerCase().startsWith('@bordly');
+export const isCommentForBordly = (text: string) => text.trim().toLowerCase().startsWith('@bordly');
 
 export const createQuotedHtml = ({
   from,

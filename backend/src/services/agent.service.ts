@@ -9,6 +9,7 @@ import { BoardMember } from '@/entities/board-member';
 import { BORDLY_USER_ID } from '@/entities/user';
 import { BoardMemberService } from '@/services/board-member.service';
 import { boardCardReadTool } from '@/tools/board-card-read.tool';
+import { commentAddTool } from '@/tools/comment-add.tool';
 import { emailDraftUpsertTool } from '@/tools/email-draft-upsert.tool';
 import { gmailAttachmentReadTool } from '@/tools/gmail-attachment-read.tool';
 import { ENV } from '@/utils/env';
@@ -30,6 +31,7 @@ const BORDLY_AGENT = {
 
 - Treat the user's prompt as a simplified request, not a word-for-word instruction.
 - Never make assumptions about the board card's state without using the tools to verify.
+- When a prompt asks for information, add a comment instead of outputting the information directly.
 
 # Writing emails
 
@@ -39,6 +41,7 @@ const BORDLY_AGENT = {
   model: ENV.LLM_THINKING_MODEL,
   tools: {
     'board-card-read': boardCardReadTool,
+    'comment-add': commentAddTool,
     'email-draft-upsert': emailDraftUpsertTool,
     'gmail-attachment-read': gmailAttachmentReadTool,
   } as Record<string, ToolAction<unknown, unknown>>,

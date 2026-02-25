@@ -102,8 +102,8 @@ export class EmailDraftService {
     boardCard.setSnippet(htmlToText(boardCard.emailDraft.bodyHtml || ''));
     orm.em.persist([boardCard.emailDraft, boardCard]);
 
-    const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id);
-    if (userBoardCardReadPosition) {
+    if (!user.isBordly) {
+      const userBoardCardReadPosition = boardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
       userBoardCardReadPosition.setLastReadAt(boardCard.lastEventAt);
       orm.em.persist(userBoardCardReadPosition);
     }
@@ -218,10 +218,8 @@ export class EmailDraftService {
     orm.em.persist(rebuiltBoardCard);
 
     const userBoardCardReadPosition = rebuiltBoardCard.boardCardReadPositions.find((pos) => pos.user.id === user.id)!;
-    if (userBoardCardReadPosition) {
-      userBoardCardReadPosition.setLastReadAt(rebuiltBoardCard.lastEventAt);
-      orm.em.persist(userBoardCardReadPosition);
-    }
+    userBoardCardReadPosition.setLastReadAt(rebuiltBoardCard.lastEventAt);
+    orm.em.persist(userBoardCardReadPosition);
 
     if (rebuiltBoardCard.emailDraft) {
       const { emailDraft } = rebuiltBoardCard;

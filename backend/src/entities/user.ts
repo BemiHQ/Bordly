@@ -69,6 +69,7 @@ export class User extends BaseEntity {
       firstName: user.firstName,
       email: user.isBordly ? '' : user.email,
       photoUrl: user.photoUrl,
+      isBordly: user.isBordly,
     };
   }
 
