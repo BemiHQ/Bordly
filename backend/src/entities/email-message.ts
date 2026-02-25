@@ -150,7 +150,7 @@ export class EmailMessage extends BaseEntity {
     };
   }
 
-  static toText(emailMessage: Loaded<EmailMessage>) {
+  static toText(emailMessage: Loaded<EmailMessage, 'gmailAttachments'>) {
     const items = [
       `ID: ${emailMessage.id}`,
       `Created At: ${emailMessage.externalCreatedAt.toISOString()}`,
@@ -161,6 +161,7 @@ export class EmailMessage extends BaseEntity {
       emailMessage.cc && `CC: ${emailMessage.cc.map(participantToString).join(', ')}`,
       emailMessage.bcc && `BCC: ${emailMessage.bcc.map(participantToString).join(', ')}`,
       `Sent: ${emailMessage.sent}`,
+      `Gmail Attachments: ${emailMessage.gmailAttachments.map(GmailAttachment.toStr).join(', ')}`,
       `Body:
 \`\`\`
 ${emailMessage.bodyText || emailMessage.bodyHtml}

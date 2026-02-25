@@ -13,7 +13,7 @@ import { Logger } from '@/utils/logger';
 
 export const boardCardReadTool = createTool({
   id: 'board-card-read',
-  description: 'Read board card with email messages, an email draft, and comments',
+  description: 'Read the board card with email messages, an email draft, and comments',
   inputSchema: z.object({}),
   execute: async (_, context) => {
     const { requestContext } = context as { requestContext: RequestContext<Context> };
@@ -27,7 +27,7 @@ export const boardCardReadTool = createTool({
     ]);
 
     const [lastEmailMessage] = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
-      populate: ['domain', 'gmailAttachments'],
+      populate: ['gmailAttachments'],
       orderBy: { externalCreatedAt: 'DESC' },
       limit: 1,
     });

@@ -146,7 +146,7 @@ export class EmailDraft extends BaseEntity {
       emailDraft.to && `To: ${emailDraft.to.map(participantToString).join(', ')}`,
       emailDraft.cc && `CC: ${emailDraft.cc.map(participantToString).join(', ')}`,
       emailDraft.bcc && `BCC: ${emailDraft.bcc.map(participantToString).join(', ')}`,
-      `File Attachments: ${fileAttachments.map(FileAttachment.toString).join(', ')}`,
+      `File Attachments: ${fileAttachments.map(FileAttachment.toStr).join(', ')}`,
       `Body:
 \`\`\`
 ${mainText}

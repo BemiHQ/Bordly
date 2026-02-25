@@ -55,7 +55,7 @@ export class FileAttachment extends BaseEntity {
   }
 
   static toStr(fileAttachment: Loaded<FileAttachment>) {
-    return `${fileAttachment.filename} (${fileAttachment.mimeType}, ${fileAttachment.size} bytes)`;
+    return `${fileAttachment.filename} (ID ${fileAttachment.mimeType})`;
   }
 
   private validate() {
