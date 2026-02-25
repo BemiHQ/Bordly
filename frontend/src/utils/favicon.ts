@@ -34,7 +34,7 @@ export const updateFaviconBadge = (show: boolean) => {
         ctx.globalAlpha = 1.0;
       }
 
-      const badgeSize = Math.floor(SIZE * 0.32);
+      const badgeSize = Math.floor(SIZE * 0.3);
       const x = SIZE - badgeSize - 1;
       const y = 1;
 

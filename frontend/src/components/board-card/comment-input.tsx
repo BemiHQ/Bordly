@@ -9,7 +9,6 @@ import { type BoardMember, solo } from '@/query-helpers/board';
 import {
   addBordlyThinkingComment,
   addFakeCommentData,
-  removeBordlyThinkingComment,
   replaceBoardCardData,
   replaceFakeCommentData,
 } from '@/query-helpers/board-card';
@@ -22,17 +21,18 @@ export const CommentInput = ({
   boardCardId,
   context,
   boardMembers,
-  onCommentAdded,
+  scrollToBottom,
 }: {
   boardId: string;
   boardCardId: string;
   context: RouteContext;
   boardMembers: BoardMember[];
-  onCommentAdded?: () => void;
+  scrollToBottom: () => void;
 }) => {
   const { trpc, queryClient } = context;
   const [content, setContent] = useState({ html: '', text: '' });
   const [isShowingMentions, setIsShowingMentions] = useState(false);
+  const [isWaitingForBordly, setIsWaitingForBordly] = useState(false);
 
   const boardCardQueryKey = trpc.boardCard.get.queryKey({ boardId, boardCardId });
   const optimisticallyCreateComment = useOptimisticMutation({
@@ -48,19 +48,25 @@ export const CommentInput = ({
             queryClient,
             params: { boardId, boardCardId, bordlyUser: bordlyUser.user },
           });
+          scrollToBottom();
         }
+        setIsWaitingForBordly(true);
       }
     },
     successToast: undefined,
     errorToast: 'Failed to add comment',
     mutation: useMutation(
       trpc.comment.create.mutationOptions({
-        onSuccess: ({ comment, boardCard }) => {
-          replaceFakeCommentData({ trpc, queryClient, params: { boardId, boardCardId, comment } });
-          replaceBoardCardData({ trpc, queryClient, params: { boardId, boardCard } });
-          removeBordlyThinkingComment({ trpc, queryClient, params: { boardId, boardCardId } });
-
+        onSuccess: async ({ comment, boardCard }) => {
+          if (isWaitingForBordly) {
+            await queryClient.refetchQueries({ queryKey: boardCardQueryKey });
+          } else {
+            replaceFakeCommentData({ trpc, queryClient, params: { boardId, boardCardId, comment } });
+            replaceBoardCardData({ trpc, queryClient, params: { boardId, boardCard } });
+          }
           replaceBoardCardDataInList({ trpc, queryClient, params: { boardId, boardCard } });
+          setIsWaitingForBordly(false);
+          scrollToBottom();
         },
       }),
     ),
@@ -76,7 +82,8 @@ export const CommentInput = ({
       contentText: content.text.trim(),
     });
     setContent({ html: '', text: '' });
-    onCommentAdded?.();
+
+    scrollToBottom();
   };
 
   return (

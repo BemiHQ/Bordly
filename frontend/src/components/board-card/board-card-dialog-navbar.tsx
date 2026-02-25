@@ -310,7 +310,9 @@ export const BoardCardDialogNavbar = ({
                 </>
               )}
               {boardMembers
-                .filter((m) => m.id !== assignedMember?.id && m.id !== currentUserMember.id && !m.isAgent)
+                .filter(
+                  (m) => !m.isAgent && (assignedMember ? m.id !== assignedMember.id : m.id !== currentUserMember.id),
+                )
                 .map((member) => (
                   <SelectItem key={member.id} value={member.id}>
                     <div className="flex items-center gap-2">

@@ -49,11 +49,10 @@ export class CommentService {
         boardMemberId: boardMember.id,
         populate: ['user', 'memory'],
       });
-      const prompt = CommentService.bordlyPrompt(contentText);
       const updatedBoardCard = await AgentService.runBordlyAgent({
         board,
         boardCard,
-        prompt,
+        userComment: comment,
         userBoardMember,
         userTimeZone,
       });
@@ -101,17 +100,16 @@ export class CommentService {
 
     await orm.em.flush();
 
-    if (isCommentForBordly(contentText)) {
+    if (isCommentForBordly(contentText) && !user.isBordly) {
       const userBoardMember = await BoardMemberService.findById(board, {
         boardMemberId: boardMember.id,
         populate: ['user', 'memory'],
       });
 
-      const prompt = CommentService.bordlyPrompt(contentText);
       const updatedBoardCard = await AgentService.runBordlyAgent({
         board,
         boardCard,
-        prompt,
+        userComment: comment,
         userBoardMember,
         userTimeZone,
       });
@@ -148,10 +146,6 @@ export class CommentService {
   }
 
   // -------------------------------------------------------------------------------------------------------------------
-
-  private static bordlyPrompt(text: string) {
-    return text.replace(/^@bordly\s*/i, '').trim();
-  }
 
   private static async findById<Hint extends string = never>(
     boardCard: BoardCard,

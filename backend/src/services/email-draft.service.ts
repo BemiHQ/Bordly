@@ -38,6 +38,7 @@ export class EmailDraftService {
       cc,
       bcc,
       bodyHtml,
+      lastEditedByUser = user,
     }: {
       user: Loaded<User, 'boardMembers'>;
       generated: boolean;
@@ -47,6 +48,7 @@ export class EmailDraftService {
       cc?: string[];
       bcc?: string[];
       bodyHtml?: string;
+      lastEditedByUser?: User;
     },
   ) {
     const {
@@ -70,7 +72,7 @@ export class EmailDraftService {
 
     if (boardCard.emailDraft) {
       boardCard.emailDraft.update({
-        lastEditedByUser: user,
+        lastEditedByUser,
         generated,
         from: fromParticipant,
         to: toParticipants,
@@ -82,7 +84,7 @@ export class EmailDraftService {
     } else {
       boardCard.emailDraft = new EmailDraft({
         boardCard,
-        lastEditedByUser: user,
+        lastEditedByUser,
         generated,
         from: fromParticipant,
         to: toParticipants,
@@ -92,7 +94,7 @@ export class EmailDraftService {
         bodyHtml,
       });
 
-      if (!boardCard.assignedBoardMember) {
+      if (!boardCard.assignedBoardMember && !user.isBordly) {
         const boardMember = user.boardMembers.find((bm) => bm.board.id === boardCard.loadedBoardColumn.board.id)!;
         boardCard.assignToBoardMember(boardMember);
       }

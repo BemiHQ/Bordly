@@ -29,6 +29,7 @@ export const Route = createFileRoute('/boards/$boardId/c/$boardCardId')({
   loader: async ({ context: { queryClient, trpc }, params }) => {
     const data = await ensureLoggedIn(ROUTES.BOARD_CARD)({ context: { queryClient, trpc } });
 
+    // Preload async without await
     const boardId = extractUuid(params.boardId);
     const boardCardId = extractUuid(params.boardCardId);
     queryClient.ensureQueryData(trpc.boardCard.get.queryOptions({ boardId, boardCardId }));
@@ -250,7 +251,7 @@ function BoardCardComponent() {
                 boardCardId={boardCardId}
                 context={context}
                 boardMembers={boardMembers}
-                onCommentAdded={() => {
+                scrollToBottom={() => {
                   setTimeout(() => scrollToBottom(), SCROLL_DELAY_MS);
                 }}
               />

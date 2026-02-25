@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useEmailIframe } from '@/hooks/use-email-iframe';
 import type { BoardMember } from '@/query-helpers/board';
-import type { EmailMessage, GmailAttachment } from '@/query-helpers/board-card';
+import type { EmailMessage } from '@/query-helpers/board-card';
 import { sanitizedDisplayHtml } from '@/utils/email';
 import { pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';

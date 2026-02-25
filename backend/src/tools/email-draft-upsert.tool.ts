@@ -28,18 +28,15 @@ export const emailDraftUpsertTool = createTool({
     const { requestContext } = context as { requestContext: RequestContext<Context> };
     const initialBoardCard = requestContext.get('boardCard');
     console.log(`[AGENT] Executing email-draft-upsert for board card ${initialBoardCard.id}: ${JSON.stringify(data)}`);
-    const userBoardMember = requestContext.get('userBoardMember');
+
     const userTimeZone = requestContext.get('userTimeZone');
-    if (!userBoardMember) throw new Error('Board member context is required');
+    const userBoardMember = requestContext.get('userBoardMember');
+    const bordlyBoardMember = requestContext.get('bordlyBoardMember');
 
     await BoardMemberService.populate(userBoardMember, ['user.boardMembers']);
     const user = userBoardMember.loadedUser as Loaded<User, 'boardMembers'>;
 
-    const boardCard = await BoardCardService.populate(initialBoardCard, [
-      'emailDraft',
-      'boardColumn',
-      'boardCardReadPositions',
-    ]);
+    const boardCard = await BoardCardService.populate(initialBoardCard, ['boardCardReadPositions']);
 
     const quotedEmailHtml = await quotedHtml({
       boardCard,
@@ -56,9 +53,10 @@ export const emailDraftUpsertTool = createTool({
       cc: data.cc,
       bcc: data.bcc,
       bodyHtml: `${data.mainHtml}${quotedEmailHtml}`,
+      lastEditedByUser: bordlyBoardMember.user,
     });
 
-    requestContext.set('boardCard', boardCard);
+    requestContext.set('boardCard', boardCard as unknown as typeof initialBoardCard);
     return { success: true };
   },
 });

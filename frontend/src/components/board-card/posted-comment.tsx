@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { isCommentForBordly } from 'bordly-backend/utils/shared';
 import { Ellipsis, Pencil, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,8 +16,8 @@ import { useRouteContext } from '@/hooks/use-route-context';
 import { type BoardMember, solo } from '@/query-helpers/board';
 import type { Comment } from '@/query-helpers/board-card';
 import {
-  addBordlyThinkingComment,
-  removeBordlyThinkingComment,
+  addOrReplaceWithBordlyThinkingComment,
+  BORDLY_THINKING_COMMENT_ID,
   removeCommentData,
   replaceBoardCardData,
   updateCommentData,
@@ -43,6 +43,7 @@ export const PostedComment = ({
   const [editContent, setEditContent] = useState({ html: comment.contentHtml, text: comment.contentText });
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isShowingMentions, setIsShowingMentions] = useState(false);
+  const [isWaitingForBordly, setIsWaitingForBordly] = useState(false);
 
   const boardCardQueryKey = trpc.boardCard.get.queryKey({ boardId, boardCardId });
   const optimisticallyEditComment = useOptimisticMutation({
@@ -53,22 +54,26 @@ export const PostedComment = ({
       if (isCommentForBordly(params.contentText)) {
         const bordlyUser = boardMembers.find((member) => member.isAgent);
         if (bordlyUser) {
-          addBordlyThinkingComment({
+          addOrReplaceWithBordlyThinkingComment({
             trpc,
             queryClient,
-            params: { boardId, boardCardId, bordlyUser: bordlyUser.user },
+            params: { boardId, boardCardId, commentId: params.commentId, bordlyUser: bordlyUser.user },
           });
         }
+        setIsWaitingForBordly(true);
       }
     },
     errorToast: 'Failed to edit comment',
     mutation: useMutation(
       trpc.comment.edit.mutationOptions({
-        onSuccess: ({ boardCard }) => {
-          replaceBoardCardData({ trpc, queryClient, params: { boardId, boardCard } });
-          removeBordlyThinkingComment({ trpc, queryClient, params: { boardId, boardCardId } });
-
+        onSuccess: async ({ boardCard }) => {
+          if (isWaitingForBordly) {
+            await queryClient.refetchQueries({ queryKey: boardCardQueryKey });
+          } else {
+            replaceBoardCardData({ trpc, queryClient, params: { boardId, boardCard } });
+          }
           replaceBoardCardDataInList({ trpc, queryClient, params: { boardId, boardCard } });
+          setIsWaitingForBordly(false);
         },
       }),
     ),
@@ -178,7 +183,7 @@ export const PostedComment = ({
             <div className="text-sm text-text-secondary font-normal bg-border rounded-md px-2.5 py-[3px]">
               {renderCommentHtml(comment.contentHtml)}
             </div>
-            {(isOwnComment || isBordlyComment) && (
+            {(isOwnComment || isBordlyComment) && !isWaitingForBordly && comment.id !== BORDLY_THINKING_COMMENT_ID && (
               <DropdownMenu onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button

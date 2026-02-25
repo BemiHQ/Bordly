@@ -14,6 +14,8 @@ export type FileAttachment = NonNullable<EmailDraft>['fileAttachments'][number];
 
 export type GmailAttachment = EmailMessage['gmailAttachments'][number];
 
+export const BORDLY_THINKING_COMMENT_ID = 'bordly-thinking';
+
 const queryKey = (trpc: TrpcProxy, params: { boardId: string; boardCardId: string }) => {
   return trpc.boardCard.get.queryKey(params);
 };
@@ -223,7 +225,7 @@ export const addBordlyThinkingComment = ({
   queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId }), (oldData) => {
     if (!oldData) return oldData;
     const thinkingComment = {
-      id: 'bordly-thinking',
+      id: BORDLY_THINKING_COMMENT_ID,
       boardCardId,
       user: bordlyUser,
       contentHtml: '<i>Thinking...</i>',
@@ -235,21 +237,40 @@ export const addBordlyThinkingComment = ({
   });
 };
 
-export const removeBordlyThinkingComment = ({
+export const addOrReplaceWithBordlyThinkingComment = ({
   trpc,
   queryClient,
-  params: { boardId, boardCardId },
+  params: { boardId, boardCardId, commentId, bordlyUser },
 }: {
   trpc: TrpcProxy;
   queryClient: QueryClient;
-  params: { boardId: string; boardCardId: string };
+  params: { boardId: string; boardCardId: string; commentId: string; bordlyUser: Comment['user'] };
 }) => {
   queryClient.setQueryData(queryKey(trpc, { boardId, boardCardId }), (oldData) => {
     if (!oldData) return oldData;
-    return {
-      ...oldData,
-      commentsAsc: oldData.commentsAsc.filter((c) => c.id !== 'bordly-thinking'),
-    } satisfies typeof oldData;
+
+    const thinkingComment = {
+      id: BORDLY_THINKING_COMMENT_ID,
+      boardCardId,
+      user: bordlyUser,
+      contentHtml: '<i>Thinking...</i>',
+      contentText: 'Thinking...',
+      createdAt: new Date(),
+      editedAt: undefined,
+    };
+
+    const commentIndex = oldData.commentsAsc.findIndex((c) => c.id === commentId);
+    if (commentIndex === -1) return oldData;
+    const nextComment = oldData.commentsAsc[commentIndex + 1];
+
+    // Replace if the next comment is from Bordly
+    if (nextComment && nextComment.user.id === bordlyUser.id) {
+      const newCommentsAsc = [...oldData.commentsAsc];
+      newCommentsAsc[commentIndex + 1] = thinkingComment;
+      return { ...oldData, commentsAsc: newCommentsAsc } satisfies typeof oldData;
+    }
+
+    return { ...oldData, commentsAsc: [...oldData.commentsAsc, thinkingComment] } satisfies typeof oldData;
   });
 };
 

@@ -1,27 +1,27 @@
 import { ENV } from '@/utils/env';
 
 export class Logger {
-  static log(...args: unknown[]) {
+  static debug(...args: unknown[]) {
     if (ENV.NODE_ENV === 'production') return;
 
     console.log(...args);
   }
 
-  static logObjects(objs: unknown[]) {
+  static debugObjects(objs: unknown[]) {
     if (ENV.NODE_ENV === 'production') return;
 
-    Logger.log('\n---\n');
+    Logger.debug('\n---\n');
     objs.forEach((obj, index) => {
-      typeof obj === 'string' ? Logger.log(obj) : Logger.logObject(obj);
-      if (index < objs.length - 1) Logger.log('\n---\n');
+      typeof obj === 'string' ? Logger.debug(obj) : Logger.debugObject(obj);
+      if (index < objs.length - 1) Logger.debug('\n---\n');
     });
   }
 
-  static logObject(obj: unknown) {
+  static debugObject(obj: unknown) {
     if (ENV.NODE_ENV === 'production') return;
 
     for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-      Logger.log(`${key}: ${typeof value === 'string' ? value : JSON.stringify(value, null, 2)}`);
+      Logger.debug(`${key}: ${typeof value === 'string' ? value : JSON.stringify(value, null, 2)}`);
     }
   }
 
