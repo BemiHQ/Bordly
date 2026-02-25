@@ -10,6 +10,7 @@ import { BORDLY_USER_ID } from '@/entities/user';
 import { BoardMemberService } from '@/services/board-member.service';
 import { boardCardReadTool } from '@/tools/board-card-read.tool';
 import { emailDraftUpsertTool } from '@/tools/email-draft-upsert.tool';
+import { gmailAttachmentReadTool } from '@/tools/gmail-attachment-read.tool';
 import { ENV } from '@/utils/env';
 import { Logger } from '@/utils/logger';
 import { slugify } from '@/utils/strings';
@@ -39,6 +40,7 @@ const BORDLY_AGENT = {
   tools: {
     'board-card-read': boardCardReadTool,
     'email-draft-upsert': emailDraftUpsertTool,
+    'gmail-attachment-read': gmailAttachmentReadTool,
   } as Record<string, ToolAction<unknown, unknown>>,
 };
 

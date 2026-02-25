@@ -1,12 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { BoardService } from '@/services/board.service';
 import { BoardCardService } from '@/services/board-card.service';
-import { GmailAccountService } from '@/services/gmail-account.service';
 import { GmailAttachmentService } from '@/services/gmail-attachment.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
-import { GmailApi } from '@/utils/gmail-api';
 import { ROUTES } from '@/utils/urls';
 
 const ALLOWED_ICON_CONTENT_TYPES = [
@@ -62,19 +60,7 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
         throw new Error(`Attachment size (${attachment.size} bytes) exceeds maximum limit`);
       }
 
-      const gmailAccount = attachment.loadedEmailMessage.loadedGmailAccount;
-      const gmail = await GmailAccountService.initGmail(gmailAccount);
-
-      const { data: attachmentData } = await GmailApi.getAttachment(gmail, {
-        messageId: attachment.loadedEmailMessage.externalId,
-        externalAttachmentId: attachment.externalId,
-      });
-
-      if (!attachmentData) {
-        throw new Error(`No attachment data returned from Gmail API`);
-      }
-
-      const buffer = Buffer.from(attachmentData, 'base64url');
+      const buffer = await GmailAttachmentService.getAttachmentDataBuffer(attachment);
       const sanitizedFilename = attachment.filename.replace(/[^\w\s.-]/g, '_');
 
       return reply
