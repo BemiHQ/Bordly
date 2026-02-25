@@ -3,11 +3,27 @@ import { Entity, Index, type Loaded, ManyToOne, Property, Unique } from '@mikro-
 import { BaseEntity } from '@/entities/base-entity';
 import type { EmailMessage } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
+import { reportError } from '@/utils/error-tracking';
 
 export interface GmailAttachment {
   loadedGmailAccount: GmailAccount;
   loadedEmailMessage: EmailMessage;
 }
+
+const MIME_TYPE_BY_FILE_EXTENSION: Record<string, string> = {
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
 
 @Entity({ tableName: 'gmail_attachments' })
 @Unique({ properties: ['gmailAccount', 'externalId'] })
@@ -55,6 +71,18 @@ export class GmailAttachment extends BaseEntity {
     this.size = size;
     this.contentId = contentId;
     this.validate();
+  }
+
+  get derivedMimeType() {
+    if (this.mimeType === 'application/octet-stream') {
+      const ext = this.filename.toLowerCase().split('.').pop();
+      if (ext && MIME_TYPE_BY_FILE_EXTENSION[ext]) {
+        return MIME_TYPE_BY_FILE_EXTENSION[ext];
+      }
+      reportError(new Error(`Unknown MIME type for attachment ${this.id} with filename ${this.filename}`));
+      return this.mimeType;
+    }
+    return this.mimeType;
   }
 
   static toJson(gmailAttachment: Loaded<GmailAttachment>) {

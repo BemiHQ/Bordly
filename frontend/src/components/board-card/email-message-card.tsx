@@ -152,11 +152,6 @@ export const EmailMessageCard = ({
 
   const { iconUrl } = emailMessage.domain;
 
-  const handleDownloadAttachment = (attachment: GmailAttachment) => {
-    const url = `${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&gmailAttachmentId=${attachment.id}`;
-    window.open(url, '_blank');
-  };
-
   return (
     <Card className="p-4 pt-3 flex flex-col gap-3">
       <div className="flex items-center gap-3">
@@ -262,12 +257,14 @@ export const EmailMessageCard = ({
             {emailMessage.gmailAttachments
               .sort((a, b) => a.filename.length - b.filename.length)
               .map((attachment) => (
-                <Attachment
+                <a
                   key={attachment.id}
-                  filename={attachment.filename}
-                  size={attachment.size}
-                  onDownload={() => handleDownloadAttachment(attachment)}
-                />
+                  href={`${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&gmailAttachmentId=${attachment.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Attachment key={attachment.id} filename={attachment.filename} size={attachment.size} />
+                </a>
               ))}
           </div>
         </div>

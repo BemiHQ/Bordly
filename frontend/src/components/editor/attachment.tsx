@@ -40,7 +40,7 @@ export const Attachment = ({
       }
       role={onDownload ? 'button' : undefined}
       tabIndex={onDownload ? 0 : undefined}
-      style={{ cursor: onDownload ? 'pointer' : 'default' }}
+      style={{ cursor: onDownload ? 'pointer' : undefined }}
     >
       {onDownload && <Download className="size-3.5 flex-shrink-0 text-muted-foreground mb-0.5" />}
       <div className="flex items-end gap-1.5">

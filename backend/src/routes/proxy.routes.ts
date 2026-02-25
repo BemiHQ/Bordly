@@ -44,7 +44,7 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
 
     try {
       const userId = request.session.get('userId') as string | undefined;
-      const user = await UserService.tryFindById(userId, { populate: ['boardMembers.board'] });
+      const user = userId && (await UserService.tryFindById(userId, { populate: ['boardMembers.board'] }));
       if (!user) throw new Error(`User not found for ID: ${userId}`);
       const board = BoardService.tryFindAsMember(boardId, { user });
       if (!board) throw new Error(`Board not found or user is not a member: ${boardId} (user ID: ${userId})`);
@@ -64,8 +64,8 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
       const sanitizedFilename = attachment.filename.replace(/[^\w\s.-]/g, '_');
 
       return reply
-        .header('Content-Type', attachment.mimeType)
-        .header('Content-Disposition', `attachment; filename="${sanitizedFilename}"`)
+        .header('Content-Type', attachment.derivedMimeType)
+        .header('Content-Disposition', `inline; filename="${sanitizedFilename}"`)
         .header('Content-Length', buffer.length)
         .header('Cache-Control', 'private, max-age=86400')
         .send(buffer);
