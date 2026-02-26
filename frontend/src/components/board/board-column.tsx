@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMutation } from '@tanstack/react-query';
 import { Ellipsis } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   BoardCard,
   BoardCardContent,
@@ -41,6 +41,8 @@ export const BoardColumn = ({
   unreadBoardCardCount,
   children,
   isDraggingColumn,
+  startEditing,
+  onEditingComplete,
 }: {
   board: Board;
   boardColumn: BoardColumnType;
@@ -48,6 +50,8 @@ export const BoardColumn = ({
   unreadBoardCardCount: number;
   children: React.ReactNode;
   isDraggingColumn: boolean;
+  startEditing: boolean;
+  onEditingComplete: () => void;
 }) => {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: boardColumn.id, data: { type: DRAG_TYPE_CARD } });
   const {
@@ -61,6 +65,13 @@ export const BoardColumn = ({
   const { queryClient, trpc } = useRouteContext();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(boardColumn.name);
+
+  useEffect(() => {
+    if (startEditing) {
+      setIsEditing(true);
+      setEditedName(boardColumn.name);
+    }
+  }, [startEditing, boardColumn.name]);
 
   const boardQueryKey = trpc.board.get.queryKey({ boardId: board.id });
 
@@ -98,6 +109,7 @@ export const BoardColumn = ({
       optimisticallySetName({ boardId: board.id, boardColumnId: boardColumn.id, name: trimmedName });
     }
     setIsEditing(false);
+    onEditingComplete();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -106,6 +118,7 @@ export const BoardColumn = ({
     } else if (e.key === 'Escape') {
       setIsEditing(false);
       setEditedName(boardColumn.name);
+      onEditingComplete();
     }
   };
 
@@ -133,11 +146,11 @@ export const BoardColumn = ({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'bg-secondary flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col gap-1 rounded-lg border border-border transition-colors',
+        'bg-secondary flex min-w-68 w-68 h-fit max-h-[calc(100vh-120px)] flex-col rounded-lg border border-border transition-colors',
         isOver && !isDraggingColumn ? 'border-semi-muted' : '',
       )}
     >
-      <div className="flex items-center gap-2 p-2 mt-1.5 ml-3 h-7" {...attributes} {...listeners}>
+      <div className="flex items-center gap-2 pr-2 pt-5 pb-4 pl-5 h-7" {...attributes} {...listeners}>
         {isEditing ? (
           <Input
             value={editedName}

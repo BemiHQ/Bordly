@@ -20,8 +20,7 @@ export const Navbar = () => {
     <nav className="border-b px-6 py-3 bg-secondary border-border">
       <div className="flex items-center justify-between h-4">
         <Link to={ROUTES.INDEX} className="flex items-center gap-2">
-          <img src="/images/logo.png" alt="Bordly Logo" className="w-5 h-5" />
-          <span className="font-semibold text-sm">Bordly</span>
+          <img src="/images/logo-text.png" alt="Bordly Logo" className="h-5" />
         </Link>
         {currentUser && (
           <DropdownMenu>

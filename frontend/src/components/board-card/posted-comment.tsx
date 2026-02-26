@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { isCommentForBordly } from 'bordly-backend/utils/shared';
 import { Ellipsis, Pencil, Trash2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -101,11 +101,14 @@ export const PostedComment = ({
   });
 
   const handleEdit = () => {
-    if (!editContent.html.trim() || editContent.html === comment.contentHtml) {
+    if (!editContent.text.trim()) {
+      handleDelete();
+    } else if (editContent.html === comment.contentHtml) {
       setIsEditing(false);
       setEditContent({ html: comment.contentHtml, text: comment.contentHtml });
       return;
     }
+
     optimisticallyEditComment({
       boardId,
       boardCardId,

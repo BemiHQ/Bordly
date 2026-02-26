@@ -14,7 +14,7 @@ import { shortDateTimeWithWeekday } from '@/utils/time';
 
 export const emailDraftUpsertTool = createTool({
   id: 'email-draft-upsert',
-  description: 'Insert or update an email draft within the board card',
+  description: 'Insert or update an email draft in HTML format within the board card',
   inputSchema: z.object({
     subject: z.string().describe('Email subject line'),
     from: z.string().min(1).describe('Sender email address'),

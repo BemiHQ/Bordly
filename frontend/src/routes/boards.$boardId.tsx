@@ -28,6 +28,7 @@ import {
   addFakeBoardColumnData,
   type BoardColumn as BoardColumnType,
   type BoardData,
+  FAKE_BOARD_COLUMN_ID,
   reorderBoardColumnsData,
   replaceFakeBoardColumnData,
 } from '@/query-helpers/board';
@@ -97,6 +98,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
   const { queryClient, trpc, currentUser } = useRouteContext();
   const [activeBoardCard, setActiveBoardCard] = useState<BoardCard | null>(null);
   const [activeBoardColumn, setActiveBoardColumn] = useState<BoardColumnType | null>(null);
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const { board, boardColumnsAsc, boardMembers } = boardData;
@@ -144,6 +146,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
       trpc.boardColumn.create.mutationOptions({
         onSuccess: ({ boardColumn }) => {
           replaceFakeBoardColumnData({ trpc, queryClient, params: { boardId: board.id, boardColumn } });
+          setEditingColumnId(boardColumn.id);
         },
       }),
     ),
@@ -151,6 +154,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
 
   const handleCreateColumn = () => {
     const columnName = `New Column ${boardColumnsAsc.length + 1}`;
+    setEditingColumnId(FAKE_BOARD_COLUMN_ID);
     optimisticallyCreateBoardColumn({ boardId: board.id, name: columnName });
   };
 
@@ -246,6 +250,8 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
                 boardCards={boardCards}
                 unreadBoardCardCount={unreadBoardCards?.length || 0}
                 isDraggingColumn={!!activeBoardColumn}
+                startEditing={editingColumnId === boardColumn.id}
+                onEditingComplete={() => setEditingColumnId(null)}
               >
                 <BoardColumnContent board={board} boardCards={filteredBoardCards} boardMembers={boardMembers} />
               </BoardColumn>

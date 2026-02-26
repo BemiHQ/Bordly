@@ -1,6 +1,6 @@
 # Bordly
 
-<img src="https://bordly.ai/images/logo.png" alt="Bordly Logo" width="80" />
+<img src="https://bordly.ai/images/logo-text.png" alt="Bordly Logo" width="80" />
 
 **The AI-native email inbox you'll enjoy using.**
 

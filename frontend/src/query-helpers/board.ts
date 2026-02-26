@@ -12,6 +12,8 @@ export type BoardMember = BoardData['boardMembers'][number];
 export type User = BoardMember['user'];
 export type BoardMemberRole = BoardMember['role'];
 
+export const FAKE_BOARD_COLUMN_ID = 'fake-board-column-id';
+
 const queryKey = (trpc: TrpcProxy, params: { boardId: string }) => {
   return trpc.board.get.queryKey(params);
 };
@@ -160,7 +162,7 @@ export const addFakeBoardColumnData = ({
     if (!oldData) return oldData;
     return {
       ...oldData,
-      boardColumnsAsc: [...oldData.boardColumnsAsc, { id: 'fake-id', name, position }],
+      boardColumnsAsc: [...oldData.boardColumnsAsc, { id: FAKE_BOARD_COLUMN_ID, name, position }],
     } satisfies typeof oldData;
   });
 };
@@ -178,7 +180,7 @@ export const replaceFakeBoardColumnData = ({
     if (!oldData) return oldData;
     return {
       ...oldData,
-      boardColumnsAsc: oldData.boardColumnsAsc.map((col) => (col.id === 'fake-id' ? boardColumn : col)),
+      boardColumnsAsc: oldData.boardColumnsAsc.map((col) => (col.id === FAKE_BOARD_COLUMN_ID ? boardColumn : col)),
     } satisfies typeof oldData;
   });
 };

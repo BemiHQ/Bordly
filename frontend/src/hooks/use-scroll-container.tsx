@@ -2,15 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export function useScrollContainer() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const scrollContainerCallback = useCallback((node: HTMLDivElement | null) => {
     scrollContainerRef.current = node;
+    setScrollContainer(node);
   }, []);
 
   useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
     if (!scrollContainer) return;
 
     const handleScroll = () => {
@@ -19,7 +20,7 @@ export function useScrollContainer() {
 
     scrollContainer.addEventListener('scroll', handleScroll);
     return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [scrollContainer]);
 
   const scrollToBottom = useCallback(() => {
     if (bottomRef.current && scrollContainerRef.current) {
