@@ -217,7 +217,7 @@ const BoardContent = ({ boardData, boardCardsData }: { boardData: BoardData; boa
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <ArchiveDropZone isDragging={!!activeBoardCard} />
       <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
-        <div className="flex overflow-x-auto p-3 gap-3">
+        <div className="flex overflow-x-auto p-3 gap-3 min-h-[calc(100vh-94px)]">
           {boardColumnsAsc.map((boardColumn) => {
             const boardCards = boardCardsDesc.filter((card) => card.boardColumnId === boardColumn.id);
 

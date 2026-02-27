@@ -5,3 +5,8 @@ There are two projects in this repository: @frontend and @backend.
 - Do not use `any` type in TypeScript
 - Do not use `git` unless explicitly asked
 - When asked to write tests from examples, anonymize test data
+
+## @frontend
+
+- Prefer React components defined as const arrow functions
+- Avoid extracting component props into a separate interface

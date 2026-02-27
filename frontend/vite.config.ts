@@ -13,12 +13,12 @@ const config = defineConfig({
     nitro({
       routeRules: {
         '/**': {
-          headers: { // Sync with frontend/src/routes/auth.tsx
+          headers: {
             'Content-Security-Policy': [
               "default-src 'none'",
               "img-src 'self' https: data:",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
+              "style-src 'self' 'unsafe-inline'",
+              "font-src 'self'",
               `connect-src 'self' ${process.env.VITE_API_ENDPOINT}`,
               "script-src 'self' 'unsafe-inline'",
               "frame-src 'self'",

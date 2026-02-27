@@ -20,3 +20,9 @@ export const API_ENDPOINTS = {
   FILE_ATTACHMENT_UPLOAD: `${ENV.VITE_API_ENDPOINT}/file-attachments/upload`,
   FILE_ATTACHMENT_DELETE: `${ENV.VITE_API_ENDPOINT}/file-attachments/delete`,
 };
+
+export const EXTERNAL_URLS = {
+  GITHUB: 'https://github.com/BemiHQ/Bordly',
+  LINKEDIN: 'https://www.linkedin.com/company/bordly',
+  X: 'https://x.com/BordlyAI',
+};

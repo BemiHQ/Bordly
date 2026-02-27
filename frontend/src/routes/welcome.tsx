@@ -15,7 +15,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { ensureLoggedIn } from '@/loaders/authentication';
 import { cn } from '@/utils/strings';
-import { API_ENDPOINTS, ROUTES } from '@/utils/urls';
+import { API_ENDPOINTS, EXTERNAL_URLS, ROUTES } from '@/utils/urls';
 
 export const Route = createFileRoute('/welcome')({
   component: Welcome,
@@ -248,7 +248,7 @@ const FinalStep = () => {
           <div className="flex flex-row justify-between items-center gap-4">
             <div className="text-sm">Follow us on LinkedIn</div>
             <Button variant="outline" className="text-sm" asChild>
-              <a href="https://twitter.com/bordlyapp" target="_blank" rel="noopener noreferrer">
+              <a href={EXTERNAL_URLS.LINKEDIN} target="_blank" rel="noopener noreferrer">
                 <svg
                   className="size-4 h-6 w-6"
                   fill="#000000"
@@ -265,7 +265,7 @@ const FinalStep = () => {
           <div className="flex flex-row justify-between items-center gap-4">
             <div className="text-sm">Follow us on X</div>
             <Button variant="outline" className="text-sm" asChild>
-              <a href="https://x.com/BordlyAI" target="_blank" rel="noopener noreferrer">
+              <a href={EXTERNAL_URLS.X} target="_blank" rel="noopener noreferrer">
                 <SiX className="size-4 h-3.5" />
                 @BordlyAI
               </a>
@@ -274,7 +274,7 @@ const FinalStep = () => {
           <div className="flex flex-row justify-between items-center gap-4">
             <div className="text-sm">Star us on GitHub</div>
             <Button variant="outline" className="text-sm" asChild>
-              <a href="https://github.com/BemiHQ/bordly" target="_blank" rel="noopener noreferrer">
+              <a href={EXTERNAL_URLS.GITHUB} target="_blank" rel="noopener noreferrer">
                 <SiGithub />
                 BemiHQ/Bordly
               </a>

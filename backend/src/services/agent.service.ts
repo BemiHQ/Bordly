@@ -50,8 +50,9 @@ const BORDLY_AGENT = {
 - Prioritize user's preferences in your responses if they exist (greeting, opener, signature, formality, meeting link).
   - If no opener is provided, do not add it after greeting (e.g., "Hope you're doing well", "Thanks for reaching out.")
   - Include the meeting link in the email only when the conversation is about scheduling or rescheduling meetings.
-- When generating HTML email content, add empty paragraphs (\`<p></p>\`) between paragraphs with content to create spacing (do not use \`<br>\` or \\n for line breaks).
-- For URLs, add <a> tags to make them clickable.
+- Use \`<p>\` tags for each paragraph, do not use \`<br>\` or \`\\n\` for line breaks.
+- Add empty paragraphs (\`<p></p>\`) between sections with content to create spacing.
+- For URLs, add \`<a>\` tags to make them clickable.
 `,
   model: ENV.LLM_THINKING_MODEL,
   tools: {

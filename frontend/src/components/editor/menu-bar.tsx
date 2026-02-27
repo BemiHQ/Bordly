@@ -421,7 +421,7 @@ export const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) =>
           </TooltipTrigger>
           <TooltipContent>Text & background color</TooltipContent>
         </Tooltip>
-        <PopoverContent className="p-4 w-auto" align="start">
+        <PopoverContent className="p-4 w-fit" align="start">
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-2">
               <div className="text-xs font-medium text-muted-foreground">Text color</div>

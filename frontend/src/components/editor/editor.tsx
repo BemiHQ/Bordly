@@ -73,7 +73,7 @@ export const editorConfig = ({ initialHtml }: { initialHtml?: string }): Paramet
   content: initialHtml || '',
   editorProps: {
     attributes: {
-      class: 'prose prose-sm max-w-none focus:outline-none px-4 my-3 text-sm',
+      class: 'prose prose-sm max-w-none focus:outline-none px-4 my-2 text-sm',
     },
     handleClickOn(_view, _pos, _node, _nodePos, event) {
       const target = event.target as HTMLElement;

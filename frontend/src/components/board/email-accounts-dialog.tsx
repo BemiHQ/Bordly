@@ -197,7 +197,7 @@ export const EmailAccountsDialog = ({
             your board.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-2 pt-1 pb-2">
+        <div className="flex flex-col gap-2 pt-1">
           {boardAccounts.map((account) => (
             <Item key={account.id} variant="outline" className="py-2">
               <ItemMedia variant="image">

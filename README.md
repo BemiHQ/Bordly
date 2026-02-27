@@ -1,6 +1,6 @@
 # Bordly
 
-<img src="https://bordly.ai/images/logo-text.png" alt="Bordly Logo" width="80" />
+<img src="https://bordly.ai/images/android-chrome-512x512.png" alt="Bordly Logo" width="80" />
 
 **The AI-native email inbox you'll enjoy using.**
 
@@ -12,11 +12,11 @@ It blends powerful AI automation with an intuitive UI, enabling truly agentic as
 ## Why Bordly?
 
 - ✅ **Free & open** – Completely open-source, no hidden features
-- 🦾 **AI-native** – Built from the ground up with AI capabilities
+- 🦾 **AI-native** – Smart AI assistant with infinite memory
 - 📬 **Unified inbox** – Connect all your email accounts in one place
-- 🙌 **Collaborative** – Designed for teams to work together
-- 🔒 **Privacy-focused** – Your data stays yours, no tracking or selling
-- 🎨 **Beautiful design** – Clean and intuitive interface
+- 🙌 **Collaborative** – Work together on emails with your team
+- 🔒 **Privacy-focused** – Built-in email tracking blocker
+- 🎨 **Beautiful design** – Clean and intuitive board-based interface
 - 🚀 **Blazing fast** – Smooth experience with instant UX
 - 🛠️ **Customizable** - Developer-friendly and extensible
 
