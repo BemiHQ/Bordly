@@ -23,17 +23,17 @@ describe('sanitizedDisplayHtml', () => {
       },
     ];
 
-    const result = sanitizedDisplayHtml({
-      bodyHtml,
+    const { displayHtml } = sanitizedDisplayHtml({
+      html: bodyHtml,
       gmailAttachments,
       boardId: 'board1',
       boardCardId: 'card1',
     });
 
-    expect(result).toContain('gmailAttachmentId=att123');
-    expect(result).toContain('boardId=board1');
-    expect(result).toContain('boardCardId=card1');
-    expect(result).not.toContain('cid:image.png');
+    expect(displayHtml).toContain('gmailAttachmentId=att123');
+    expect(displayHtml).toContain('boardId=board1');
+    expect(displayHtml).toContain('boardCardId=card1');
+    expect(displayHtml).not.toContain('cid:image.png');
   });
 
   it('replaces cid: references with proxy URLs for inline images by contentId', () => {
@@ -47,15 +47,15 @@ describe('sanitizedDisplayHtml', () => {
       },
     ];
 
-    const result = sanitizedDisplayHtml({
-      bodyHtml,
+    const { displayHtml } = sanitizedDisplayHtml({
+      html: bodyHtml,
       gmailAttachments,
       boardId: 'board2',
       boardCardId: 'card2',
     });
 
-    expect(result).toContain('gmailAttachmentId=att456');
-    expect(result).not.toContain('cid:abc123');
+    expect(displayHtml).toContain('gmailAttachmentId=att456');
+    expect(displayHtml).not.toContain('cid:abc123');
   });
 
   it('handles multiple images with different cid references', () => {
@@ -81,17 +81,17 @@ describe('sanitizedDisplayHtml', () => {
       },
     ];
 
-    const result = sanitizedDisplayHtml({
-      bodyHtml,
+    const { displayHtml } = sanitizedDisplayHtml({
+      html: bodyHtml,
       gmailAttachments,
       boardId: 'board3',
       boardCardId: 'card3',
     });
 
-    expect(result).toContain('gmailAttachmentId=att1');
-    expect(result).toContain('gmailAttachmentId=att2');
-    expect(result).not.toContain('cid:image1.png');
-    expect(result).not.toContain('cid:content-id-2');
+    expect(displayHtml).toContain('gmailAttachmentId=att1');
+    expect(displayHtml).toContain('gmailAttachmentId=att2');
+    expect(displayHtml).not.toContain('cid:image1.png');
+    expect(displayHtml).not.toContain('cid:content-id-2');
   });
 
   it('does not replace non-image attachments', () => {
@@ -105,16 +105,16 @@ describe('sanitizedDisplayHtml', () => {
       },
     ];
 
-    const result = sanitizedDisplayHtml({
-      bodyHtml,
+    const { displayHtml } = sanitizedDisplayHtml({
+      html: bodyHtml,
       gmailAttachments,
       boardId: 'board4',
       boardCardId: 'card4',
     });
 
     // Should not replace since it's not an image
-    expect(result).toContain('cid:document.pdf');
-    expect(result).not.toContain('gmailAttachmentId=att789');
+    expect(displayHtml).toContain('cid:document.pdf');
+    expect(displayHtml).not.toContain('gmailAttachmentId=att789');
   });
 
   it('handles HTML without any images', () => {
@@ -128,28 +128,28 @@ describe('sanitizedDisplayHtml', () => {
       },
     ];
 
-    const result = sanitizedDisplayHtml({
-      bodyHtml,
+    const { displayHtml } = sanitizedDisplayHtml({
+      html: bodyHtml,
       gmailAttachments,
       boardId: 'board5',
       boardCardId: 'card5',
     });
 
-    expect(result).toBe('<div><p>Just text content</p></div>');
+    expect(displayHtml).toBe('<div><p>Just text content</p></div>');
   });
 
   it('preserves non-cid image sources', () => {
     const bodyHtml = '<div><img src="https://example.com/image.png" /><p>Content</p></div>';
     const gmailAttachments: Attachment[] = [];
 
-    const result = sanitizedDisplayHtml({
-      bodyHtml,
+    const { displayHtml } = sanitizedDisplayHtml({
+      html: bodyHtml,
       gmailAttachments,
       boardId: 'board6',
       boardCardId: 'card6',
     });
 
-    expect(result).toContain('https://example.com/image.png');
+    expect(displayHtml).toContain('https://example.com/image.png');
   });
 
   it('sanitizes HTML before processing', () => {
@@ -163,49 +163,49 @@ describe('sanitizedDisplayHtml', () => {
       },
     ];
 
-    const result = sanitizedDisplayHtml({
-      bodyHtml,
+    const { displayHtml } = sanitizedDisplayHtml({
+      html: bodyHtml,
       gmailAttachments,
       boardId: 'board7',
       boardCardId: 'card7',
     });
 
-    expect(result).not.toContain('<script>');
-    expect(result).not.toContain('alert');
-    expect(result).toContain('gmailAttachmentId=att1');
+    expect(displayHtml).not.toContain('<script>');
+    expect(displayHtml).not.toContain('alert');
+    expect(displayHtml).toContain('gmailAttachmentId=att1');
   });
 
   it('removes dangerous event handlers via DOMPurify', () => {
     const bodyHtml = '<div onclick="evilCode()"><p onmouseover="steal()">Hover me</p></div>';
     const gmailAttachments: Attachment[] = [];
 
-    const result = sanitizedDisplayHtml({
-      bodyHtml,
+    const { displayHtml } = sanitizedDisplayHtml({
+      html: bodyHtml,
       gmailAttachments,
       boardId: 'board8',
       boardCardId: 'card8',
     });
 
-    expect(result).not.toContain('onclick');
-    expect(result).not.toContain('onmouseover');
-    expect(result).not.toContain('evilCode');
-    expect(result).not.toContain('steal');
-    expect(result).toContain('Hover me');
+    expect(displayHtml).not.toContain('onclick');
+    expect(displayHtml).not.toContain('onmouseover');
+    expect(displayHtml).not.toContain('evilCode');
+    expect(displayHtml).not.toContain('steal');
+    expect(displayHtml).toContain('Hover me');
   });
 
   it('preserves allowed style attributes via DOMPurify', () => {
     const bodyHtml = '<div style="font-weight: bold; color: blue;"><p style="margin: 10px;">Styled content</p></div>';
     const gmailAttachments: Attachment[] = [];
 
-    const result = sanitizedDisplayHtml({
-      bodyHtml,
+    const { displayHtml } = sanitizedDisplayHtml({
+      html: bodyHtml,
       gmailAttachments,
       boardId: 'board9',
       boardCardId: 'card9',
     });
 
-    expect(result).toContain('style="font-weight: bold; color: blue;"');
-    expect(result).toContain('style="margin: 10px;"');
-    expect(result).toContain('Styled content');
+    expect(displayHtml).toContain('style="font-weight: bold; color: blue;"');
+    expect(displayHtml).toContain('style="margin: 10px;"');
+    expect(displayHtml).toContain('Styled content');
   });
 });

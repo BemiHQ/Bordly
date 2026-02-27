@@ -213,11 +213,11 @@ export const EmailDraftCard = ({
   const displayQuotedHtml = useMemo(
     () =>
       sanitizedDisplayHtml({
-        bodyHtml: quotedHtml,
+        html: quotedHtml,
         gmailAttachments: lastEmailMessage?.gmailAttachments || [],
         boardId,
         boardCardId,
-      }),
+      }).displayHtml,
     [quotedHtml, lastEmailMessage?.gmailAttachments, boardId, boardCardId],
   );
 

@@ -1,8 +1,9 @@
-import { ChevronDownIcon, Paperclip, Reply } from 'lucide-react';
+import { ChevronDownIcon, Paperclip, Reply, ShieldAlert } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ToggleQuotesButton } from '@/components/board-card/toggle-quotes-button';
 import { Attachment } from '@/components/editor/attachment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -18,10 +19,12 @@ const EmailMessageBody = ({
   emailMessage,
   boardId,
   boardCardId,
+  setBlockedTrackerDomains,
 }: {
   emailMessage: EmailMessage;
   boardId: string;
   boardCardId: string;
+  setBlockedTrackerDomains: (blockedTrackerDomains: string[]) => void;
 }) => {
   const [displayMainHtml, setDisplayMainHtml] = useState('');
   const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
@@ -31,24 +34,28 @@ const EmailMessageBody = ({
 
   const { mainHtml, mainText, quotedHtml, quotedText, styles } = emailMessage;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ignore mutation to avoid re-running
   useEffect(() => {
     if (mainHtml || quotedHtml) {
-      const displayMain = sanitizedDisplayHtml({
-        bodyHtml: mainHtml || '',
+      const mainResult = sanitizedDisplayHtml({
+        html: mainHtml || '',
         gmailAttachments: emailMessage.gmailAttachments,
         boardId,
         boardCardId,
       });
 
-      const displayQuoted = sanitizedDisplayHtml({
-        bodyHtml: quotedHtml || '',
+      const quotedResult = sanitizedDisplayHtml({
+        html: quotedHtml || '',
         gmailAttachments: emailMessage.gmailAttachments,
         boardId,
         boardCardId,
       });
 
-      setDisplayMainHtml(displayMain);
-      setDisplayQuotedHtml(displayQuoted);
+      setDisplayMainHtml(mainResult.displayHtml);
+      setDisplayQuotedHtml(quotedResult.displayHtml);
+
+      const allBlockedTrackers = [...mainResult.blockedTrackerDomains, ...quotedResult.blockedTrackerDomains];
+      setBlockedTrackerDomains(allBlockedTrackers);
     }
   }, [mainHtml, quotedHtml, emailMessage.gmailAttachments, boardId, boardCardId]);
 
@@ -117,7 +124,7 @@ export const EmailMessageCard = ({
   boardMembers: BoardMember[];
   onReply?: () => void;
 }) => {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [blockedTrackerDomains, setBlockedTrackerDomains] = useState<string[]>([]);
 
   const participants = [
     emailMessage.from,
@@ -180,13 +187,39 @@ export const EmailMessageCard = ({
                 <div className="text-xs text-muted-foreground">{`<${firstParticipant.email}>`}</div>
               </div>
             )}
-            <div className="text-xs text-muted-foreground flex-shrink-0">
+            <div className="text-xs text-muted-foreground flex-shrink-0 flex gap-2">
+              {blockedTrackerDomains.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="focus:outline-none">
+                      <Badge
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 cursor-pointer hover:bg-accent text-muted-foreground"
+                      >
+                        <ShieldAlert className="size-3" />
+                        {blockedTrackerDomains.length} blocked
+                      </Badge>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-64">
+                    <div className="flex flex-col gap-2">
+                      <div className="font-medium text-muted-foreground text-xs">Blocked trackers</div>
+                      <ul className="list-disc list-inside text-xs">
+                        {blockedTrackerDomains.map((tracker) => (
+                          <li key={tracker}>{tracker}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
               {formattedShortTime(new Date(emailMessage.externalCreatedAt))}
             </div>
           </div>
           <div className="flex items-center gap-1 min-w-0">
             <div className="text-xs text-muted-foreground truncate">{shortAddresses || 'To'}</div>
-            <Popover open={detailsOpen} onOpenChange={setDetailsOpen}>
+            <Popover>
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="icon" className="size-4.5 flex-shrink-0 rounded-full">
                   <ChevronDownIcon className="size-4 text-muted-foreground pt-[2px]" />
@@ -244,7 +277,12 @@ export const EmailMessageCard = ({
           </div>
         </div>
       </div>
-      <EmailMessageBody emailMessage={emailMessage} boardId={boardId} boardCardId={boardCardId} />
+      <EmailMessageBody
+        emailMessage={emailMessage}
+        boardId={boardId}
+        boardCardId={boardCardId}
+        setBlockedTrackerDomains={setBlockedTrackerDomains}
+      />
       {emailMessage.gmailAttachments.length > 0 && (
         <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
           <div className="flex items-center gap-1.5">
