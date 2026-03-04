@@ -227,7 +227,7 @@ export class BoardCard extends BaseEntity {
     };
   }
 
-  static toText(boardCard: Loaded<BoardCard, 'assignedBoardMember.user' | 'boardColumn'>) {
+  static toPrompt(boardCard: Loaded<BoardCard, 'assignedBoardMember.user' | 'boardColumn'>) {
     const assignedBoardMember = boardCard.loadedAssignedBoardMember;
     const boardColumn = boardCard.loadedBoardColumn;
 

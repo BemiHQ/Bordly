@@ -60,7 +60,7 @@ export class FileAttachment extends BaseEntity {
     };
   }
 
-  static toText(fileAttachment: Loaded<FileAttachment>) {
+  static toPrompt(fileAttachment: Loaded<FileAttachment>) {
     return `File Attachment:
 - ID: ${fileAttachment.id}
 - Filename: ${fileAttachment.filename}

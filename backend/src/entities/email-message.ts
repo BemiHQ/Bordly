@@ -3,7 +3,7 @@ import { BaseEntity } from '@/entities/base-entity';
 import { Domain } from '@/entities/domain';
 import type { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
-import { parseHtmlBody, parseTextBody } from '@/utils/email';
+import { htmlToText, parseHtmlBody, parseTextBody } from '@/utils/email';
 import { type Participant, participantToString } from '@/utils/shared';
 
 export interface EmailMessage {
@@ -150,7 +150,7 @@ export class EmailMessage extends BaseEntity {
     };
   }
 
-  static toText(emailMessage: Loaded<EmailMessage, 'gmailAttachments'>) {
+  static toPrompt(emailMessage: Loaded<EmailMessage, 'gmailAttachments'>) {
     const items = [
       `- ID: ${emailMessage.id}`,
       `- Created At: ${emailMessage.externalCreatedAt.toISOString()}`,
@@ -167,11 +167,18 @@ ${emailMessage.bodyText || emailMessage.bodyHtml}
 \`\`\``,
       emailMessage.gmailAttachments.length > 0 &&
         `- Gmail Attachments:
-${emailMessage.gmailAttachments.map(GmailAttachment.toText).join('\n')}`,
+${emailMessage.gmailAttachments.map(GmailAttachment.toPrompt).join('\n')}`,
     ];
 
     return `Email Message:
 ${items.filter(Boolean).join('\n')}`;
+  }
+
+  static toIndex(emailMessage: Loaded<EmailMessage>) {
+    return [
+      emailMessage.subject,
+      emailMessage.bodyText || (emailMessage.bodyHtml && htmlToText(emailMessage.bodyHtml)) || emailMessage.snippet,
+    ].join('\n\n');
   }
 
   private validate() {

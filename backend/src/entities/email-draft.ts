@@ -133,7 +133,7 @@ export class EmailDraft extends BaseEntity {
     };
   }
 
-  static toText(emailDraft: Loaded<EmailDraft, 'fileAttachments'>) {
+  static toPrompt(emailDraft: Loaded<EmailDraft, 'fileAttachments'>) {
     const parsed = emailDraft.bodyHtml ? parseHtmlBody(emailDraft.bodyHtml) : { mainHtml: '' };
     const mainText = htmlToText(parsed.mainHtml);
 
@@ -150,7 +150,7 @@ ${mainText}
 \`\`\``,
       emailDraft.fileAttachments.length > 0 &&
         `- File Attachments:
-${emailDraft.fileAttachments.map(FileAttachment.toText).join('\n')}`,
+${emailDraft.fileAttachments.map(FileAttachment.toPrompt).join('\n')}`,
     ];
 
     return `Email Draft:

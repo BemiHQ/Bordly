@@ -90,7 +90,7 @@ export class BoardMember extends BaseEntity {
     };
   }
 
-  static toText(boardMember: Loaded<BoardMember, 'user' | 'memory'>) {
+  static toPrompt(boardMember: Loaded<BoardMember, 'user' | 'memory'>) {
     const user = boardMember.loadedUser;
     const { memory } = boardMember;
     const items = [

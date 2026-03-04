@@ -6,7 +6,7 @@ import { AgentService } from '@/services/agent.service';
 import { orm } from '@/utils/orm';
 import { S3Client } from '@/utils/s3-client';
 
-const PREFIX_EMAIL_DRAFTS = 'email-drafts';
+const S3_PREFIX_EMAIL_DRAFTS = 'email-drafts';
 
 export class FileAttachmentService {
   static async createForEmailDraft(
@@ -21,7 +21,7 @@ export class FileAttachmentService {
       buffer: Buffer;
     },
   ) {
-    const s3Key = `${PREFIX_EMAIL_DRAFTS}/${emailDraft.id}/${randomUUID()}-${filename}`;
+    const s3Key = `${S3_PREFIX_EMAIL_DRAFTS}/${emailDraft.id}/${randomUUID()}-${filename}`;
     await S3Client.uploadFile({ key: s3Key, buffer, contentType: mimeType });
 
     const summary = await AgentService.generateAttachmentSummary({ data: buffer, filename, mimeType });

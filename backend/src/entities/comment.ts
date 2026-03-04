@@ -66,7 +66,7 @@ export class Comment extends BaseEntity {
     };
   }
 
-  static toText(comment: Loaded<Comment, 'user'>) {
+  static toPrompt(comment: Loaded<Comment, 'user'>) {
     const user = comment.loadedUser;
     const items = [
       `- ID: ${comment.id}`,

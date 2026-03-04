@@ -146,10 +146,10 @@ export class AgentService {
     const commentsAsc = [...boardCard.comments].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
     const boardCardContext = {
-      boardCard: BoardCard.toText(boardCard),
-      emailDraft: boardCard.emailDraft && EmailDraft.toText(boardCard.emailDraft),
-      lastEmailMessage: lastEmailMessage && EmailMessage.toText(lastEmailMessage),
-      commentsAsc: commentsAsc.map(Comment.toText),
+      boardCard: BoardCard.toPrompt(boardCard),
+      emailDraft: boardCard.emailDraft && EmailDraft.toPrompt(boardCard.emailDraft),
+      lastEmailMessage: lastEmailMessage && EmailMessage.toPrompt(lastEmailMessage),
+      commentsAsc: commentsAsc.map(Comment.toPrompt),
     };
     Logger.debug(boardCardContext.boardCard);
     if (boardCardContext.emailDraft) Logger.debug(boardCardContext.emailDraft);
@@ -160,7 +160,7 @@ export class AgentService {
 
     const instructions = [
       { role: 'system', content: `Current date and time: ${userLocalDateTime} (${userTimeZone})` },
-      { role: 'system', content: `The user who sent the prompt: ${BoardMember.toText(userBoardMember)}` },
+      { role: 'system', content: `The user who sent the prompt: ${BoardMember.toPrompt(userBoardMember)}` },
       { role: 'system', content: `Board card details: ${JSON.stringify(boardCardContext)}` },
     ] as MessageInput[];
 

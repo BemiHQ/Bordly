@@ -26,6 +26,8 @@ export const ENV = {
   LLM_FAST_MODEL: requireEnv('LLM_FAST_MODEL'),
   LLM_THINKING_MODEL: requireEnv('LLM_THINKING_MODEL'),
 
+  OPENAI_EMBEDDINGS_API_KEY: requireEnv('OPENAI_EMBEDDINGS_API_KEY'),
+
   S3_REGION: requireEnv('S3_REGION'),
   S3_BUCKET: requireEnv('S3_BUCKET'),
   S3_ACCESS_KEY_ID: requireEnv('S3_ACCESS_KEY_ID'),

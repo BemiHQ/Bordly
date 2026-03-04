@@ -8,11 +8,13 @@ import { EmailMessage } from '@/entities/email-message';
 import { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
 import { AgentService } from '@/services/agent.service';
+import { BoardService } from '@/services/board.service';
 import { BoardAccountService } from '@/services/board-account.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { BoardMemberService } from '@/services/board-member.service';
 import { DomainService } from '@/services/domain.service';
 import { EmailDraftService } from '@/services/email-draft.service';
+import { EmbeddingService } from '@/services/embedding.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { GmailAttachmentService } from '@/services/gmail-attachment.service';
 import { htmlToText } from '@/utils/email';
@@ -24,7 +26,6 @@ import { orm } from '@/utils/orm';
 import { BoardCardState, FALLBACK_SUBJECT, type Participant } from '@/utils/shared';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
-import { BoardService } from './board.service';
 
 const CREATE_NEW_EMAIL_MESSAGES_READ_DB_INTERVAL_MS = 60 * 1_000; // 60 seconds
 const CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS = 5 * 1_000; // 5 seconds
@@ -185,7 +186,9 @@ export class EmailMessageService {
     boardId: string;
     boardAccountId: string;
   }) {
-    const board = await BoardService.findById(boardId, { populate: ['boardMembers.user'] });
+    const board = await BoardService.findById(boardId, { populate: ['boardMembers.user', 'boardColumns'] });
+    if (board.initialized) return;
+
     const boardAccount = await BoardAccountService.findById(board, { id: boardAccountId, populate: ['gmailAccount'] });
     const { loadedGmailAccount: gmailAccount } = boardAccount;
 
@@ -317,6 +320,9 @@ export class EmailMessageService {
     }
 
     await orm.em.flush();
+
+    const allEmailMessages = Object.values(emailMessagesDescByThreadId).flat();
+    await EmbeddingService.indexEmailMessages(board, allEmailMessages);
 
     const boardMember = board.boardMembers.find((member) => !member.isAgent)!;
     await BoardMemberService.setInitialMemory(boardMember);

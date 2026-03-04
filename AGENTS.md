@@ -8,7 +8,7 @@ There are two projects in this repository: @frontend and @backend.
 ## TypeScript
 
 - Do not use `any` type in TypeScript
-- Avoid explicitly specifying function return types
+- Do not explicitly specifying function return types
 
 ## @frontend
 
