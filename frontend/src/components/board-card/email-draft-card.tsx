@@ -113,16 +113,22 @@ export const EmailDraftCard = ({
       setFrom(participantToString(fromEmailAddress as Participant));
 
       if (lastEmailMessage) {
+        const sent = lastEmailMessage!.from.email === fromEmailAddress.email;
         // Set to
         setTo(
-          lastEmailMessage!.from.email === fromEmailAddress.email
+          sent
             ? participantsToString(lastEmailMessage.to)
             : lastEmailMessage.replyTo
               ? participantToString(lastEmailMessage.replyTo)
               : participantToString(lastEmailMessage.from),
         );
         // Set cc
-        setCc(participantsToString(lastEmailMessage.cc));
+        setCc(
+          participantsToString([
+            ...(sent ? [] : (lastEmailMessage.to?.filter((p) => p.email !== fromEmailAddress.email) ?? [])),
+            ...(lastEmailMessage.cc?.filter((p) => p.email !== fromEmailAddress.email) ?? []),
+          ]),
+        );
       }
     }
   }, [emailDraft, lastEmailMessage, fromEmailAddresses]);

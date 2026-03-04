@@ -38,6 +38,7 @@ export const sanitizedDisplayHtml = ({
   const doc = parser.parseFromString(sanitized, 'text/html');
 
   // Replace cid: references with proxy URLs for inline images
+  const inlineImageAttachmentIds = new Set<string>();
   for (const attachment of gmailAttachments) {
     if (!attachment.mimeType.startsWith('image/') || (!attachment.filename && !attachment.contentId)) continue;
 
@@ -51,6 +52,7 @@ export const sanitizedDisplayHtml = ({
           (attachment.contentId && src === `cid:${attachment.contentId}`))
       ) {
         img.setAttribute('src', proxyUrl);
+        inlineImageAttachmentIds.add(attachment.id);
       }
     });
   }
@@ -98,5 +100,6 @@ export const sanitizedDisplayHtml = ({
   return {
     displayHtml: doc.body.innerHTML,
     blockedTrackerDomains: Array.from(blockedTrackerDomains),
+    inlineImageAttachmentIds: Array.from(inlineImageAttachmentIds),
   };
 };

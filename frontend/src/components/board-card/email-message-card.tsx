@@ -20,11 +20,13 @@ const EmailMessageBody = ({
   boardId,
   boardCardId,
   setBlockedTrackerDomains,
+  setInlineImageAttachmentIds,
 }: {
   emailMessage: EmailMessage;
   boardId: string;
   boardCardId: string;
   setBlockedTrackerDomains: (blockedTrackerDomains: string[]) => void;
+  setInlineImageAttachmentIds: (inlineImageAttachmentIds: string[]) => void;
 }) => {
   const [displayMainHtml, setDisplayMainHtml] = useState('');
   const [blockquotesExpanded, setBlockquotesExpanded] = useState(false);
@@ -56,6 +58,12 @@ const EmailMessageBody = ({
 
       const allBlockedTrackers = [...mainResult.blockedTrackerDomains, ...quotedResult.blockedTrackerDomains];
       setBlockedTrackerDomains(allBlockedTrackers);
+
+      const allInlineImageAttachmentIds = [
+        ...mainResult.inlineImageAttachmentIds,
+        ...quotedResult.inlineImageAttachmentIds,
+      ];
+      setInlineImageAttachmentIds(allInlineImageAttachmentIds);
     }
   }, [mainHtml, quotedHtml, emailMessage.gmailAttachments, boardId, boardCardId]);
 
@@ -125,6 +133,7 @@ export const EmailMessageCard = ({
   onReply?: () => void;
 }) => {
   const [blockedTrackerDomains, setBlockedTrackerDomains] = useState<string[]>([]);
+  const [inlineImageAttachmentIds, setInlineImageAttachmentIds] = useState<string[]>([]);
 
   const participants = [
     emailMessage.from,
@@ -158,6 +167,10 @@ export const EmailMessageCard = ({
   };
 
   const { iconUrl } = emailMessage.domain;
+
+  const nonInlineAttachments = emailMessage.gmailAttachments.filter(
+    (attachment) => !inlineImageAttachmentIds.includes(attachment.id),
+  );
 
   return (
     <Card className="p-4 pt-3 flex flex-col gap-3">
@@ -282,17 +295,18 @@ export const EmailMessageCard = ({
         boardId={boardId}
         boardCardId={boardCardId}
         setBlockedTrackerDomains={setBlockedTrackerDomains}
+        setInlineImageAttachmentIds={setInlineImageAttachmentIds}
       />
-      {emailMessage.gmailAttachments.length > 0 && (
+      {nonInlineAttachments.length > 0 && (
         <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
           <div className="flex items-center gap-1.5">
             <Paperclip className="size-4 flex-shrink-0 text-muted-foreground" />
             <div className="text-sm font-medium">
-              {emailMessage.gmailAttachments.length} {pluralize('attachment', emailMessage.gmailAttachments.length)}
+              {nonInlineAttachments.length} {pluralize('attachment', nonInlineAttachments.length)}
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            {emailMessage.gmailAttachments
+            {nonInlineAttachments
               .sort((a, b) => a.filename.length - b.filename.length)
               .map((attachment) => (
                 <a

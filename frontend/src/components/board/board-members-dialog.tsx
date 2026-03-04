@@ -276,7 +276,7 @@ export const BoardMembersDialog = ({
               <NativeSelectOption value={BoardMemberRole.ADMIN}>Admin</NativeSelectOption>
               <NativeSelectOption value={BoardMemberRole.MEMBER}>Member</NativeSelectOption>
             </NativeSelect>
-            <Button variant="contrast" size="sm" onClick={handleSendInvite} disabled={createInviteMutation.isPending}>
+            <Button size="sm" onClick={handleSendInvite} disabled={!inviteEmail || createInviteMutation.isPending}>
               {createInviteMutation.isPending ? (
                 <>
                   <Spinner data-icon="inline-start" />
