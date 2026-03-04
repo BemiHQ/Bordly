@@ -14,6 +14,7 @@ import { usePrefetchQuery } from '@/hooks/use-prefetch-query';
 import { RouteProvider } from '@/hooks/use-route-context';
 import { useScrollContainer } from '@/hooks/use-scroll-container';
 import { ensureLoggedIn } from '@/loaders/authentication';
+import type { EmailMessage } from '@/query-helpers/board-card';
 import { setBoardCardSubjectData } from '@/query-helpers/board-card';
 import {
   replaceBoardCardData,
@@ -52,6 +53,7 @@ function BoardCardComponent() {
   const [subject, setSubject] = useState('');
   const [isEditingSubject, setIsEditingSubject] = useState(false);
   const [showReply, setShowReply] = useState(false);
+  const [replyToEmailMessage, setReplyToEmailMessage] = useState<EmailMessage | undefined>(undefined);
   const [draftChangeCount, setDraftChangeCount] = useState(0);
   const [shouldMaintainScrollBottom, setShouldMaintainScrollBottom] = useState(false);
   const { isScrolled, scrollContainerRef, scrollContainerElement, bottomRef, scrollToBottom } = useScrollContainer();
@@ -231,7 +233,10 @@ function BoardCardComponent() {
                     boardId={boardId}
                     boardCardId={boardCardId}
                     boardMembers={boardMembers}
-                    onReply={() => setShowReply(true)}
+                    onReply={(emailMessage) => {
+                      setReplyToEmailMessage(emailMessage);
+                      setShowReply(true);
+                    }}
                   />
                   {showReply && (
                     <EmailDraftCard
@@ -239,7 +244,7 @@ function BoardCardComponent() {
                       boardId={boardId}
                       boardCard={boardCard}
                       emailDraft={boardCard.emailDraft}
-                      emailMessagesAsc={emailMessagesAsc}
+                      replyToEmailMessage={replyToEmailMessage}
                       onDiscard={() => setShowReply(false)}
                     />
                   )}

@@ -20,7 +20,7 @@ export const TimelineMessages = ({
   boardId: string;
   boardCardId: string;
   boardMembers: BoardMember[];
-  onReply?: () => void;
+  onReply: (emailMessage: EmailMessage) => void;
 }) => {
   const timelineItems: TimelineItem[] = [
     ...emailMessages.map((emailMessage) => ({
@@ -51,7 +51,8 @@ export const TimelineMessages = ({
               boardId={boardId}
               boardCardId={boardCardId}
               boardMembers={boardMembers}
-              onReply={index === lastEmailIndex ? onReply : undefined}
+              onReply={onReply}
+              isLast={index === lastEmailIndex}
             />
           );
         }

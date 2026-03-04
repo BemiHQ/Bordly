@@ -61,13 +61,13 @@ export const EmailDraftCard = ({
   boardId,
   boardCard,
   emailDraft,
-  emailMessagesAsc,
+  replyToEmailMessage,
   onDiscard,
 }: {
   boardId: string;
   boardCard: BoardCard;
   emailDraft?: EmailDraft;
-  emailMessagesAsc: EmailMessage[];
+  replyToEmailMessage?: EmailMessage;
   onDiscard: () => void;
 }) => {
   const navigate = useNavigate();
@@ -86,7 +86,6 @@ export const EmailDraftCard = ({
       boardAccountId: boardCard.boardAccountId,
     }),
   });
-  const lastEmailMessage = emailMessagesAsc[emailMessagesAsc.length - 1];
   const fromEmailAddresses = emailAddressesData?.senderEmailAddresses || [];
   useEffect(() => {
     if (fromEmailAddresses.length === 0) return;
@@ -100,38 +99,38 @@ export const EmailDraftCard = ({
       });
     } else {
       // Set from
-      const lastEmailParticipantEmails = new Set<string>([
-        lastEmailMessage?.from.email,
-        ...(lastEmailMessage?.to?.map((p) => p.email) ?? []),
-        ...(lastEmailMessage?.cc?.map((p) => p.email) ?? []),
-        ...(lastEmailMessage?.bcc?.map((p) => p.email) ?? []),
+      const emailParticipantEmails = new Set<string>([
+        ...(replyToEmailMessage ? [replyToEmailMessage.from.email] : []),
+        ...(replyToEmailMessage?.to?.map((p) => p.email) ?? []),
+        ...(replyToEmailMessage?.cc?.map((p) => p.email) ?? []),
+        ...(replyToEmailMessage?.bcc?.map((p) => p.email) ?? []),
       ]);
       const fromEmailAddress =
-        fromEmailAddresses.find((addr) => lastEmailParticipantEmails.has(addr.email)) ||
+        fromEmailAddresses.find((addr) => emailParticipantEmails.has(addr.email)) ||
         fromEmailAddresses.find((addr) => addr.isDefault) ||
         fromEmailAddresses[0];
       setFrom(participantToString(fromEmailAddress as Participant));
 
-      if (lastEmailMessage) {
-        const sent = lastEmailMessage!.from.email === fromEmailAddress.email;
+      if (replyToEmailMessage) {
+        const sent = replyToEmailMessage!.from.email === fromEmailAddress.email;
         // Set to
         setTo(
           sent
-            ? participantsToString(lastEmailMessage.to)
-            : lastEmailMessage.replyTo
-              ? participantToString(lastEmailMessage.replyTo)
-              : participantToString(lastEmailMessage.from),
+            ? participantsToString(replyToEmailMessage.to)
+            : replyToEmailMessage.replyTo
+              ? participantToString(replyToEmailMessage.replyTo)
+              : participantToString(replyToEmailMessage.from),
         );
         // Set cc
         setCc(
           participantsToString([
-            ...(sent ? [] : (lastEmailMessage.to?.filter((p) => p.email !== fromEmailAddress.email) ?? [])),
-            ...(lastEmailMessage.cc?.filter((p) => p.email !== fromEmailAddress.email) ?? []),
+            ...(sent ? [] : (replyToEmailMessage.to?.filter((p) => p.email !== fromEmailAddress.email) ?? [])),
+            ...(replyToEmailMessage.cc?.filter((p) => p.email !== fromEmailAddress.email) ?? []),
           ]),
         );
       }
     }
-  }, [emailDraft, lastEmailMessage, fromEmailAddresses]);
+  }, [emailDraft, replyToEmailMessage, fromEmailAddresses]);
 
   const [hasChanges, setHasChanges] = useState(!emailDraft);
   const autosaveIntervalRef = useRef<number | null>(null);
@@ -206,25 +205,25 @@ export const EmailDraftCard = ({
   );
 
   const quotedHtml = useMemo(() => {
-    return lastEmailMessage
+    return replyToEmailMessage
       ? createQuotedHtml({
-          from: lastEmailMessage.from,
-          sentAt: shortDateTimeWithWeekday(lastEmailMessage.externalCreatedAt),
-          html: `${lastEmailMessage.mainHtml || ''}${lastEmailMessage.quotedHtml || ''}`,
-          text: `${lastEmailMessage.mainText || ''}${lastEmailMessage.quotedText || ''}`,
+          from: replyToEmailMessage.from,
+          sentAt: shortDateTimeWithWeekday(replyToEmailMessage.externalCreatedAt),
+          html: `${replyToEmailMessage.mainHtml || ''}${replyToEmailMessage.quotedHtml || ''}`,
+          text: `${replyToEmailMessage.mainText || ''}${replyToEmailMessage.quotedText || ''}`,
         })
       : '';
-  }, [lastEmailMessage]);
+  }, [replyToEmailMessage]);
 
   const displayQuotedHtml = useMemo(
     () =>
       sanitizedDisplayHtml({
         html: quotedHtml,
-        gmailAttachments: lastEmailMessage?.gmailAttachments || [],
+        gmailAttachments: replyToEmailMessage?.gmailAttachments || [],
         boardId,
         boardCardId,
       }).displayHtml,
-    [quotedHtml, lastEmailMessage?.gmailAttachments, boardId, boardCardId],
+    [quotedHtml, replyToEmailMessage?.gmailAttachments, boardId, boardCardId],
   );
 
   useEmailIframe(blockquotesIframeRef, {

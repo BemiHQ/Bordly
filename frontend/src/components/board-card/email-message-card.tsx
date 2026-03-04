@@ -7,11 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEmailIframe } from '@/hooks/use-email-iframe';
 import type { BoardMember } from '@/query-helpers/board';
 import type { EmailMessage } from '@/query-helpers/board-card';
 import { sanitizedDisplayHtml } from '@/utils/email';
-import { pluralize } from '@/utils/strings';
+import { cn, pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
 import { API_ENDPOINTS } from '@/utils/urls';
 
@@ -125,12 +126,14 @@ export const EmailMessageCard = ({
   boardCardId,
   boardMembers,
   onReply,
+  isLast = true,
 }: {
   emailMessage: EmailMessage;
   boardId: string;
   boardCardId: string;
   boardMembers: BoardMember[];
-  onReply?: () => void;
+  onReply: (emailMessage: EmailMessage) => void;
+  isLast: boolean;
 }) => {
   const [blockedTrackerDomains, setBlockedTrackerDomains] = useState<string[]>([]);
   const [inlineImageAttachmentIds, setInlineImageAttachmentIds] = useState<string[]>([]);
@@ -191,24 +194,84 @@ export const EmailMessageCard = ({
           </AvatarFallback>
         </Avatar>
         <div className="flex flex-col w-full min-w-0">
-          <div className="flex justify-between gap-2">
-            {firstParticipantName === firstParticipant.email ? (
-              <div className="text-sm font-medium">{firstParticipantName}</div>
-            ) : (
-              <div className="flex flex-row items-center gap-1.5">
+          <div className="flex justify-between items-start gap-2">
+            <div className="flex flex-col">
+              {firstParticipantName === firstParticipant.email ? (
                 <div className="text-sm font-medium">{firstParticipantName}</div>
-                <div className="text-xs text-muted-foreground">{`<${firstParticipant.email}>`}</div>
+              ) : (
+                <div className="flex flex-row items-center gap-1.5">
+                  <div className="text-sm font-medium">{firstParticipantName}</div>
+                  <div className="text-xs text-muted-foreground">{`<${firstParticipant.email}>`}</div>
+                </div>
+              )}
+              <div className="flex items-center gap-1 min-w-0">
+                <div className="text-xs text-muted-foreground truncate">{shortAddresses || 'To'}</div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="size-4.5 flex-shrink-0 rounded-full">
+                      <ChevronDownIcon className="size-4 text-muted-foreground pt-[2px]" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="center" className="w-fit">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col">
+                        <div className="font-medium text-muted-foreground text-xs">From</div>
+                        <div className="text-xs">{formatParticipant(emailMessage.from)}</div>
+                      </div>
+                      {emailMessage.to && emailMessage.to.length > 0 && (
+                        <div className="flex flex-col">
+                          <div className="font-medium text-muted-foreground text-xs">To</div>
+                          <div className="text-xs flex flex-col">
+                            {emailMessage.to.map((p) => (
+                              <div key={p.email}>{formatParticipant(p)}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {emailMessage.replyTo && (
+                        <div className="flex flex-col">
+                          <div className="font-medium text-muted-foreground text-xs">Reply to</div>
+                          <div className="text-xs">{formatParticipant(emailMessage.replyTo)}</div>
+                        </div>
+                      )}
+                      {emailMessage.cc && emailMessage.cc.length > 0 && (
+                        <div className="flex flex-col">
+                          <div className="font-medium text-muted-foreground text-xs">Cc</div>
+                          <div className="text-xs flex flex-col">
+                            {emailMessage.cc.map((p) => (
+                              <div key={p.email}>{formatParticipant(p)}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {emailMessage.bcc && emailMessage.bcc.length > 0 && (
+                        <div className="flex flex-col">
+                          <div className="font-medium text-muted-foreground text-xs">Bcc</div>
+                          <div className="text-xs flex flex-col">
+                            {emailMessage.bcc.map((p) => (
+                              <div key={p.email}>{formatParticipant(p)}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex flex-col">
+                        <div className="font-medium text-muted-foreground text-xs">Date</div>
+                        <div className="text-xs">{shortDateTime(new Date(emailMessage.externalCreatedAt))}</div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
-            )}
-            <div className="text-xs text-muted-foreground flex-shrink-0 flex gap-2">
+            </div>
+            <div className="flex gap-3">
               {blockedTrackerDomains.length > 0 && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button type="button" className="focus:outline-none">
+                    <button type="button" className="focus:outline-none mt-[5px]">
                       <Badge
                         variant="outline"
                         size="sm"
-                        className="gap-1 cursor-pointer hover:bg-accent text-muted-foreground"
+                        className="gap-1 cursor-pointer hover:bg-accent text-muted-foreground pr-2"
                       >
                         <ShieldAlert className="size-3" />
                         {blockedTrackerDomains.length} blocked
@@ -227,66 +290,20 @@ export const EmailMessageCard = ({
                   </PopoverContent>
                 </Popover>
               )}
-              {formattedShortTime(new Date(emailMessage.externalCreatedAt))}
+              <div className={cn('text-xs text-muted-foreground mt-2', isLast && 'mr-2.5')}>
+                {formattedShortTime(new Date(emailMessage.externalCreatedAt))}
+              </div>
+              {!isLast && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" onClick={() => onReply(emailMessage)}>
+                      <Reply className="text-muted-foreground size-4.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reply</TooltipContent>
+                </Tooltip>
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-1 min-w-0">
-            <div className="text-xs text-muted-foreground truncate">{shortAddresses || 'To'}</div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-4.5 flex-shrink-0 rounded-full">
-                  <ChevronDownIcon className="size-4 text-muted-foreground pt-[2px]" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="center" className="w-fit">
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col">
-                    <div className="font-medium text-muted-foreground text-xs">From</div>
-                    <div className="text-xs">{formatParticipant(emailMessage.from)}</div>
-                  </div>
-                  {emailMessage.to && emailMessage.to.length > 0 && (
-                    <div className="flex flex-col">
-                      <div className="font-medium text-muted-foreground text-xs">To</div>
-                      <div className="text-xs flex flex-col">
-                        {emailMessage.to.map((p) => (
-                          <div key={p.email}>{formatParticipant(p)}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {emailMessage.replyTo && (
-                    <div className="flex flex-col">
-                      <div className="font-medium text-muted-foreground text-xs">Reply to</div>
-                      <div className="text-xs">{formatParticipant(emailMessage.replyTo)}</div>
-                    </div>
-                  )}
-                  {emailMessage.cc && emailMessage.cc.length > 0 && (
-                    <div className="flex flex-col">
-                      <div className="font-medium text-muted-foreground text-xs">Cc</div>
-                      <div className="text-xs flex flex-col">
-                        {emailMessage.cc.map((p) => (
-                          <div key={p.email}>{formatParticipant(p)}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {emailMessage.bcc && emailMessage.bcc.length > 0 && (
-                    <div className="flex flex-col">
-                      <div className="font-medium text-muted-foreground text-xs">Bcc</div>
-                      <div className="text-xs flex flex-col">
-                        {emailMessage.bcc.map((p) => (
-                          <div key={p.email}>{formatParticipant(p)}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex flex-col">
-                    <div className="font-medium text-muted-foreground text-xs">Date</div>
-                    <div className="text-xs">{shortDateTime(new Date(emailMessage.externalCreatedAt))}</div>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
           </div>
         </div>
       </div>
@@ -321,8 +338,8 @@ export const EmailMessageCard = ({
           </div>
         </div>
       )}
-      {onReply && (
-        <Button variant="outline" size="sm" onClick={onReply} className="gap-2 self-start mt-2">
+      {isLast && (
+        <Button variant="outline" size="sm" onClick={() => onReply(emailMessage)} className="gap-2 self-start mt-2">
           <Reply className="size-4" />
           Reply
         </Button>
