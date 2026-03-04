@@ -14,6 +14,7 @@ import { BoardMemberService } from '@/services/board-member.service';
 import { DomainService } from '@/services/domain.service';
 import { EmailDraftService } from '@/services/email-draft.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
+import { GmailAttachmentService } from '@/services/gmail-attachment.service';
 import { htmlToText } from '@/utils/email';
 import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
@@ -52,6 +53,7 @@ const AGENT_CATEGORIZATION = {
 - {{categories}}
 
 Only output one of the above categories without any explanation.`,
+  model: ENV.LLM_FAST_MODEL,
 };
 
 export class EmailMessageService {
@@ -198,7 +200,10 @@ export class EmailMessageService {
     // Collect EmailMessages and Attachments
     let lastExternalHistoryId: string | undefined;
     // Return type from parseEmailMessage
-    const emailMessagesDescByThreadId: Record<string, ReturnType<typeof EmailMessageService.parseEmailMessage>[]> = {};
+    const emailMessagesDescByThreadId: Record<
+      string,
+      Awaited<ReturnType<typeof EmailMessageService.parseEmailMessage>>[]
+    > = {};
     const domainNames = new Set<string>();
     const processedMessageIds = new Set<string>();
 
@@ -208,7 +213,7 @@ export class EmailMessageService {
       const messageData = await GmailApi.getMessage(gmail, message.id);
       if (messageData.labelIds?.includes(LABEL.DRAFT)) continue; // Skip drafts
 
-      const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
+      const emailMessage = await EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
       (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
       domainNames.add(emailMessage.loadedDomain.name);
       processedMessageIds.add(message.id);
@@ -232,7 +237,7 @@ export class EmailMessageService {
           if (messageData.labelIds?.includes(LABEL.DRAFT)) continue; // Skip drafts
 
           console.log(`[GMAIL] Processing ${gmailAccount.email} thread message ${messageData.id}...`);
-          const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
+          const emailMessage = await EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
           (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
           domainNames.add(emailMessage.loadedDomain.name);
           processedMessageIds.add(messageData.id);
@@ -343,7 +348,7 @@ export class EmailMessageService {
     return participant;
   }
 
-  static parseEmailMessage({
+  static async parseEmailMessage({
     gmailAccount,
     messageData,
   }: {
@@ -416,6 +421,17 @@ export class EmailMessageService {
         size: attachmentData.size,
         contentId: attachmentData.contentId,
       });
+
+      if (!labels.includes(LABEL.SPAM) && !labels.includes(LABEL.TRASH)) {
+        const data = await GmailAttachmentService.getAttachmentDataBuffer(attachment);
+        const summary = await AgentService.generateAttachmentSummary({
+          filename: attachment.filename,
+          mimeType: attachment.llmMimeType,
+          data,
+        });
+        attachment.setSummary(summary);
+      }
+
       attachments.push(attachment);
     }
 
@@ -522,8 +538,11 @@ export class EmailMessageService {
           draftExternalMessageIds.add(externalMessageId);
           continue; // Skip drafts
         }
+        if (GmailApi.headerValue(messageData.payload?.headers || [], 'X-Bordly-Sent')) {
+          continue; // Skip Bordly-sent messages to avoid race conditions
+        }
 
-        const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
+        const emailMessage = await EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
         const boardCard = boardCardByThreadId[externalThreadId];
 
         if (!boardCard && !EmailMessageService.boardAccountToSyncWhenNoBoardCard({ emailMessage, gmailAccount })) {
@@ -779,7 +798,7 @@ export class EmailMessageService {
       instructions: renderTemplate(AGENT_CATEGORIZATION.instructionsTemplate, { categories: categories.join('\n- ') }),
     });
 
-    let category = CATEGORIES.OTHER;
+    let category = categories[0]!;
     if (
       !emailMessages.some(
         (emailMessage) => emailMessage.labels.includes(LABEL.SPAM) || emailMessage.labels.includes(LABEL.TRASH),

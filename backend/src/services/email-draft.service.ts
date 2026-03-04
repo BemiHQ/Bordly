@@ -204,7 +204,7 @@ export class EmailDraftService {
     });
 
     const messageData = await GmailApi.getMessage(gmail, sentMessage.id!);
-    const emailMessage = EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
+    const emailMessage = await EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
     if (domain) {
       emailMessage.domain = domain;
     } else {

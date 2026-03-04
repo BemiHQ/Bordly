@@ -1019,6 +1019,16 @@
           "nullable": true,
           "length": 255,
           "mappedType": "string"
+        },
+        "summary": {
+          "name": "summary",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 255,
+          "mappedType": "string"
         }
       },
       "name": "gmail_attachments",
@@ -1796,6 +1806,16 @@
           "primary": false,
           "nullable": false,
           "mappedType": "integer"
+        },
+        "summary": {
+          "name": "summary",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 255,
+          "mappedType": "string"
         }
       },
       "name": "file_attachments",

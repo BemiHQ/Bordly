@@ -194,8 +194,8 @@ export const EmailMessageCard = ({
           </AvatarFallback>
         </Avatar>
         <div className="flex flex-col w-full min-w-0">
-          <div className="flex justify-between items-start gap-2">
-            <div className="flex flex-col">
+          <div className="flex justify-between items-start gap-16">
+            <div className="flex flex-col min-w-0">
               {firstParticipantName === firstParticipant.email ? (
                 <div className="text-sm font-medium">{firstParticipantName}</div>
               ) : (
@@ -263,7 +263,7 @@ export const EmailMessageCard = ({
                 </Popover>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-shrink-0">
               {blockedTrackerDomains.length > 0 && (
                 <Popover>
                   <PopoverTrigger asChild>

@@ -31,7 +31,13 @@ export interface Context {
   userComment: Loaded<Comment>;
 }
 
-const BORDLY_AGENT = {
+const AGENT_ATTACHMENT_SUMMARY = {
+  name: 'Gmail Attachment Summary Agent',
+  instructions: `Analyze the email attachment and provide a concise summary. The summary must be 255 characters or less.`,
+  model: ENV.LLM_FAST_MODEL,
+};
+
+const AGENT_BORDLY = {
   name: 'Bordly',
   instructions: `You are an AI email assistant called Bordly that helps manage email communications within a Trello-like board card using the provided tools.
 
@@ -105,7 +111,7 @@ export class AgentService {
     requestContext.set('boardCard', populatedBoardCard);
     requestContext.set('userComment', userComment);
 
-    const agent = AgentService.createAgent(BORDLY_AGENT);
+    const agent = AgentService.createAgent(AGENT_BORDLY);
     const prompt = userComment.contentText;
     const messages: MessageInput[] = [...systemInstructions, { role: 'user', content: prompt }];
 
@@ -159,5 +165,30 @@ export class AgentService {
     ] as MessageInput[];
 
     return { instructions, boardCard };
+  }
+
+  static async generateAttachmentSummary({
+    data,
+    filename,
+    mimeType,
+  }: {
+    data: Buffer;
+    filename: string;
+    mimeType: string;
+  }) {
+    const agent = AgentService.createAgent(AGENT_ATTACHMENT_SUMMARY);
+
+    console.log(`[AGENT] Generating summary for attachment ${filename}...`);
+    const response = await agent.generate([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Summarize the following email attachment' },
+          { type: 'file', filename, mediaType: mimeType, data },
+        ],
+      },
+    ]);
+
+    return response.text.slice(0, 255);
   }
 }

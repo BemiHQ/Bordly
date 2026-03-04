@@ -23,6 +23,7 @@ const MIME_TYPE_BY_FILE_EXTENSION: Record<string, string> = {
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xls: 'application/vnd.ms-excel',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ics: 'application/ics',
 };
 
 @Entity({ tableName: 'gmail_attachments' })
@@ -44,6 +45,9 @@ export class GmailAttachment extends BaseEntity {
   size: number;
   @Property()
   contentId?: string;
+
+  @Property()
+  summary?: string;
 
   constructor({
     gmailAccount,
@@ -73,6 +77,11 @@ export class GmailAttachment extends BaseEntity {
     this.validate();
   }
 
+  setSummary(summary: string) {
+    this.summary = summary;
+    this.validate();
+  }
+
   get derivedMimeType() {
     if (this.mimeType === 'application/octet-stream') {
       const ext = this.filename.toLowerCase().split('.').pop();
@@ -83,6 +92,13 @@ export class GmailAttachment extends BaseEntity {
       return this.mimeType;
     }
     return this.mimeType;
+  }
+
+  get llmMimeType() {
+    if (this.mimeType === 'application/ics' || this.mimeType === 'text/calendar') {
+      return 'text/plain'; // LLMs don't support text/calendar, so we treat it as plain text (e.g. for .ics files)
+    }
+    return this.derivedMimeType;
   }
 
   static toJson(gmailAttachment: Loaded<GmailAttachment>) {
@@ -107,5 +123,6 @@ export class GmailAttachment extends BaseEntity {
     if (!this.mimeType) throw new Error('MIME type is required');
     if (this.size === undefined || this.size === null || this.size < 0)
       throw new Error('Size must be a non-negative number');
+    if (this.summary === '') throw new Error('Summary cannot be an empty string');
   }
 }

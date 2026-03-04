@@ -23,18 +23,23 @@ export class FileAttachment extends BaseEntity {
   @Property()
   size: number;
 
+  @Property()
+  summary: string;
+
   constructor({
     emailDraft,
     s3Key,
     filename,
     mimeType,
     size,
+    summary,
   }: {
     emailDraft: EmailDraft;
     s3Key: string;
     filename: string;
     mimeType: string;
     size: number;
+    summary: string;
   }) {
     super();
     this.emailDraft = emailDraft;
@@ -42,6 +47,7 @@ export class FileAttachment extends BaseEntity {
     this.filename = filename;
     this.mimeType = mimeType;
     this.size = size;
+    this.summary = summary;
     this.validate();
   }
 
@@ -65,5 +71,6 @@ export class FileAttachment extends BaseEntity {
     if (!this.mimeType) throw new Error('MIME type is required');
     if (this.size === undefined || this.size === null || this.size < 0)
       throw new Error('Size must be a non-negative number');
+    if (!this.summary) throw new Error('Summary is required');
   }
 }

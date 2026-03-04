@@ -29,6 +29,7 @@ export const gmailAttachmentAnalyzeTool = createTool({
 
     const { externalThreadId } = boardCard;
     if (!externalThreadId) throw new Error('Board card does not have an external thread ID');
+
     const gmailAttachment = await GmailAttachmentService.findByIdAndExternalThreadId(id, {
       externalThreadId,
       populate: ['emailMessage.gmailAccount'],
@@ -44,7 +45,7 @@ export const gmailAttachmentAnalyzeTool = createTool({
           {
             type: 'file',
             filename: gmailAttachment.filename,
-            mediaType: gmailAttachment.derivedMimeType,
+            mediaType: gmailAttachment.llmMimeType,
             data: await GmailAttachmentService.getAttachmentDataBuffer(gmailAttachment),
           },
         ],
@@ -54,7 +55,7 @@ export const gmailAttachmentAnalyzeTool = createTool({
     const result = {
       output: response.text,
       filename: gmailAttachment.filename,
-      mimeType: gmailAttachment.derivedMimeType,
+      mimeType: gmailAttachment.llmMimeType,
       size: gmailAttachment.size,
     };
 

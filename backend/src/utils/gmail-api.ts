@@ -202,6 +202,7 @@ export class GmailApi {
       `Subject: ${GmailApi.encodeHeaderValue(GmailApi.sanitize(subject || ''))}`,
       inReplyTo ? `In-Reply-To: ${GmailApi.sanitize(inReplyTo)}` : undefined,
       references ? `References: ${GmailApi.sanitize(references)}` : undefined,
+      'X-Bordly-Sent: true',
       'MIME-Version: 1.0',
       attachments && attachments.length > 0
         ? `Content-Type: multipart/mixed; boundary="${boundary}"`

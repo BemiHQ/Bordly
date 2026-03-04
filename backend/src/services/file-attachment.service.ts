@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Loaded } from '@mikro-orm/postgresql';
 import type { EmailDraft } from '@/entities/email-draft';
 import { FileAttachment } from '@/entities/file-attachment';
+import { AgentService } from '@/services/agent.service';
 import { orm } from '@/utils/orm';
 import { S3Client } from '@/utils/s3-client';
 
@@ -23,12 +24,15 @@ export class FileAttachmentService {
     const s3Key = `${PREFIX_EMAIL_DRAFTS}/${emailDraft.id}/${randomUUID()}-${filename}`;
     await S3Client.uploadFile({ key: s3Key, buffer, contentType: mimeType });
 
+    const summary = await AgentService.generateAttachmentSummary({ data: buffer, filename, mimeType });
+
     const draftAttachment = new FileAttachment({
       emailDraft,
       s3Key,
       filename,
       mimeType,
       size: buffer.length,
+      summary,
     });
 
     orm.em.persist(draftAttachment);
