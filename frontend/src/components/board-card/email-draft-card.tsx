@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEditor } from '@tiptap/react';
-import { createQuotedHtml, type Participant, participantToString } from 'bordly-backend/utils/shared';
+import { createQuotedHtml, type Participant, participantToString, replyEmailFields } from 'bordly-backend/utils/shared';
 import { ALargeSmall, Paperclip, Send, Trash } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -98,36 +98,14 @@ export const EmailDraftCard = ({
         return prevFrom;
       });
     } else {
-      // Set from
-      const emailParticipantEmails = new Set<string>([
-        ...(replyToEmailMessage ? [replyToEmailMessage.from.email] : []),
-        ...(replyToEmailMessage?.to?.map((p) => p.email) ?? []),
-        ...(replyToEmailMessage?.cc?.map((p) => p.email) ?? []),
-        ...(replyToEmailMessage?.bcc?.map((p) => p.email) ?? []),
-      ]);
-      const fromEmailAddress =
-        fromEmailAddresses.find((addr) => emailParticipantEmails.has(addr.email)) ||
-        fromEmailAddresses.find((addr) => addr.isDefault) ||
-        fromEmailAddresses[0];
-      setFrom(participantToString(fromEmailAddress as Participant));
-
       if (replyToEmailMessage) {
-        const sent = replyToEmailMessage!.from.email === fromEmailAddress.email;
-        // Set to
-        setTo(
-          sent
-            ? participantsToString(replyToEmailMessage.to)
-            : replyToEmailMessage.replyTo
-              ? participantToString(replyToEmailMessage.replyTo)
-              : participantToString(replyToEmailMessage.from),
-        );
-        // Set cc
-        setCc(
-          participantsToString([
-            ...(sent ? [] : (replyToEmailMessage.to?.filter((p) => p.email !== fromEmailAddress.email) ?? [])),
-            ...(replyToEmailMessage.cc?.filter((p) => p.email !== fromEmailAddress.email) ?? []),
-          ]),
-        );
+        const replyFields = replyEmailFields({
+          replyToMessage: replyToEmailMessage,
+          senderEmailAddresses: fromEmailAddresses,
+        });
+        setFrom(participantToString(replyFields.from));
+        setTo(participantsToString(replyFields.to));
+        setCc(participantsToString(replyFields.cc));
       }
     }
   }, [emailDraft, replyToEmailMessage, fromEmailAddresses]);
@@ -205,15 +183,17 @@ export const EmailDraftCard = ({
   );
 
   const quotedHtml = useMemo(() => {
-    return replyToEmailMessage
-      ? createQuotedHtml({
-          from: replyToEmailMessage.from,
-          sentAt: shortDateTimeWithWeekday(replyToEmailMessage.externalCreatedAt),
-          html: `${replyToEmailMessage.mainHtml || ''}${replyToEmailMessage.quotedHtml || ''}`,
-          text: `${replyToEmailMessage.mainText || ''}${replyToEmailMessage.quotedText || ''}`,
-        })
-      : '';
-  }, [replyToEmailMessage]);
+    return emailDraft
+      ? emailDraft.quotedHtml
+      : replyToEmailMessage
+        ? createQuotedHtml({
+            from: replyToEmailMessage.from,
+            sentAt: shortDateTimeWithWeekday(replyToEmailMessage.externalCreatedAt),
+            html: `${replyToEmailMessage.mainHtml || ''}${replyToEmailMessage.quotedHtml || ''}`,
+            text: `${replyToEmailMessage.mainText || ''}${replyToEmailMessage.quotedText || ''}`,
+          })
+        : '';
+  }, [emailDraft, replyToEmailMessage]);
 
   const displayQuotedHtml = useMemo(
     () =>

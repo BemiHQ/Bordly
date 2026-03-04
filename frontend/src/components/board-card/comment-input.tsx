@@ -6,12 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import type { RouteContext } from '@/hooks/use-route-context';
 import { type BoardMember, solo } from '@/query-helpers/board';
-import {
-  addBordlyThinkingComment,
-  addFakeCommentData,
-  replaceBoardCardData,
-  replaceFakeCommentData,
-} from '@/query-helpers/board-card';
+import { addFakeCommentData, replaceBoardCardData, replaceFakeCommentData } from '@/query-helpers/board-card';
 import { replaceBoardCardData as replaceBoardCardDataInList } from '@/query-helpers/board-cards';
 import { cn } from '@/utils/strings';
 import { MentionTextarea } from './mention-textarea';
@@ -39,17 +34,11 @@ export const CommentInput = ({
     queryClient,
     queryKey: boardCardQueryKey,
     onExecute: (params) => {
-      addFakeCommentData({ trpc, queryClient, params });
-      if (isCommentForBordly(params.contentText)) {
-        const bordlyUser = boardMembers.find((member) => member.isAgent);
-        if (bordlyUser) {
-          addBordlyThinkingComment({
-            trpc,
-            queryClient,
-            params: { boardId, boardCardId, bordlyUser: bordlyUser.user },
-          });
-          scrollToBottom();
-        }
+      const bordlyUser = boardMembers.find((member) => member.isAgent)!.user;
+      const addThinkingComment = isCommentForBordly(params.contentText);
+      addFakeCommentData({ trpc, queryClient, params: { ...params, bordlyUser, addThinkingComment } });
+      if (addThinkingComment) {
+        scrollToBottom();
         setIsWaitingForBordly(true);
       }
     },

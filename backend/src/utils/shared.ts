@@ -41,6 +41,48 @@ export const participantToString = (p: Participant) => (p.name ? `${p.name} <${p
 
 export const isCommentForBordly = (text: string) => text.trim().toLowerCase().startsWith('@bordly');
 
+export const replyEmailFields = ({
+  replyToMessage,
+  senderEmailAddresses,
+}: {
+  replyToMessage: {
+    from: Participant;
+    to?: Participant[];
+    cc?: Participant[];
+    bcc?: Participant[];
+    replyTo?: Participant;
+  };
+  senderEmailAddresses: {
+    email: string;
+    name?: string | null;
+    isDefault: boolean;
+  }[];
+}) => {
+  if (senderEmailAddresses.length === 0) throw new Error('No sender email addresses available');
+
+  const emailParticipantEmails = new Set<string>([
+    replyToMessage.from.email,
+    ...(replyToMessage.to?.map((p) => p.email) ?? []),
+    ...(replyToMessage.cc?.map((p) => p.email) ?? []),
+    ...(replyToMessage.bcc?.map((p) => p.email) ?? []),
+  ]);
+  const fromEmailAddress =
+    senderEmailAddresses.find((addr) => emailParticipantEmails.has(addr.email)) ||
+    senderEmailAddresses.find((addr) => addr.isDefault) ||
+    senderEmailAddresses[0]!;
+
+  const from = { email: fromEmailAddress.email, name: fromEmailAddress.name || null } as Participant;
+
+  const sent = replyToMessage.from.email === from.email;
+  const to = sent ? replyToMessage.to : replyToMessage.replyTo ? [replyToMessage.replyTo] : [replyToMessage.from];
+  const cc = [
+    ...(sent ? [] : (replyToMessage.to?.filter((p) => p.email !== from.email) ?? [])),
+    ...(replyToMessage.cc?.filter((p) => p.email !== from.email) ?? []),
+  ];
+
+  return { from, to: to && to.length > 0 ? to : undefined, cc: cc.length > 0 ? cc : undefined };
+};
+
 export const createQuotedHtml = ({
   from,
   sentAt,

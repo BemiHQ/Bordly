@@ -134,28 +134,27 @@ export class EmailDraft extends BaseEntity {
   }
 
   static toText(emailDraft: Loaded<EmailDraft, 'fileAttachments'>) {
-    const { fileAttachments } = emailDraft;
-
     const parsed = emailDraft.bodyHtml ? parseHtmlBody(emailDraft.bodyHtml) : { mainHtml: '' };
     const mainText = htmlToText(parsed.mainHtml);
 
     const items = [
-      `ID: ${emailDraft.id}`,
-      `Subject: ${emailDraft.subject}`,
-      `From: ${emailDraft.from.email}`,
-      emailDraft.to && `To: ${emailDraft.to.map(participantToString).join(', ')}`,
-      emailDraft.cc && `CC: ${emailDraft.cc.map(participantToString).join(', ')}`,
-      emailDraft.bcc && `BCC: ${emailDraft.bcc.map(participantToString).join(', ')}`,
-      `File Attachments: ${fileAttachments.map(FileAttachment.toStr).join(', ')}`,
-      `Body:
+      `- ID: ${emailDraft.id}`,
+      `- Subject: ${emailDraft.subject}`,
+      `- From: ${emailDraft.from.email}`,
+      emailDraft.to && `- To: ${emailDraft.to.map(participantToString).join(', ')}`,
+      emailDraft.cc && `- CC: ${emailDraft.cc.map(participantToString).join(', ')}`,
+      emailDraft.bcc && `- BCC: ${emailDraft.bcc.map(participantToString).join(', ')}`,
+      `- Body:
 \`\`\`
 ${mainText}
-\`\`\`
-`,
+\`\`\``,
+      emailDraft.fileAttachments.length > 0 &&
+        `- File Attachments:
+${emailDraft.fileAttachments.map(FileAttachment.toText).join('\n')}`,
     ];
 
     return `Email Draft:
-${items.join('\n')}`;
+${items.filter(Boolean).join('\n')}`;
   }
 
   private validate() {

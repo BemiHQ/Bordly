@@ -106,8 +106,7 @@ export class BoardMember extends BaseEntity {
         `  - Signature:
 \`\`\`
 ${memory.signature}
-\`\`\`
-`,
+\`\`\``,
     ];
 
     return `Board Member:

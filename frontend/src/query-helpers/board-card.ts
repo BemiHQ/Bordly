@@ -134,11 +134,18 @@ export const addEmailMessageData = ({
 export const addFakeCommentData = ({
   trpc,
   queryClient,
-  params: { boardId, boardCardId, contentHtml, contentText },
+  params: { boardId, boardCardId, contentHtml, contentText, bordlyUser, addThinkingComment },
 }: {
   trpc: TrpcProxy;
   queryClient: QueryClient;
-  params: { boardId: string; boardCardId: string; contentHtml: string; contentText: string };
+  params: {
+    boardId: string;
+    boardCardId: string;
+    contentHtml: string;
+    contentText: string;
+    bordlyUser: Comment['user'];
+    addThinkingComment: boolean;
+  };
 }) => {
   const currentUser = queryClient.getQueryData(trpc.user.getCurrentUser.queryKey())?.currentUser;
 
@@ -153,7 +160,22 @@ export const addFakeCommentData = ({
       createdAt: new Date(),
       editedAt: undefined,
     };
-    return { ...oldData, commentsAsc: [...oldData.commentsAsc, newComment] } satisfies typeof oldData;
+    const commentsToAdd = [newComment];
+
+    if (addThinkingComment) {
+      const thinkingComment = {
+        id: BORDLY_THINKING_COMMENT_ID,
+        boardCardId,
+        user: bordlyUser,
+        contentHtml: '<i>Thinking...</i>',
+        contentText: 'Thinking...',
+        createdAt: new Date(),
+        editedAt: undefined,
+      };
+      commentsToAdd.push(thinkingComment);
+    }
+
+    return { ...oldData, commentsAsc: [...oldData.commentsAsc, ...commentsToAdd] } satisfies typeof oldData;
   });
 };
 

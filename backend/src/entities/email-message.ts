@@ -152,21 +152,22 @@ export class EmailMessage extends BaseEntity {
 
   static toText(emailMessage: Loaded<EmailMessage, 'gmailAttachments'>) {
     const items = [
-      `ID: ${emailMessage.id}`,
-      `Created At: ${emailMessage.externalCreatedAt.toISOString()}`,
-      `Subject: ${emailMessage.subject}`,
-      `From: ${participantToString(emailMessage.from)}`,
-      emailMessage.to && `To: ${emailMessage.to.map(participantToString).join(', ')}`,
-      emailMessage.replyTo && `Reply-To: ${participantToString(emailMessage.replyTo)}`,
-      emailMessage.cc && `CC: ${emailMessage.cc.map(participantToString).join(', ')}`,
-      emailMessage.bcc && `BCC: ${emailMessage.bcc.map(participantToString).join(', ')}`,
-      `Sent: ${emailMessage.sent}`,
-      `Gmail Attachments: ${emailMessage.gmailAttachments.map(GmailAttachment.toStr).join(', ')}`,
-      `Body:
+      `- ID: ${emailMessage.id}`,
+      `- Created At: ${emailMessage.externalCreatedAt.toISOString()}`,
+      `- Subject: ${emailMessage.subject}`,
+      `- From: ${participantToString(emailMessage.from)}`,
+      emailMessage.to && `- To: ${emailMessage.to.map(participantToString).join(', ')}`,
+      emailMessage.replyTo && `- Reply-To: ${participantToString(emailMessage.replyTo)}`,
+      emailMessage.cc && `- CC: ${emailMessage.cc.map(participantToString).join(', ')}`,
+      emailMessage.bcc && `- BCC: ${emailMessage.bcc.map(participantToString).join(', ')}`,
+      `- Sent: ${emailMessage.sent}`,
+      `- Body:
 \`\`\`
 ${emailMessage.bodyText || emailMessage.bodyHtml}
-\`\`\`
-`,
+\`\`\``,
+      emailMessage.gmailAttachments.length > 0 &&
+        `- Gmail Attachments:
+${emailMessage.gmailAttachments.map(GmailAttachment.toText).join('\n')}`,
     ];
 
     return `Email Message:

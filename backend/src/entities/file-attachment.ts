@@ -60,8 +60,11 @@ export class FileAttachment extends BaseEntity {
     };
   }
 
-  static toStr(fileAttachment: Loaded<FileAttachment>) {
-    return `${fileAttachment.filename} (ID ${fileAttachment.mimeType})`;
+  static toText(fileAttachment: Loaded<FileAttachment>) {
+    return `File Attachment:
+- ID: ${fileAttachment.id}
+- Filename: ${fileAttachment.filename}
+- Summary: ${fileAttachment.summary}`;
   }
 
   private validate() {

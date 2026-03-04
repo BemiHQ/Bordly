@@ -111,8 +111,11 @@ export class GmailAttachment extends BaseEntity {
     };
   }
 
-  static toStr(gmailAttachment: Loaded<GmailAttachment>) {
-    return `${gmailAttachment.filename} (ID ${gmailAttachment.id})`;
+  static toText(gmailAttachment: Loaded<GmailAttachment>) {
+    return `Gmail Attachment:
+- ID: ${gmailAttachment.id}
+- Filename: ${gmailAttachment.filename}
+- Summary: ${gmailAttachment.summary ?? 'N/A'}`;
   }
 
   private validate() {
