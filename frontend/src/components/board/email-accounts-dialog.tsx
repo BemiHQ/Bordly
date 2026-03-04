@@ -155,7 +155,8 @@ const EditReceivingEmailsPopover = ({
 
           <Textarea
             placeholder="team@example.com, support@example.com"
-            className="min-h-20 text-xs"
+            className="min-h-20"
+            size="sm"
             value={receivingEmails}
             onChange={(e) => setReceivingEmails(e.target.value)}
           />

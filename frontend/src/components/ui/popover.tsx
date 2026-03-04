@@ -1,10 +1,36 @@
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import type * as React from 'react';
+import { useEffect, useState } from 'react';
 
 import { cn } from '@/utils/strings';
 
 export const Popover = ({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) => {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />;
+  const { onOpenChange, open, defaultOpen } = props;
+  const [isOpen, setIsOpen] = useState(open ?? defaultOpen ?? false);
+
+  useEffect(() => {
+    if (open !== undefined) setIsOpen(open);
+  }, [open]);
+
+  // Close on scroll
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleScroll = () => {
+      if (onOpenChange) {
+        onOpenChange(false);
+      } else {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [isOpen, onOpenChange]);
+
+  return (
+    <PopoverPrimitive.Root data-slot="popover" {...props} open={isOpen} onOpenChange={onOpenChange || setIsOpen} />
+  );
 };
 
 export const PopoverTrigger = ({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) => {
