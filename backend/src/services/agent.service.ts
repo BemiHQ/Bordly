@@ -4,15 +4,12 @@ import { RequestContext } from '@mastra/core/request-context';
 import type { ToolAction } from '@mastra/core/tools';
 import type { Loaded } from '@mikro-orm/postgresql';
 import type { Board } from '@/entities/board';
-import { BoardCard } from '@/entities/board-card';
+import type { BoardCard } from '@/entities/board-card';
 import { BoardMember } from '@/entities/board-member';
-import { Comment } from '@/entities/comment';
-import { EmailDraft } from '@/entities/email-draft';
-import { EmailMessage } from '@/entities/email-message';
+import type { Comment } from '@/entities/comment';
 import { BORDLY_USER_ID } from '@/entities/user';
-import { BoardCardService } from '@/services/board-card.service';
 import { BoardMemberService } from '@/services/board-member.service';
-import { EmailMessageService } from '@/services/email-message.service';
+import { boardCardSearchTool, buildBoardCardContext } from '@/tools/board-card-search.tool';
 import { commentUpsertTool } from '@/tools/comment-upsert.tool';
 import { emailDraftUpsertTool } from '@/tools/email-draft-upsert.tool';
 import { gmailAttachmentAnalyzeTool } from '@/tools/gmail-attachment-analyze.tool';
@@ -44,12 +41,12 @@ const AGENT_BORDLY = {
 # General guidelines
 
 - Treat the user's prompt as a simplified request, not a word-for-word instruction.
+- Prefer using the board card search tool to find relevant information.
 
 # Response guidelines
 
 - Do not output information directly in the response.
-- Use the comment tool only when the user explicitly requests information.
-- Do not send comments for confirmations, acknowledgments, or action status updates.
+- Use the comment tool only when the user explicitly requests information or when the email draft tool hasn't been used in the conversation.
 
 # Writing HTML emails
 
@@ -63,6 +60,7 @@ const AGENT_BORDLY = {
   model: ENV.LLM_THINKING_MODEL,
   tools: {
     'comment-upsert': commentUpsertTool,
+    'board-card-search': boardCardSearchTool,
     'email-draft-upsert': emailDraftUpsertTool,
     'gmail-attachment-analyze': gmailAttachmentAnalyzeTool,
   } as Record<string, ToolAction<unknown, unknown>>,
@@ -131,31 +129,7 @@ export class AgentService {
     userBoardMember: Loaded<BoardMember, 'user' | 'memory'>;
     userTimeZone?: string;
   }) {
-    const boardCard = await BoardCardService.populate(initialBoardCard, [
-      'boardColumn',
-      'assignedBoardMember.user',
-      'emailDraft.fileAttachments',
-      'comments.user',
-    ]);
-    const [lastEmailMessage] = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
-      populate: ['gmailAttachments'],
-      orderBy: { externalCreatedAt: 'DESC' },
-      limit: 1,
-    });
-
-    const commentsAsc = [...boardCard.comments].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-    const boardCardContext = {
-      boardCard: BoardCard.toPrompt(boardCard),
-      emailDraft: boardCard.emailDraft && EmailDraft.toPrompt(boardCard.emailDraft),
-      lastEmailMessage: lastEmailMessage && EmailMessage.toPrompt(lastEmailMessage),
-      commentsAsc: commentsAsc.map(Comment.toPrompt),
-    };
-    Logger.debug(boardCardContext.boardCard);
-    if (boardCardContext.emailDraft) Logger.debug(boardCardContext.emailDraft);
-    if (boardCardContext.lastEmailMessage) Logger.debug(boardCardContext.lastEmailMessage);
-    Logger.debugObjects(boardCardContext.commentsAsc);
-
+    const { boardCard, boardCardContext } = await buildBoardCardContext(initialBoardCard);
     const userLocalDateTime = new Date().toLocaleString('en-US', { timeZone: userTimeZone });
 
     const instructions = [

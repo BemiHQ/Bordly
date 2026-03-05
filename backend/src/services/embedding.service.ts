@@ -54,9 +54,7 @@ export class EmbeddingService {
       (
         await table
           .query()
-          .where(
-            `id IN (${ids.map((id) => `X'${EmbeddingService.uuidToBuffer(id).toString('hex')}'`).join(', ')}) AND entity = '${entity}'`,
-          )
+          .where(`id IN (${ids.map((id) => EmbeddingService.uuidToQuotedHex(id)).join(', ')}) AND entity = '${entity}'`)
           .select(['id', 'updated_at'])
           .toArray()
       ).map((record) => ({
@@ -117,7 +115,7 @@ export class EmbeddingService {
     const table = await EmbeddingService.getOrCreateTable(tableName);
 
     await table.delete(
-      `id IN (${ids.map((id) => `X'${EmbeddingService.uuidToBuffer(id).toString('hex')}'`).join(', ')}) AND entity = '${entity}'`,
+      `id IN (${ids.map((id) => EmbeddingService.uuidToQuotedHex(id)).join(', ')}) AND entity = '${entity}'`,
     );
     Logger.info(`[EMBEDDING] Deleted ${ids.length} records for entity ${entity}`);
   }
@@ -129,7 +127,7 @@ export class EmbeddingService {
     const table = await EmbeddingService.getOrCreateTable(tableName);
 
     await table.delete(
-      `board_card_id IN (${boardCardIds.map((id) => `X'${EmbeddingService.uuidToBuffer(id).toString('hex')}'`).join(', ')})`,
+      `board_card_id IN (${boardCardIds.map((id) => EmbeddingService.uuidToQuotedHex(id)).join(', ')})`,
     );
     Logger.info(`[EMBEDDING] Deleted records for ${boardCardIds.length} board cards`);
   }
@@ -165,28 +163,41 @@ export class EmbeddingService {
     }
   }
 
-  static async searchSemantic(boardId: string, query: string, { limit = 10 }: { limit?: number } = {}) {
+  static async searchSemantic(
+    boardId: string,
+    {
+      query,
+      excludeBoardCardId,
+      limit = SEARCH_REFINE_FACTOR,
+    }: { query: string; excludeBoardCardId?: string; limit?: number },
+  ) {
     const tableName = `${boardId}_records`;
     const table = await EmbeddingService.getOrCreateTable(tableName);
-
     const queryVector = await EmbeddingService.generateEmbedding(query);
 
-    const records = await table
+    let search = table
       .vectorSearch(queryVector)
       .distanceType('cosine')
       .distanceRange(0.0, SEARCH_MAX_DISTANCE)
       .select(['id', 'entity', 'board_card_id', 'updated_at', '_distance'])
       .limit(limit)
-      .refineFactor(SEARCH_REFINE_FACTOR)
-      .toArray();
+      .refineFactor(SEARCH_REFINE_FACTOR);
 
-    return records.map((record) => ({
-      id: EmbeddingService.bufferToUuid(record.id),
-      entity: record.entity as string,
-      boardCardId: EmbeddingService.bufferToUuid(record.board_card_id),
-      updatedAt: new Date(record.updated_at),
-      distance: record._distance as number,
-    }));
+    if (excludeBoardCardId) {
+      search = search.where(`board_card_id != ${EmbeddingService.uuidToQuotedHex(excludeBoardCardId)}`);
+    }
+
+    const records = await search.toArray();
+
+    return records
+      .map((record) => ({
+        id: EmbeddingService.bufferToUuid(record.id),
+        entity: record.entity as string,
+        boardCardId: EmbeddingService.bufferToUuid(record.board_card_id),
+        updatedAt: new Date(record.updated_at),
+        distance: record._distance as number,
+      }))
+      .sort((a, b) => a.distance - b.distance);
   }
 
   static async generateEmbedding(text: string): Promise<number[]> {
@@ -285,6 +296,10 @@ export class EmbeddingService {
 
   private static uuidToBuffer(uuid: string): Buffer {
     return Buffer.from(uuid.replace(/-/g, ''), 'hex');
+  }
+
+  private static uuidToQuotedHex(uuid: string): string {
+    return `X'${EmbeddingService.uuidToBuffer(uuid).toString('hex')}'`;
   }
 
   private static bufferToUuid(buffer: Buffer): string {

@@ -44,7 +44,6 @@ interface QueueDataMap {
 const CONFIG_BY_QUEUE = {
   [QUEUES.CREATE_INITIAL_EMAIL_MESSAGES]: {
     options: { retryLimit: 5, retryDelay: 5, retryBackoff: true },
-    sendOptions: {},
     schedule: null,
     handler: async (job) => {
       const { boardId, boardAccountId } = job.data;
@@ -53,7 +52,6 @@ const CONFIG_BY_QUEUE = {
   },
   [QUEUES.SYNC_EMAIL_ADDRESSES]: {
     options: { retryLimit: 3, retryDelay: 60, retryBackoff: true },
-    sendOptions: {},
     schedule: '0 0 * * *',
     handler: async () => {
       await SenderEmailAddressService.syncEmailAddresses();
@@ -89,7 +87,6 @@ const CONFIG_BY_QUEUE = {
   },
   [QUEUES.COMPACT_INDEXES]: {
     options: { retryLimit: 2, retryDelay: 60, retryBackoff: true },
-    sendOptions: {},
     schedule: '0 * * * *',
     handler: async () => {
       await EmbeddingService.compactTables();
@@ -98,7 +95,7 @@ const CONFIG_BY_QUEUE = {
 } as {
   [Q in keyof QueueDataMap]: {
     options: Omit<Queue, 'name'>;
-    sendOptions: { singletonKey?: string };
+    sendOptions?: { singletonKey?: string };
     schedule: string | null;
     handler: (job: Job<QueueDataMap[Q]>) => Promise<void>;
   };

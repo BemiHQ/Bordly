@@ -5,29 +5,32 @@ const MIME_TYPE_PLAINTEXT = 'text/plain';
 const LLM_PLAIN_TEXT_MIME_TYPES = ['application/ics', 'text/calendar'];
 
 const LLM_SUPPORTED_MIME_TYPES = [
-  'application/pdf',
-  'text/plain',
-  'text/csv',
   'application/json',
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-  'audio/wav',
-  'audio/mpeg',
-  'audio/mp3',
+  'application/pdf',
   'audio/aac',
   'audio/flac',
+  'audio/mp3',
+  'audio/mpeg',
   'audio/ogg',
+  'audio/wav',
+  'image/heic',
+  'image/heif',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'text/csv',
+  'text/plain',
   'video/mp4',
-  'video/quicktime',
   'video/mpeg',
+  'video/quicktime',
   'video/webm',
   'video/x-msvideo',
 ];
 
-const LLM_KNOWN_UNSUPPORTED_MIME_TYPES = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+const LLM_KNOWN_UNSUPPORTED_MIME_TYPES = [
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/zip',
+];
 
 const MIME_TYPE_BY_FILE_EXTENSION: Record<string, string> = {
   pdf: 'application/pdf',
@@ -64,10 +67,9 @@ export const llmMimeType = ({ mimeType }: { mimeType: string }) => {
     return MIME_TYPE_PLAINTEXT;
   }
 
-  if (LLM_KNOWN_UNSUPPORTED_MIME_TYPES.includes(mimeType)) {
-    return null;
+  if (!LLM_KNOWN_UNSUPPORTED_MIME_TYPES.includes(mimeType)) {
+    reportError(`Unsupported MIME type for LLM processing: ${mimeType}`);
   }
 
-  reportError(`Unsupported MIME type for LLM processing: ${mimeType}`);
-  return mimeType;
+  return null;
 };

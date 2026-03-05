@@ -28,7 +28,7 @@ async function runTests() {
     });
 
     console.log('✓ Searching for similar records...');
-    let records = await EmbeddingService.searchSemantic(BOARD_ID, 'project planning');
+    let records = await EmbeddingService.searchSemantic(BOARD_ID, { query: 'project planning' });
     console.log(records);
     assertEqual(records.length, 2);
     for (const record of records) {
@@ -53,7 +53,7 @@ async function runTests() {
     await EmbeddingService.compactTables();
 
     console.log('✓ Searching for similar records...');
-    records = await EmbeddingService.searchSemantic(BOARD_ID, 'project planning');
+    records = await EmbeddingService.searchSemantic(BOARD_ID, { query: 'project planning' });
     assertEqual(records.length, 2);
     const email1 = records.find((r) => r.id === EMAIL_MESSAGE_ID1)!;
     assertEqual(email1.id, EMAIL_MESSAGE_ID1);
@@ -67,7 +67,7 @@ async function runTests() {
     await EmbeddingService.deleteRecordsByBoardCards(BOARD_ID, { boardCardIds: [BOARD_CARD_ID1] });
 
     console.log('✓ Searching for similar records...');
-    records = await EmbeddingService.searchSemantic(BOARD_ID, 'project planning');
+    records = await EmbeddingService.searchSemantic(BOARD_ID, { query: 'project planning' });
     assertEqual(records.length, 1);
     assertEqual(records[0]!.id, COMMENT_ID);
 
@@ -75,7 +75,7 @@ async function runTests() {
     await EmbeddingService.deleteTable(BOARD_ID);
 
     console.log('✓ Searching for similar records...');
-    records = await EmbeddingService.searchSemantic(BOARD_ID, 'project planning');
+    records = await EmbeddingService.searchSemantic(BOARD_ID, { query: 'project planning' });
     assertEqual(records.length, 0);
 
     console.log('✅ All tests passed!\n');
