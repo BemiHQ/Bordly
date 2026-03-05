@@ -5,6 +5,7 @@ import { GmailAttachmentService } from '@/services/gmail-attachment.service';
 import { UserService } from '@/services/user.service';
 import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
+import { clientMimeType } from '@/utils/mime';
 import { ROUTES } from '@/utils/urls';
 
 const ALLOWED_ICON_CONTENT_TYPES = [
@@ -64,7 +65,7 @@ export const proxyRoutes = async (fastify: FastifyInstance) => {
       const sanitizedFilename = attachment.filename.replace(/[^\w\s.-]/g, '_');
 
       return reply
-        .header('Content-Type', attachment.derivedMimeType)
+        .header('Content-Type', clientMimeType(attachment))
         .header('Content-Disposition', `inline; filename="${sanitizedFilename}"`)
         .header('Content-Length', buffer.length)
         .header('Cache-Control', 'private, max-age=86400')

@@ -6,6 +6,7 @@ import { AgentService } from '@/services/agent.service';
 import { GmailAttachmentService } from '@/services/gmail-attachment.service';
 import { ENV } from '@/utils/env';
 import { Logger } from '@/utils/logger';
+import { llmMimeType } from '@/utils/mime';
 
 const AGENT = {
   name: 'Gmail Attachment Analyzer',
@@ -34,6 +35,15 @@ export const gmailAttachmentAnalyzeTool = createTool({
       externalThreadId,
       populate: ['emailMessage.gmailAccount'],
     });
+    const mimeType = llmMimeType(gmailAttachment);
+    if (!mimeType) {
+      return {
+        output: 'Unsupported file type',
+        filename: gmailAttachment.filename,
+        mimeType: gmailAttachment.mimeType,
+        size: gmailAttachment.size,
+      };
+    }
 
     const agent = AgentService.createAgent(AGENT);
 
@@ -45,7 +55,7 @@ export const gmailAttachmentAnalyzeTool = createTool({
           {
             type: 'file',
             filename: gmailAttachment.filename,
-            mediaType: gmailAttachment.llmMimeType,
+            mediaType: mimeType,
             data: await GmailAttachmentService.getAttachmentDataBuffer(gmailAttachment),
           },
         ],
@@ -55,7 +65,7 @@ export const gmailAttachmentAnalyzeTool = createTool({
     const result = {
       output: response.text,
       filename: gmailAttachment.filename,
-      mimeType: gmailAttachment.llmMimeType,
+      mimeType,
       size: gmailAttachment.size,
     };
 

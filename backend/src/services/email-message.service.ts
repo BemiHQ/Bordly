@@ -22,6 +22,7 @@ import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
+import { llmMimeType } from '@/utils/mime';
 import { orm } from '@/utils/orm';
 import { BoardCardState, FALLBACK_SUBJECT, type Participant } from '@/utils/shared';
 import { renderTemplate } from '@/utils/strings';
@@ -125,8 +126,8 @@ export class EmailMessageService {
                 promiseData.failureCount += 1;
                 promiseData.lastFailureAt = new Date();
                 if (promiseData.failureCount >= CIRCUIT_BREAKER_FAILURE_THRESHOLD) {
-                  if (promiseData.ignoredUntil && promiseData.ignoredUntil <= new Date()) {
-                    console.log(`[GMAIL] Marking ${gmailAccount.email} as INACTIVE after repeated failures.`);
+                  if (promiseData.ignoredUntil) {
+                    console.log(`[GMAIL] Marking ${gmailAccount.email} as INACTIVE after failure post-ignore period.`);
                     const freshGmailAccount = await orm.em.findOneOrFail(GmailAccount, gmailAccount.id);
                     freshGmailAccount.markAsInactive();
                     await orm.em.persist(freshGmailAccount).flush();
@@ -428,11 +429,12 @@ export class EmailMessageService {
         contentId: attachmentData.contentId,
       });
 
-      if (!labels.includes(LABEL.SPAM) && !labels.includes(LABEL.TRASH)) {
+      const mimeType = llmMimeType(attachment);
+      if (mimeType && !labels.includes(LABEL.SPAM) && !labels.includes(LABEL.TRASH)) {
         const data = await GmailAttachmentService.getAttachmentDataBuffer(attachment);
         const summary = await AgentService.generateAttachmentSummary({
           filename: attachment.filename,
-          mimeType: attachment.llmMimeType,
+          mimeType,
           data,
         });
         attachment.setSummary(summary);

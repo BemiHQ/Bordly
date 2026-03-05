@@ -151,10 +151,10 @@ ${mainText}
       emailDraft.fileAttachments.length > 0 &&
         `- File Attachments:
 ${emailDraft.fileAttachments.map(FileAttachment.toPrompt).join('\n')}`,
-    ];
+    ].filter(Boolean);
 
     return `Email Draft:
-${items.filter(Boolean).join('\n')}`;
+${items.join('\n')}`;
   }
 
   private validate() {

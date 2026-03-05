@@ -24,7 +24,7 @@ export class FileAttachment extends BaseEntity {
   size: number;
 
   @Property()
-  summary: string;
+  summary?: string;
 
   constructor({
     emailDraft,
@@ -39,7 +39,7 @@ export class FileAttachment extends BaseEntity {
     filename: string;
     mimeType: string;
     size: number;
-    summary: string;
+    summary?: string;
   }) {
     super();
     this.emailDraft = emailDraft;
@@ -74,6 +74,6 @@ export class FileAttachment extends BaseEntity {
     if (!this.mimeType) throw new Error('MIME type is required');
     if (this.size === undefined || this.size === null || this.size < 0)
       throw new Error('Size must be a non-negative number');
-    if (!this.summary) throw new Error('Summary is required');
+    if (this.summary === '') throw new Error('Summary cannot be an empty string');
   }
 }
