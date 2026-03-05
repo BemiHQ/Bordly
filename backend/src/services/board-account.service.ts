@@ -12,6 +12,7 @@ import { EmailMessage } from '@/entities/email-message';
 import { FileAttachment } from '@/entities/file-attachment';
 import { GmailAttachment } from '@/entities/gmail-attachment';
 import { enqueue, QUEUES } from '@/pg-boss-queues';
+import { ArchiveService } from '@/services/archive.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { EmailDraftService } from '@/services/email-draft.service';
 import { orm } from '@/utils/orm';
@@ -59,11 +60,10 @@ export class BoardAccountService {
     });
     const s3KeysToDelete = emailDrafts.flatMap((d) => d.fileAttachments.map((a) => a.s3Key));
     const boardCards = await BoardCardService.findByBoardAccount({ boardAccount });
+    const externalThreadIds = boardCards.map((c) => c.externalThreadId).filter((id): id is string => !!id);
 
     await orm.em.transactional(async (em) => {
-      const emailMessagesCondition = {
-        externalThreadId: { $in: boardCards.map((c) => c.externalThreadId).filter((id): id is string => !!id) },
-      };
+      const emailMessagesCondition = { externalThreadId: { $in: externalThreadIds } };
       await em.nativeDelete(GmailAttachment, { emailMessage: emailMessagesCondition });
       await em.nativeDelete(EmailMessage, emailMessagesCondition);
 
@@ -86,6 +86,7 @@ export class BoardAccountService {
         await em.nativeDelete(Board, boardCondition);
       }
 
+      await ArchiveService.deleteByExternalThreadIds(externalThreadIds);
       await S3Client.deleteFiles({ keys: s3KeysToDelete });
     });
 

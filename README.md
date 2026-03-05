@@ -36,7 +36,7 @@ It blends powerful AI automation with an intuitive UI, enabling truly agentic as
 
 - **Frontend**: React, TanStack Router, TailwindCSS, Shadcn UI, Tiptap, Vite
 - **Backend**: Node.js, Fastify, tRPC, Mastra, MikroORM, Pg Boss
-- **Data**: Google OAuth, PostgreSQL, LanceDB (vectors), AWS S3 (or compatible)
+- **Data**: Google OAuth, PostgreSQL, LanceDB (embedded), AWS S3 (or compatible)
 - **LLM**: Any provider, OpenAI (embeddings)
 - **Development**: TypeScript, Devbox (Nix), Nginx, Biome, Mkcert
 

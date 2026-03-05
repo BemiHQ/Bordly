@@ -1,17 +1,20 @@
 #!/usr/bin/env tsx
 
+import { RequestContext } from '@mikro-orm/postgresql';
+import { BoardCardService } from '@/services/board-card.service';
 import { CommentService } from '@/services/comment.service';
 import { EmailMessageService } from '@/services/email-message.service';
-import { EmbeddingService } from '@/services/embedding.service';
+import { IndexService } from '@/services/index.service';
 import { ENV } from '@/utils/env';
 import { Logger } from '@/utils/logger';
+import { orm } from '@/utils/orm';
 
 if (ENV.NODE_ENV === 'production') {
   Logger.error('This test should not be run in production environment');
   process.exit(1);
 }
 
-const BOARD_ID = 'test-board-123';
+const BOARD_ID = '550e8400-e29b-41d4-a716-446655440000';
 const EMAIL_MESSAGE_ID1 = '550e8400-e29b-41d4-a716-446655440001';
 const EMAIL_MESSAGE_ID2 = '550e8400-e29b-41d4-a716-446655440002';
 const COMMENT_ID = '550e8400-e29b-41d4-a716-446655440003';
@@ -21,15 +24,14 @@ const BOARD_CARD_ID2 = '550e8400-e29b-41d4-a716-446655440020';
 async function runTests() {
   try {
     console.log('✓ Upserting email message embeddings...');
-    await EmbeddingService.upsertRecords(BOARD_ID, {
+    await IndexService.upsertRecords(BOARD_ID, {
       entity: 'EmailMessage',
       ids: [EMAIL_MESSAGE_ID1, EMAIL_MESSAGE_ID2],
       boardCardId: BOARD_CARD_ID1,
     });
 
     console.log('✓ Searching for similar records...');
-    let records = await EmbeddingService.searchSemantic(BOARD_ID, { query: 'project planning' });
-    console.log(records);
+    let records = await IndexService.searchSemantic(BOARD_ID, { query: 'project planning' });
     assertEqual(records.length, 2);
     for (const record of records) {
       assert([EMAIL_MESSAGE_ID1, EMAIL_MESSAGE_ID2].includes(record.id));
@@ -39,21 +41,21 @@ async function runTests() {
       assertEqual(record.updatedAt.getTime(), new Date('2026-01-01T01:00:00Z').getTime());
     }
 
+    console.log('✓ Testing full-text search...');
+    const ftsRecords = await IndexService.searchFullText(BOARD_ID, { query: 'planning' });
+    assertEqual(ftsRecords.length, 2);
+
     console.log('✓ Upserting comment embeddings...');
-    await EmbeddingService.upsertRecords(BOARD_ID, {
-      entity: 'Comment',
-      ids: [COMMENT_ID],
-      boardCardId: BOARD_CARD_ID2,
-    });
+    await IndexService.upsertRecords(BOARD_ID, { entity: 'Comment', ids: [COMMENT_ID], boardCardId: BOARD_CARD_ID2 });
 
     console.log('✓ Deleting specific records...');
-    await EmbeddingService.deleteRecords(BOARD_ID, { entity: 'EmailMessage', ids: [EMAIL_MESSAGE_ID2] });
+    await IndexService.deleteRecords(BOARD_ID, { entity: 'EmailMessage', ids: [EMAIL_MESSAGE_ID2] });
 
     console.log('✓ Compacting tables...');
-    await EmbeddingService.compactTables();
+    await IndexService.compactTables();
 
     console.log('✓ Searching for similar records...');
-    records = await EmbeddingService.searchSemantic(BOARD_ID, { query: 'project planning' });
+    records = await IndexService.searchSemantic(BOARD_ID, { query: 'project planning' });
     assertEqual(records.length, 2);
     const email1 = records.find((r) => r.id === EMAIL_MESSAGE_ID1)!;
     assertEqual(email1.id, EMAIL_MESSAGE_ID1);
@@ -63,19 +65,32 @@ async function runTests() {
     assertEqual(comment.boardCardId, BOARD_CARD_ID2);
     assertEqual(comment.updatedAt.getTime(), new Date('2026-01-01T12:00:00Z').getTime());
 
+    console.log('✓ Testing upsert update with same ID...');
+    await IndexService.upsertRecords(BOARD_ID, {
+      entity: 'EmailMessage',
+      ids: [EMAIL_MESSAGE_ID1],
+      boardCardId: BOARD_CARD_ID1,
+    });
+
+    console.log('✓ Searching to verify updated board card...');
+    records = await IndexService.searchSemantic(BOARD_ID, { query: 'project planning' });
+    assertEqual(records.length, 2);
+    const updatedEmail1 = records.find((r) => r.id === EMAIL_MESSAGE_ID1)!;
+    assertEqual(updatedEmail1.updatedAt.getTime(), new Date('2026-01-01T02:00:00Z').getTime());
+
     console.log('✓ Deleting records by board card...');
-    await EmbeddingService.deleteRecordsByBoardCards(BOARD_ID, { boardCardIds: [BOARD_CARD_ID1] });
+    await IndexService.deleteRecordsByBoardCards(BOARD_ID, { boardCardIds: [BOARD_CARD_ID1] });
 
     console.log('✓ Searching for similar records...');
-    records = await EmbeddingService.searchSemantic(BOARD_ID, { query: 'project planning' });
+    records = await IndexService.searchSemantic(BOARD_ID, { query: 'project planning' });
     assertEqual(records.length, 1);
     assertEqual(records[0]!.id, COMMENT_ID);
 
     console.log('✓ Deleting test table...');
-    await EmbeddingService.deleteTable(BOARD_ID);
+    await IndexService.deleteTable(BOARD_ID);
 
     console.log('✓ Searching for similar records...');
-    records = await EmbeddingService.searchSemantic(BOARD_ID, { query: 'project planning' });
+    records = await IndexService.searchSemantic(BOARD_ID, { query: 'project planning' });
     assertEqual(records.length, 0);
 
     console.log('✅ All tests passed!\n');
@@ -83,19 +98,21 @@ async function runTests() {
   } catch (error) {
     console.error('❌ Test failed:', error);
   } finally {
-    await EmbeddingService.deleteTable(BOARD_ID);
+    await IndexService.deleteTable(BOARD_ID);
   }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 
 // Mock S3 prefix
-EmbeddingService.s3Prefix = () => 'embeddings-test';
+IndexService.s3Prefix = () => 'indexes-test';
 // Mock services
+let emailMessageUpdateCounter = 0;
 (EmailMessageService.findByIds as unknown) = async (ids: string[]) => {
+  emailMessageUpdateCounter++;
   return ids.map((id) => ({
     id,
-    updatedAt: new Date('2026-01-01T01:00:00Z'),
+    updatedAt: emailMessageUpdateCounter === 1 ? new Date('2026-01-01T01:00:00Z') : new Date('2026-01-01T02:00:00Z'),
     subject: 'Test Subject',
     from: { name: 'Test Sender', emailAddress: 'sender@test.com' },
     to: [],
@@ -114,8 +131,15 @@ EmbeddingService.s3Prefix = () => 'embeddings-test';
     contentText: 'This is a great discussion about planning',
   }));
 };
+(BoardCardService.findById as unknown) = async () => {
+  return {
+    id: BOARD_CARD_ID1,
+    subject: 'Test Board Card',
+    lastEventAt: new Date('2026-01-01T00:00:00Z'),
+  };
+};
 // Mock OpenAI
-EmbeddingService.generateEmbedding = async (text: string) => {
+IndexService.generateEmbedding = async (text: string) => {
   const hash = Array.from(text).reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const base = new Array(1536).fill(0);
   for (let i = 0; i < 1536; i++) {
@@ -137,4 +161,4 @@ const assertEqual = (a: unknown, b: unknown) => {
   }
 };
 
-runTests();
+await RequestContext.create(orm.em, runTests);

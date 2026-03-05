@@ -863,6 +863,15 @@
           "primary": false,
           "nullable": true,
           "mappedType": "text"
+        },
+        "raw_payload": {
+          "name": "raw_payload",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "json"
         }
       },
       "name": "email_messages",

@@ -1,7 +1,8 @@
 import { RequestContext } from '@mikro-orm/postgresql';
 import type { Job, Queue } from 'pg-boss';
+import { ArchiveService } from '@/services/archive.service';
 import { EmailMessageService } from '@/services/email-message.service';
-import { EmbeddingService } from '@/services/embedding.service';
+import { IndexService } from '@/services/index.service';
 import { SenderEmailAddressService } from '@/services/sender-email-address.service';
 import { reportError } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
@@ -16,6 +17,7 @@ export const QUEUES = {
   INDEX_ENTITY_RECORDS: 'index-entity-records',
   DELETE_INDEX_RECORDS: 'delete-index-records',
   COMPACT_INDEXES: 'compact-indexes',
+  COMPACT_ARCHIVES: 'compact-archives',
 } as const;
 
 export enum IndexAction {
@@ -39,6 +41,7 @@ interface QueueDataMap {
     deleteTable?: boolean;
   };
   [QUEUES.COMPACT_INDEXES]: {};
+  [QUEUES.COMPACT_ARCHIVES]: {};
 }
 
 const CONFIG_BY_QUEUE = {
@@ -65,9 +68,9 @@ const CONFIG_BY_QUEUE = {
       const { boardId, boardCardId, entity, action, ids } = job.data;
       if (action === IndexAction.UPSERT) {
         if (!boardCardId) throw new Error('boardCardId is required for UPSERT action');
-        await EmbeddingService.upsertRecords(boardId, { entity, ids, boardCardId });
+        await IndexService.upsertRecords(boardId, { entity, ids, boardCardId });
       } else if (action === IndexAction.DELETE) {
-        await EmbeddingService.deleteRecords(boardId, { entity, ids });
+        await IndexService.deleteRecords(boardId, { entity, ids });
       }
     },
   },
@@ -78,18 +81,25 @@ const CONFIG_BY_QUEUE = {
     handler: async (job) => {
       const { boardId, boardCardIds, deleteTable } = job.data;
       if (deleteTable) {
-        await EmbeddingService.deleteTable(boardId);
+        await IndexService.deleteTable(boardId);
       } else {
         if (!boardCardIds?.length) throw new Error('boardCardIds is required for deleting index records');
-        await EmbeddingService.deleteRecordsByBoardCards(boardId, { boardCardIds });
+        await IndexService.deleteRecordsByBoardCards(boardId, { boardCardIds });
       }
     },
   },
   [QUEUES.COMPACT_INDEXES]: {
     options: { retryLimit: 2, retryDelay: 60, retryBackoff: true },
-    schedule: '0 * * * *',
+    schedule: '0 0 * * *',
     handler: async () => {
-      await EmbeddingService.compactTables();
+      await IndexService.compactTables();
+    },
+  },
+  [QUEUES.COMPACT_ARCHIVES]: {
+    options: { retryLimit: 2, retryDelay: 60, retryBackoff: true },
+    schedule: '0 1 * * *',
+    handler: async () => {
+      await ArchiveService.compactTable();
     },
   },
 } as {

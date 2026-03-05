@@ -60,6 +60,8 @@ export class EmailMessage extends BaseEntity {
   bodyText?: string;
   @Property({ type: 'text' })
   bodyHtml?: string;
+  @Property({ type: 'jsonb', lazy: true })
+  rawPayload: unknown;
 
   constructor({
     gmailAccount,
@@ -80,6 +82,7 @@ export class EmailMessage extends BaseEntity {
     bcc,
     bodyText,
     bodyHtml,
+    rawPayload,
   }: {
     gmailAccount: GmailAccount;
     domain: Domain;
@@ -99,9 +102,9 @@ export class EmailMessage extends BaseEntity {
     bcc?: Participant[];
     bodyText?: string;
     bodyHtml?: string;
+    rawPayload: unknown;
   }) {
     super();
-    this.id = crypto.randomUUID();
     this.gmailAccount = gmailAccount;
     this.domain = domain;
     this.externalId = externalId;
@@ -120,6 +123,7 @@ export class EmailMessage extends BaseEntity {
     this.bcc = bcc?.map((participant) => ({ ...participant, email: participant.email.toLowerCase() }));
     this.bodyText = bodyText;
     this.bodyHtml = bodyHtml;
+    this.rawPayload = rawPayload;
     this.validate();
   }
 
@@ -183,13 +187,11 @@ ${items.join('\n')}`;
         : '';
 
     const items = [
-      `Subject: ${emailMessage.subject}`,
       `From: ${participantToString(emailMessage.from)}`,
-      emailMessage.replyTo
-        ? `Reply-To: ${participantToString(emailMessage.replyTo)}`
-        : emailMessage.to && emailMessage.to.length > 0 && `To: ${emailMessage.to.map(participantToString).join(', ')}`,
+      emailMessage.to && emailMessage.to.length > 0 && `To: ${emailMessage.to.map(participantToString).join(', ')}`,
       emailMessage.cc && emailMessage.cc.length > 0 && `CC: ${emailMessage.cc.map(participantToString).join(', ')}`,
       emailMessage.bcc && emailMessage.bcc.length > 0 && `BCC: ${emailMessage.bcc.map(participantToString).join(', ')}`,
+      `${emailMessage.subject}`,
       `\n${bodyText}`,
       emailMessage.gmailAttachments.length > 0 &&
         `\nAttachments:\n${emailMessage.gmailAttachments.map(GmailAttachment.toIndex).join('\n')}`,
@@ -212,5 +214,6 @@ ${items.join('\n')}`;
     if (this.to && this.to.length === 0) throw new Error('To address list cannot be empty if provided');
     if (this.cc && this.cc.length === 0) throw new Error('CC address list cannot be empty if provided');
     if (this.bcc && this.bcc.length === 0) throw new Error('BCC address list cannot be empty if provided');
+    if (!this.rawPayload) throw new Error('Raw payload is required');
   }
 }

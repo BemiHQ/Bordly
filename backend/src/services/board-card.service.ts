@@ -11,6 +11,7 @@ import type { EmailMessage } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
 import { enqueue, QUEUES } from '@/pg-boss-queues';
+import { ArchiveService } from '@/services/archive.service';
 import { BoardService } from '@/services/board.service';
 import { BoardAccountService } from '@/services/board-account.service';
 import { BoardColumnService } from '@/services/board-column.service';
@@ -58,7 +59,7 @@ export class BoardCardService {
   }
 
   static async findById<Hint extends string = never>(
-    board: Loaded<Board>,
+    board: Board,
     { boardCardId, populate = [] }: { boardCardId: string; populate?: Populate<BoardCard, Hint> },
   ) {
     return orm.em.findOneOrFail(BoardCard, { id: boardCardId, boardColumn: { board: { id: board.id } } }, { populate });
@@ -238,6 +239,7 @@ export class BoardCardService {
       >,
     });
 
+    const previouslyEmailMessagesArchivable = boardCard.emailMessagesArchivable;
     boardCard.setState(state);
 
     if (state === State.ARCHIVED) {
@@ -254,13 +256,19 @@ export class BoardCardService {
         await GmailApi.markThreadAsTrash(gmail, boardCard.externalThreadId);
       }
       await EmailDraftService.delete(boardCard as Loaded<BoardCard, 'emailDraft.fileAttachments'>);
-    } else if (state === State.SPAM && boardCard.externalThreadId) {
+    } else if (state === State.SPAM) {
       if (board.solo && boardCard.externalThreadId) {
         console.log('[GMAIL] Marking thread as spam:', boardCard.externalThreadId);
         const gmail = await GmailAccountService.initGmail(boardCard.loadedBoardAccount.loadedGmailAccount);
         await GmailApi.markThreadAsSpam(gmail, boardCard.externalThreadId);
       }
       await EmailDraftService.delete(boardCard as Loaded<BoardCard, 'emailDraft.fileAttachments'>);
+    }
+
+    if (boardCard.emailMessagesArchivable && !previouslyEmailMessagesArchivable) {
+      await ArchiveService.archiveBoardCardEmailMessages(boardCard);
+    } else if (!boardCard.emailMessagesArchivable && previouslyEmailMessagesArchivable) {
+      await ArchiveService.restoreBoardCardEmailMessages(boardCard);
     }
 
     await orm.em.flush();

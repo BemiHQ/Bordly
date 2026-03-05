@@ -9,6 +9,7 @@ import { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
 import { enqueue, IndexAction, QUEUES } from '@/pg-boss-queues';
 import { AgentService } from '@/services/agent.service';
+import { ArchiveService } from '@/services/archive.service';
 import { BoardService } from '@/services/board.service';
 import { BoardAccountService } from '@/services/board-account.service';
 import { BoardCardService } from '@/services/board-card.service';
@@ -22,13 +23,14 @@ import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
+import { Logger } from '@/utils/logger';
 import { llmMimeType } from '@/utils/mime';
 import { orm } from '@/utils/orm';
-import { BoardCardState, FALLBACK_SUBJECT, type Participant } from '@/utils/shared';
+import { FALLBACK_SUBJECT, type Participant } from '@/utils/shared';
 import { renderTemplate } from '@/utils/strings';
 import { sleep } from '@/utils/time';
 
-const CREATE_NEW_EMAIL_MESSAGES_READ_DB_INTERVAL_MS = 60 * 1_000; // 60 seconds
+const CREATE_NEW_EMAIL_MESSAGES_BATCH_INTERVAL_MS = 60 * 1_000; // 60 seconds
 const CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS = 5 * 1_000; // 5 seconds
 const CREATE_EMAIL_MESSAGES_BATCH_LIMIT = ENV.NODE_ENV === 'production' ? 30 : 10;
 const MAX_INITIAL_BOARD_COLUMN_COUNT = 5;
@@ -71,14 +73,6 @@ export class EmailMessageService {
     return orm.em.findOneOrFail(EmailMessage, { id, externalThreadId: boardCard.externalThreadId }, { populate });
   }
 
-  static async findByIds<Hint extends string = never>(
-    ids: string[],
-    { populate }: { populate?: Populate<EmailMessage, Hint> } = {},
-  ) {
-    if (ids.length === 0) return [];
-    return orm.em.find(EmailMessage, { id: { $in: ids } }, { populate });
-  }
-
   static async findEmailMessagesByBoardCard<Hint extends string = never>(
     boardCard: Loaded<BoardCard>,
     {
@@ -87,7 +81,16 @@ export class EmailMessageService {
       limit,
     }: { populate?: Populate<EmailMessage, Hint>; orderBy?: OrderDefinition<EmailMessage>; limit?: number } = {},
   ) {
+    if (boardCard.noMessages || !boardCard.externalThreadId) return [];
     return orm.em.find(EmailMessage, { externalThreadId: boardCard.externalThreadId }, { populate, orderBy, limit });
+  }
+
+  static async findByIds<Hint extends string = never>(
+    ids: string[],
+    { populate }: { populate?: Populate<EmailMessage, Hint> } = {},
+  ) {
+    if (ids.length === 0) return [];
+    return orm.em.find(EmailMessage, { id: { $in: ids } }, { populate });
   }
 
   static async createNewEmailMessages() {
@@ -97,8 +100,6 @@ export class EmailMessageService {
         promise?: Promise<void>;
         abortController: AbortController;
         failureCount: number;
-        lastFailureAt?: Date;
-        ignoredUntil?: Date;
       }
     > = {};
 
@@ -108,16 +109,12 @@ export class EmailMessageService {
           populate: ['boardAccounts.board.boardColumns', 'boardAccounts.board.boardMembers'],
         })
       ).filter((acc) => {
-        if (![...acc.boardAccounts].some((ba) => ba.loadedBoard.initialized)) return false;
-        const promiseData = promiseDataByGmailAccountId[acc.id];
-        if (promiseData?.ignoredUntil && promiseData.ignoredUntil > new Date()) return false;
+        if (promiseDataByGmailAccountId[acc.id]) return false; // Already processing
+        if (![...acc.boardAccounts].some((ba) => ba.loadedBoard.initialized)) return false; // No initialized boards
         return true;
       });
 
       gmailAccounts.forEach((gmailAccount, i) => {
-        const existingPromiseData = promiseDataByGmailAccountId[gmailAccount.id];
-        if (existingPromiseData?.promise) return; // Already processing
-
         const promise = RequestContext.create(orm.em, async () => {
           await sleep((i * CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS) / (gmailAccounts.length || 1));
           let promiseData = promiseDataByGmailAccountId[gmailAccount.id];
@@ -125,66 +122,58 @@ export class EmailMessageService {
             while (promiseData && !promiseData.abortController.signal.aborted) {
               try {
                 await EmailMessageService.syncEmailMessagesForGmailAccount(gmailAccount);
-                if (promiseData.failureCount > 0) {
-                  promiseData.failureCount = 0;
-                  promiseData.lastFailureAt = undefined;
-                  promiseData.ignoredUntil = undefined;
-                }
+                if (promiseData.failureCount > 0) promiseData.failureCount = 0;
+                await sleep(CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS);
               } catch (error) {
                 reportError(error);
                 promiseData.failureCount += 1;
-                promiseData.lastFailureAt = new Date();
-                if (promiseData.failureCount >= CIRCUIT_BREAKER_FAILURE_THRESHOLD) {
-                  if (promiseData.ignoredUntil) {
-                    console.log(`[GMAIL] Marking ${gmailAccount.email} as INACTIVE after failure post-ignore period.`);
-                    const freshGmailAccount = await orm.em.findOneOrFail(GmailAccount, gmailAccount.id);
-                    freshGmailAccount.markAsInactive();
-                    await orm.em.persist(freshGmailAccount).flush();
-                  } else {
-                    const ignoreUntil = new Date(Date.now() + CIRCUIT_BREAKER_IGNORE_DURATION_MS);
-                    console.log(
-                      `[GMAIL] Ignoring ${gmailAccount.email} until ${ignoreUntil.toISOString()} after ${promiseData.failureCount} failures.`,
-                    );
-                    promiseData.ignoredUntil = ignoreUntil;
-                  }
+
+                if (promiseData.failureCount === CIRCUIT_BREAKER_FAILURE_THRESHOLD) {
+                  Logger.info(
+                    `[GMAIL] Reached failure threshold for ${gmailAccount.email} - ignoring for ${CIRCUIT_BREAKER_IGNORE_DURATION_MS / 1000}s.`,
+                  );
+                  await sleep(CIRCUIT_BREAKER_IGNORE_DURATION_MS);
+                } else if (promiseData.failureCount > CIRCUIT_BREAKER_FAILURE_THRESHOLD) {
+                  Logger.info(`[GMAIL] Marking ${gmailAccount.email} as INACTIVE after failure post-ignore period.`);
+                  const freshGmailAccount = await orm.em.findOneOrFail(GmailAccount, gmailAccount.id);
+                  freshGmailAccount.markAsInactive();
+                  await orm.em.persist(freshGmailAccount).flush();
+                  break;
                 } else {
-                  console.log(`[GMAIL] Error syncing ${gmailAccount.email} - ${promiseData.failureCount}`);
+                  Logger.info(`[GMAIL] Error syncing ${gmailAccount.email} - ${promiseData.failureCount}`);
+                  await sleep(CREATE_NEW_EMAIL_MESSAGES_BATCH_INTERVAL_MS);
                 }
+              }
+              promiseData = promiseDataByGmailAccountId[gmailAccount.id];
+              if (!promiseData || promiseData.abortController.signal.aborted) {
+                Logger.info(`[GMAIL] Stopping sync for ${gmailAccount.email} as abort signal received.`);
                 break;
               }
-              await sleep(CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS);
-              promiseData = promiseDataByGmailAccountId[gmailAccount.id];
             }
           } finally {
-            console.log(`[GMAIL] Finished processing new emails for ${gmailAccount.email}`);
+            Logger.info(`[GMAIL] Finished processing new emails for ${gmailAccount.email}`);
             if (promiseData) {
               promiseDataByGmailAccountId[gmailAccount.id]!.promise = undefined;
             }
           }
         });
 
-        if (existingPromiseData) {
-          promiseDataByGmailAccountId[gmailAccount.id]!.promise = promise;
-        } else {
-          promiseDataByGmailAccountId[gmailAccount.id] = {
-            promise,
-            abortController: new AbortController(),
-            failureCount: 0,
-            lastFailureAt: undefined as Date | undefined,
-            ignoredUntil: undefined as Date | undefined,
-          };
-        }
+        promiseDataByGmailAccountId[gmailAccount.id] = {
+          promise,
+          abortController: new AbortController(),
+          failureCount: 0,
+        };
       });
 
       const gmailAccountIds = new Set(gmailAccounts.map((acc) => acc.id));
       for (const gmailAccountId of Object.keys(promiseDataByGmailAccountId)) {
         if (gmailAccountIds.has(gmailAccountId)) continue; // Still exists
-        console.log(`[GMAIL] Cancelling sync for account ${gmailAccountId} as it no longer exists.`);
+        Logger.info(`[GMAIL] Cancelling sync for account ${gmailAccountId} as it no longer exists.`);
         promiseDataByGmailAccountId[gmailAccountId]!.abortController.abort();
         delete promiseDataByGmailAccountId[gmailAccountId];
       }
 
-      await sleep(CREATE_NEW_EMAIL_MESSAGES_READ_DB_INTERVAL_MS);
+      await sleep(CREATE_NEW_EMAIL_MESSAGES_BATCH_INTERVAL_MS);
     }
   }
 
@@ -203,7 +192,7 @@ export class EmailMessageService {
     const { loadedGmailAccount: gmailAccount } = boardAccount;
 
     const gmail = await GmailAccountService.initGmail(gmailAccount);
-    console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
+    Logger.info(`[GMAIL] Fetching ${gmailAccount.email} initial emails in desc order...`);
     const messages = await GmailApi.listMessages(gmail, {
       limit: CREATE_EMAIL_MESSAGES_BATCH_LIMIT,
       emails: boardAccount.receivingEmails,
@@ -221,7 +210,7 @@ export class EmailMessageService {
 
     for (const message of messages) {
       if (!message.id) continue;
-      console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${message.id}...`);
+      Logger.info(`[GMAIL] Fetching ${gmailAccount.email} message ${message.id}...`);
       const messageData = await GmailApi.getMessage(gmail, message.id);
       if (messageData.labelIds?.includes(LABEL.DRAFT)) continue; // Skip drafts
 
@@ -238,17 +227,17 @@ export class EmailMessageService {
     // If receivingEmails exists, fetch complete threads for each unique externalThreadId
     if (boardAccount.receivingEmails) {
       const uniqueThreadIds = Object.keys(emailMessagesDescByThreadId);
-      console.log(`[GMAIL] Fetching complete threads for ${uniqueThreadIds.length} threads...`);
+      Logger.info(`[GMAIL] Fetching complete threads for ${uniqueThreadIds.length} threads...`);
 
       for (const threadId of uniqueThreadIds) {
-        console.log(`[GMAIL] Fetching all messages in thread ${threadId}...`);
+        Logger.info(`[GMAIL] Fetching all messages in thread ${threadId}...`);
         const threadData = await GmailApi.getThread(gmail, threadId);
 
         for (const messageData of threadData.messages || []) {
           if (!messageData.id || processedMessageIds.has(messageData.id)) continue;
           if (messageData.labelIds?.includes(LABEL.DRAFT)) continue; // Skip drafts
 
-          console.log(`[GMAIL] Processing ${gmailAccount.email} thread message ${messageData.id}...`);
+          Logger.info(`[GMAIL] Processing ${gmailAccount.email} thread message ${messageData.id}...`);
           const emailMessage = await EmailMessageService.parseEmailMessage({ gmailAccount, messageData });
           (emailMessagesDescByThreadId[emailMessage.externalThreadId] ??= []).push(emailMessage);
           domainNames.add(emailMessage.loadedDomain.name);
@@ -323,7 +312,9 @@ export class EmailMessageService {
         });
         orm.em.persist(boardCard);
 
-        emailMessageIdsByBoardCardId[boardCard.id] = emailMessagesDesc.map((msg) => msg.id);
+        if (boardCard.indexable) {
+          emailMessageIdsByBoardCardId[boardCard.id] = emailMessagesDesc.map((msg) => msg.id);
+        }
       }
     }
 
@@ -434,6 +425,7 @@ export class EmailMessageService {
       bcc,
       bodyText,
       bodyHtml,
+      rawPayload: messageData.payload,
     });
 
     const attachments: GmailAttachment[] = [];
@@ -550,7 +542,7 @@ export class EmailMessageService {
     }
 
     // Collect EmailMessages & Attachments
-    console.log(`[GMAIL] Processing additions for ${gmailAccount.email}...`);
+    Logger.info(`[GMAIL] Processing additions for ${gmailAccount.email}...`);
     const domainNames = new Set<string>();
     const alreadDeletedExternalMessageIds = new Set();
     const draftExternalMessageIds = new Set<string>();
@@ -560,7 +552,7 @@ export class EmailMessageService {
       if (emailMessageAlreadyExists) continue;
 
       try {
-        console.log(`[GMAIL] Fetching ${gmailAccount.email} message ${externalMessageId}...`);
+        Logger.info(`[GMAIL] Fetching ${gmailAccount.email} message ${externalMessageId}...`);
         const messageData = await GmailApi.getMessage(gmail, externalMessageId);
         if (messageData.labelIds?.includes(LABEL.DRAFT)) {
           draftExternalMessageIds.add(externalMessageId);
@@ -574,7 +566,7 @@ export class EmailMessageService {
         const boardCard = boardCardByThreadId[externalThreadId];
 
         if (!boardCard && !EmailMessageService.boardAccountToSyncWhenNoBoardCard({ emailMessage, gmailAccount })) {
-          console.log(`[GMAIL] Skipping message ${externalMessageId} - does not match sync criteria`);
+          Logger.info(`[GMAIL] Skipping message ${externalMessageId} - does not match sync criteria`);
           continue;
         }
 
@@ -590,7 +582,7 @@ export class EmailMessageService {
         }
       } catch (error) {
         if (error instanceof Error && error.message.includes('Requested entity was not found')) {
-          console.log(`[GMAIL] Message ${externalMessageId} for ${gmailAccount.email} was not found.`);
+          Logger.info(`[GMAIL] Message ${externalMessageId} for ${gmailAccount.email} was not found.`);
           alreadDeletedExternalMessageIds.add(externalMessageId);
         } else {
           reportError(error);
@@ -634,7 +626,7 @@ export class EmailMessageService {
         orm.em.persist(rebuiltBoardCard);
         boardCardByThreadId[externalThreadId] = rebuiltBoardCard;
 
-        if (rebuiltBoardCard.state === BoardCardState.INBOX) {
+        if (rebuiltBoardCard.indexable) {
           const messageIds = upsertIndexMessageIdsByBoardCard.get(rebuiltBoardCard) ?? [];
           messageIds.push(emailMessage.id);
           upsertIndexMessageIdsByBoardCard.set(rebuiltBoardCard, messageIds);
@@ -654,7 +646,7 @@ export class EmailMessageService {
         orm.em.persist(boardCard);
         boardCardByThreadId[externalThreadId] = boardCard as (typeof boardCardByThreadId)[string];
 
-        if (boardCard.state === BoardCardState.INBOX) {
+        if (boardCard.indexable) {
           const messageIds = upsertIndexMessageIdsByBoardCard.get(boardCard as Loaded<BoardCard, 'boardColumn'>) ?? [];
           messageIds.push(emailMessage.id);
           upsertIndexMessageIdsByBoardCard.set(boardCard as Loaded<BoardCard, 'boardColumn'>, messageIds);
@@ -663,8 +655,9 @@ export class EmailMessageService {
     }
 
     // Handle delete: delete EmailMessages, update/delete BoardCards
-    console.log(`[GMAIL] Processing deletions for ${gmailAccount.email}...`);
+    Logger.info(`[GMAIL] Processing deletions for ${gmailAccount.email}...`);
     const deleteIndexMessageIdsByBoardCard = new Map<Loaded<BoardCard, 'boardColumn'>, string[]>();
+    const deleteArchiveEmailMessageIds: string[] = [];
     for (const externalMessageId of deletedExternalEmailMessageIds) {
       const emailMessageToDelete = affectedEmailMessageByExternalId[externalMessageId];
       if (!emailMessageToDelete) continue; // Already deleted
@@ -694,10 +687,12 @@ export class EmailMessageService {
       const messageIds = deleteIndexMessageIdsByBoardCard.get(boardCard) ?? [];
       messageIds.push(emailMessageToDelete.id);
       deleteIndexMessageIdsByBoardCard.set(boardCard, messageIds);
+
+      deleteArchiveEmailMessageIds.push(emailMessageToDelete.id);
     }
 
     // Handle label changes (read / unread / trash / spam): update EmailMessages, update BoardCards
-    console.log(`[GMAIL] Processing label changes for ${gmailAccount.email}...`);
+    Logger.info(`[GMAIL] Processing label changes for ${gmailAccount.email}...`);
     const nonInboxBoardCards = [];
     for (const labelChange of labelChanges) {
       const { externalMessageId } = labelChange;
@@ -724,7 +719,7 @@ export class EmailMessageService {
       orm.em.persist(boardCard);
       boardCardByThreadId[threadId] = boardCard;
 
-      if (boardCard.state === BoardCardState.INBOX) {
+      if (boardCard.indexable) {
         const messageIds = upsertIndexMessageIdsByBoardCard.get(boardCard) ?? [];
         messageIds.push(emailMessage.id);
         upsertIndexMessageIdsByBoardCard.set(boardCard, messageIds);
@@ -742,6 +737,8 @@ export class EmailMessageService {
     }
 
     await orm.em.flush();
+
+    await ArchiveService.deleteByEmailMessageIds(deleteArchiveEmailMessageIds);
 
     // Enqueue indexing jobs
     for (const [boardCard, messageIds] of upsertIndexMessageIdsByBoardCard) {
@@ -805,7 +802,7 @@ export class EmailMessageService {
     const labelChanges: { externalMessageId: string; added?: string[]; removed?: string[] }[] = [];
     let lastExternalHistoryId = gmailAccount.externalHistoryId;
     if (gmailAccount.externalHistoryId) {
-      console.log(`[GMAIL] Fetching ${gmailAccount.email} history since ${gmailAccount.externalHistoryId}...`);
+      Logger.info(`[GMAIL] Fetching ${gmailAccount.email} history since ${gmailAccount.externalHistoryId}...`);
       let pageToken: string | undefined;
       do {
         const { historyItems, nextPageToken, historyId } = await GmailApi.listHistory(gmail, {
@@ -842,7 +839,7 @@ export class EmailMessageService {
         if (historyId) lastExternalHistoryId = historyId;
       } while (pageToken);
     } else {
-      console.log(`[GMAIL] Fetching ${gmailAccount.email} initial emails...`);
+      Logger.info(`[GMAIL] Fetching ${gmailAccount.email} initial emails...`);
       const allReceivingEmails = unique(
         gmailAccount.boardAccounts.filter((ba) => !!ba.receivingEmails).flatMap((ba) => ba.receivingEmails!),
       );
@@ -879,7 +876,7 @@ export class EmailMessageService {
         (emailMessage) => emailMessage.labels.includes(LABEL.SPAM) || emailMessage.labels.includes(LABEL.TRASH),
       )
     ) {
-      console.log(`[AGENT] Categorizing emails ${emailMessages.map((e) => e.externalId).join(', ')}...`);
+      Logger.info(`[AGENT] Categorizing emails ${emailMessages.map((e) => e.externalId).join(', ')}...`);
       const emailMessageContents = emailMessages.map(
         (e) => `From: ${e.from}
 Subject: ${e.subject}

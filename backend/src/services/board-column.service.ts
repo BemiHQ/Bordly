@@ -7,6 +7,7 @@ import { Comment } from '@/entities/comment';
 import { EmailMessage } from '@/entities/email-message';
 import { GmailAttachment } from '@/entities/gmail-attachment';
 import { enqueue, QUEUES } from '@/pg-boss-queues';
+import { ArchiveService } from '@/services/archive.service';
 import { orm } from '@/utils/orm';
 import { BoardCardState } from '@/utils/shared';
 
@@ -38,10 +39,11 @@ export class BoardColumnService {
       throw new Error('Cannot delete column with inbox board cards');
     }
 
+    const externalThreadIds = boardCards.map((c) => c.externalThreadId).filter((id): id is string => !!id);
+
+    // Archive / spam / trash board cards will be automatically deleted
     await orm.em.transactional(async (em) => {
-      const emailMessagesCondition = {
-        externalThreadId: { $in: boardCards.map((c) => c.externalThreadId).filter((id): id is string => !!id) },
-      };
+      const emailMessagesCondition = { externalThreadId: { $in: externalThreadIds } };
       await em.nativeDelete(GmailAttachment, { emailMessage: emailMessagesCondition });
       await em.nativeDelete(EmailMessage, emailMessagesCondition);
 
@@ -51,6 +53,8 @@ export class BoardColumnService {
       await em.nativeDelete(BoardCard, boardCardsCondition);
 
       await em.nativeDelete(BoardColumn, { id: boardColumn.id });
+
+      await ArchiveService.deleteByExternalThreadIds(externalThreadIds);
     });
 
     await enqueue(QUEUES.DELETE_INDEX_RECORDS, { boardId: board.id, boardCardIds: boardCards.map((c) => c.id) });

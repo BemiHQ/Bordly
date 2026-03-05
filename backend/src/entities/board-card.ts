@@ -159,6 +159,14 @@ export class BoardCard extends BaseEntity {
     return this.emailMessageCount === 0;
   }
 
+  get indexable() {
+    return this.state === State.INBOX || this.state === State.ARCHIVED;
+  }
+
+  get emailMessagesArchivable() {
+    return this.state === State.ARCHIVED && !this.noMessages;
+  }
+
   setBoardColumn(boardColumn: BoardColumn) {
     this.boardColumn = boardColumn;
     this.validate();

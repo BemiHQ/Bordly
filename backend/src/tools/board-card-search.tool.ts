@@ -7,9 +7,10 @@ import { Comment } from '@/entities/comment';
 import { EmailDraft } from '@/entities/email-draft';
 import { EmailMessage } from '@/entities/email-message';
 import type { Context } from '@/services/agent.service';
+import { ArchiveService } from '@/services/archive.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { EmailMessageService } from '@/services/email-message.service';
-import { EmbeddingService } from '@/services/embedding.service';
+import { IndexService } from '@/services/index.service';
 import { unique } from '@/utils/lists';
 import { Logger } from '@/utils/logger';
 
@@ -28,7 +29,7 @@ export const boardCardSearchTool = createTool({
 
     const { board } = initialBoardCard.loadedBoardColumn;
 
-    const records = await EmbeddingService.searchSemantic(board.id, {
+    const records = await IndexService.searchSemantic(board.id, {
       query: data.query,
       excludeBoardCardId: initialBoardCard.id,
     });
@@ -52,11 +53,22 @@ export const buildBoardCardContext = async (initialBoardCard: Loaded<BoardCard>)
     'emailDraft.fileAttachments',
     'comments.user',
   ]);
-  const [lastEmailMessage] = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
-    populate: ['gmailAttachments'],
-    orderBy: { externalCreatedAt: 'DESC' },
-    limit: 1,
-  });
+
+  let lastEmailMessage: Loaded<EmailMessage, 'gmailAttachments'> | null = null;
+
+  if (boardCard.emailMessagesArchivable) {
+    if (boardCard.externalThreadId) {
+      const archivedMessage = await ArchiveService.getLastEmailMessage(boardCard.externalThreadId);
+      lastEmailMessage = archivedMessage ?? null;
+    }
+  } else {
+    const messages = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
+      populate: ['gmailAttachments'],
+      orderBy: { externalCreatedAt: 'DESC' },
+      limit: 1,
+    });
+    lastEmailMessage = messages[0] ?? null;
+  }
 
   const commentsAsc = [...boardCard.comments].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
