@@ -3,28 +3,11 @@ import { Entity, Index, type Loaded, ManyToOne, Property, Unique } from '@mikro-
 import { BaseEntity } from '@/entities/base-entity';
 import type { EmailMessage } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
-import { reportError } from '@/utils/error-tracking';
 
 export interface GmailAttachment {
   loadedGmailAccount: GmailAccount;
   loadedEmailMessage: EmailMessage;
 }
-
-const MIME_TYPE_BY_FILE_EXTENSION: Record<string, string> = {
-  pdf: 'application/pdf',
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  txt: 'text/plain',
-  csv: 'text/csv',
-  doc: 'application/msword',
-  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  xls: 'application/vnd.ms-excel',
-  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  ics: 'application/ics',
-};
 
 @Entity({ tableName: 'gmail_attachments' })
 @Unique({ properties: ['gmailAccount', 'externalId'] })
@@ -82,25 +65,6 @@ export class GmailAttachment extends BaseEntity {
     this.validate();
   }
 
-  get derivedMimeType() {
-    if (this.mimeType === 'application/octet-stream') {
-      const ext = this.filename.toLowerCase().split('.').pop();
-      if (ext && MIME_TYPE_BY_FILE_EXTENSION[ext]) {
-        return MIME_TYPE_BY_FILE_EXTENSION[ext];
-      }
-      reportError(new Error(`Unknown MIME type for attachment ${this.id} with filename ${this.filename}`));
-      return this.mimeType;
-    }
-    return this.mimeType;
-  }
-
-  get llmMimeType() {
-    if (this.mimeType === 'application/ics' || this.mimeType === 'text/calendar') {
-      return 'text/plain'; // LLMs don't support text/calendar, so we treat it as plain text (e.g. for .ics files)
-    }
-    return this.derivedMimeType;
-  }
-
   static toJson(gmailAttachment: Loaded<GmailAttachment>) {
     return {
       id: gmailAttachment.id,
@@ -112,10 +76,14 @@ export class GmailAttachment extends BaseEntity {
   }
 
   static toPrompt(gmailAttachment: Loaded<GmailAttachment>) {
+    const items = [
+      `- ID: ${gmailAttachment.id}`,
+      `- Filename: ${gmailAttachment.filename}`,
+      gmailAttachment.summary && `- Summary: ${gmailAttachment.summary}`,
+    ].filter(Boolean);
+
     return `Gmail Attachment:
-- ID: ${gmailAttachment.id}
-- Filename: ${gmailAttachment.filename}
-- Summary: ${gmailAttachment.summary ?? 'N/A'}`;
+${items.join('\n')}`;
   }
 
   private validate() {

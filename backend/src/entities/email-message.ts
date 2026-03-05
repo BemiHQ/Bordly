@@ -168,10 +168,10 @@ ${emailMessage.bodyText || emailMessage.bodyHtml}
       emailMessage.gmailAttachments.length > 0 &&
         `- Gmail Attachments:
 ${emailMessage.gmailAttachments.map(GmailAttachment.toPrompt).join('\n')}`,
-    ];
+    ].filter(Boolean);
 
     return `Email Message:
-${items.filter(Boolean).join('\n')}`;
+${items.join('\n')}`;
   }
 
   static toIndex(emailMessage: Loaded<EmailMessage>) {

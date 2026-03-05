@@ -22,6 +22,7 @@ import { ENV } from '@/utils/env';
 import { reportError } from '@/utils/error-tracking';
 import { GmailApi, LABEL } from '@/utils/gmail-api';
 import { groupBy, mapBy, presence, unique } from '@/utils/lists';
+import { llmMimeType } from '@/utils/mime';
 import { orm } from '@/utils/orm';
 import { BoardCardState, FALLBACK_SUBJECT, type Participant } from '@/utils/shared';
 import { renderTemplate } from '@/utils/strings';
@@ -428,11 +429,12 @@ export class EmailMessageService {
         contentId: attachmentData.contentId,
       });
 
-      if (!labels.includes(LABEL.SPAM) && !labels.includes(LABEL.TRASH)) {
+      const mimeType = llmMimeType(attachment);
+      if (mimeType && !labels.includes(LABEL.SPAM) && !labels.includes(LABEL.TRASH)) {
         const data = await GmailAttachmentService.getAttachmentDataBuffer(attachment);
         const summary = await AgentService.generateAttachmentSummary({
           filename: attachment.filename,
-          mimeType: attachment.llmMimeType,
+          mimeType,
           data,
         });
         attachment.setSummary(summary);

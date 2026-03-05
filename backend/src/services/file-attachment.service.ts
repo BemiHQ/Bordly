@@ -3,6 +3,7 @@ import type { Loaded } from '@mikro-orm/postgresql';
 import type { EmailDraft } from '@/entities/email-draft';
 import { FileAttachment } from '@/entities/file-attachment';
 import { AgentService } from '@/services/agent.service';
+import { llmMimeType } from '@/utils/mime';
 import { orm } from '@/utils/orm';
 import { S3Client } from '@/utils/s3-client';
 
@@ -13,7 +14,7 @@ export class FileAttachmentService {
     emailDraft: EmailDraft,
     {
       filename,
-      mimeType,
+      mimeType: originalMimeType,
       buffer,
     }: {
       filename: string;
@@ -22,15 +23,19 @@ export class FileAttachmentService {
     },
   ) {
     const s3Key = `${S3_PREFIX_EMAIL_DRAFTS}/${emailDraft.id}/${randomUUID()}-${filename}`;
-    await S3Client.uploadFile({ key: s3Key, buffer, contentType: mimeType });
+    await S3Client.uploadFile({ key: s3Key, buffer, contentType: originalMimeType });
 
-    const summary = await AgentService.generateAttachmentSummary({ data: buffer, filename, mimeType });
+    const mimeType = llmMimeType({ mimeType: originalMimeType });
+    let summary: string | undefined;
+    if (mimeType) {
+      summary = await AgentService.generateAttachmentSummary({ data: buffer, filename, mimeType });
+    }
 
     const draftAttachment = new FileAttachment({
       emailDraft,
       s3Key,
       filename,
-      mimeType,
+      mimeType: originalMimeType,
       size: buffer.length,
       summary,
     });

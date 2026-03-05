@@ -107,10 +107,10 @@ export class BoardMember extends BaseEntity {
 \`\`\`
 ${memory.signature}
 \`\`\``,
-    ];
+    ].filter(Boolean);
 
     return `Board Member:
-${items.filter(Boolean).join('\n')}`;
+${items.join('\n')}`;
   }
 
   static toStr(boardMember: Loaded<BoardMember, 'user'>) {

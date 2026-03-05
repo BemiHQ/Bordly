@@ -237,10 +237,10 @@ export class BoardCard extends BaseEntity {
       assignedBoardMember && `- Assigned Board Member: ${BoardMember.toStr(assignedBoardMember)}`,
       `- Subject: ${boardCard.subject}`,
       `- State: ${boardCard.state}`,
-    ];
+    ].filter(Boolean);
 
     return `Board Card:
-${items.filter(Boolean).join('\n')}`;
+${items.join('\n')}`;
   }
 
   private validate() {
