@@ -1,12 +1,36 @@
 import { reportError } from '@/utils/error-tracking';
 
-const MIME_TYPE_PDF = 'application/pdf';
 const MIME_TYPE_PLAINTEXT = 'text/plain';
 
 const LLM_PLAIN_TEXT_MIME_TYPES = ['application/ics', 'text/calendar'];
 
+const LLM_SUPPORTED_MIME_TYPES = [
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'application/json',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'audio/wav',
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/aac',
+  'audio/flac',
+  'audio/ogg',
+  'video/mp4',
+  'video/quicktime',
+  'video/mpeg',
+  'video/webm',
+  'video/x-msvideo',
+];
+
+const LLM_KNOWN_UNSUPPORTED_MIME_TYPES = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+
 const MIME_TYPE_BY_FILE_EXTENSION: Record<string, string> = {
-  pdf: MIME_TYPE_PDF,
+  pdf: 'application/pdf',
   png: 'image/png',
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
@@ -34,15 +58,16 @@ export const clientMimeType = ({ filename, mimeType }: { filename: string; mimeT
 };
 
 export const llmMimeType = ({ mimeType }: { mimeType: string }) => {
-  if (mimeType === MIME_TYPE_PDF) {
+  if (LLM_SUPPORTED_MIME_TYPES.includes(mimeType)) {
     return mimeType;
   } else if (LLM_PLAIN_TEXT_MIME_TYPES.includes(mimeType)) {
     return MIME_TYPE_PLAINTEXT;
   }
 
-  // TODO: add support for
-  //  - application/vnd.openxmlformats-officedocument.wordprocessingml.document (docx)
+  if (LLM_KNOWN_UNSUPPORTED_MIME_TYPES.includes(mimeType)) {
+    return null;
+  }
 
   reportError(`Unsupported MIME type for LLM processing: ${mimeType}`);
-  return null;
+  return mimeType;
 };

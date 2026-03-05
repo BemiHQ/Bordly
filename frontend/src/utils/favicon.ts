@@ -7,7 +7,7 @@ export const updateFaviconBadge = (show: boolean) => {
   const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"][sizes="32x32"]');
   if (!favicon) return;
 
-  const isDevelopment = ENV.NODE_ENV === 'development';
+  const isDevelopment = ENV.VITE_NODE_ENV !== 'production';
 
   if (!show && !isDevelopment) {
     favicon.href = ORIGINAL_FAVICON;

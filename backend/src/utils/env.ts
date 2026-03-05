@@ -7,6 +7,8 @@ const requireEnv = (name: string): string => {
 };
 
 export const ENV = {
+  NODE_ENV: requireEnv('NODE_ENV'),
+
   DB_DATABASE: requireEnv('DB_DATABASE'),
   DB_USERNAME: requireEnv('DB_USERNAME'),
   DB_PASSWORD: requireEnv('DB_PASSWORD'),
@@ -37,7 +39,6 @@ export const ENV = {
 
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
   DB_SSL: process.env.DB_SSL === 'true',
-  NODE_ENV: process.env.NODE_ENV || 'development',
 
   AWS_REGION: process.env.AWS_REGION,
   AWS_SES_ACCESS_KEY_ID: process.env.AWS_SES_ACCESS_KEY_ID,

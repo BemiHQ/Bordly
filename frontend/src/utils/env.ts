@@ -7,12 +7,14 @@ const requireEnv = (name: string): string => {
 };
 
 export const ENV = {
+  // Build-time
+  VITE_NODE_ENV: requireEnv('VITE_NODE_ENV'),
   VITE_API_ENDPOINT: requireEnv('VITE_API_ENDPOINT'),
 
   // Optional
-  VITE_SENTRY_DSN: import.meta.env.VITE_SENTRY_DSN,
 
+  // Build-time
+  VITE_SENTRY_DSN: import.meta.env.VITE_SENTRY_DSN,
   // Runtime
   SSR_API_ENDPOINT: process.env.SSR_API_ENDPOINT,
-  NODE_ENV: process.env.NODE_ENV,
 };

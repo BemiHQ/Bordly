@@ -101,6 +101,7 @@ export class EmailMessage extends BaseEntity {
     bodyHtml?: string;
   }) {
     super();
+    this.id = crypto.randomUUID();
     this.gmailAccount = gmailAccount;
     this.domain = domain;
     this.externalId = externalId;
@@ -174,11 +175,27 @@ ${emailMessage.gmailAttachments.map(GmailAttachment.toPrompt).join('\n')}`,
 ${items.join('\n')}`;
   }
 
-  static toIndex(emailMessage: Loaded<EmailMessage>) {
-    return [
-      emailMessage.subject,
-      emailMessage.bodyText || (emailMessage.bodyHtml && htmlToText(emailMessage.bodyHtml)) || emailMessage.snippet,
-    ].join('\n\n');
+  static toIndex(emailMessage: Loaded<EmailMessage, 'gmailAttachments'>) {
+    const bodyText = emailMessage.bodyText
+      ? parseTextBody(emailMessage.bodyText).mainText
+      : emailMessage.bodyHtml
+        ? htmlToText(parseHtmlBody(emailMessage.bodyHtml).mainHtml)
+        : '';
+
+    const items = [
+      `Subject: ${emailMessage.subject}`,
+      `From: ${participantToString(emailMessage.from)}`,
+      emailMessage.replyTo
+        ? `Reply-To: ${participantToString(emailMessage.replyTo)}`
+        : emailMessage.to && emailMessage.to.length > 0 && `To: ${emailMessage.to.map(participantToString).join(', ')}`,
+      emailMessage.cc && emailMessage.cc.length > 0 && `CC: ${emailMessage.cc.map(participantToString).join(', ')}`,
+      emailMessage.bcc && emailMessage.bcc.length > 0 && `BCC: ${emailMessage.bcc.map(participantToString).join(', ')}`,
+      `\n${bodyText}`,
+      emailMessage.gmailAttachments.length > 0 &&
+        `\nAttachments:\n${emailMessage.gmailAttachments.map(GmailAttachment.toIndex).join('\n')}`,
+    ].filter(Boolean);
+
+    return items.join('\n');
   }
 
   private validate() {

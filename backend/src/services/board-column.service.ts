@@ -1,5 +1,4 @@
 import type { Populate } from '@mikro-orm/postgresql';
-
 import type { Board } from '@/entities/board';
 import { BoardCard } from '@/entities/board-card';
 import { BoardCardReadPosition } from '@/entities/board-card-read-position';
@@ -7,6 +6,7 @@ import { BoardColumn } from '@/entities/board-column';
 import { Comment } from '@/entities/comment';
 import { EmailMessage } from '@/entities/email-message';
 import { GmailAttachment } from '@/entities/gmail-attachment';
+import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { orm } from '@/utils/orm';
 import { BoardCardState } from '@/utils/shared';
 
@@ -52,6 +52,8 @@ export class BoardColumnService {
 
       await em.nativeDelete(BoardColumn, { id: boardColumn.id });
     });
+
+    await enqueue(QUEUES.DELETE_INDEX_RECORDS, { boardId: board.id, boardCardIds: boardCards.map((c) => c.id) });
   }
 
   static async setName<Hint extends string = never>(

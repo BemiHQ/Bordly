@@ -79,6 +79,11 @@ export class Comment extends BaseEntity {
 ${items.join('\n')}`;
   }
 
+  static toIndex(comment: Loaded<Comment, 'user'>) {
+    const user = comment.loadedUser;
+    return `${User.toStr(user)}: ${comment.contentText}`;
+  }
+
   private validate() {
     if (!this.boardCard) throw new Error('BoardCard is required');
     if (!this.user) throw new Error('User is required');

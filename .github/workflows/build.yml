@@ -51,4 +51,5 @@ jobs:
     - name: Run tests
       run: cd frontend && pnpm test
       env:
+        VITE_NODE_ENV: test
         VITE_API_ENDPOINT: http://localhost:3000

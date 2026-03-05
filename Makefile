@@ -39,6 +39,9 @@ down-services:
 test:
 	devbox run "cd backend && pnpm test && cd ../frontend && pnpm test"
 
+test-embeddings:
+	devbox --env-file backend/.env run "cd backend && pnpm exec tsx src/scripts/test-embeddings.ts"
+
 ps:
 	devbox services ls
 

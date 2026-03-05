@@ -7,6 +7,7 @@ import { Domain } from '@/entities/domain';
 import { EmailMessage } from '@/entities/email-message';
 import { GmailAccount } from '@/entities/gmail-account';
 import { GmailAttachment } from '@/entities/gmail-attachment';
+import { enqueue, IndexAction, QUEUES } from '@/pg-boss-queues';
 import { AgentService } from '@/services/agent.service';
 import { BoardService } from '@/services/board.service';
 import { BoardAccountService } from '@/services/board-account.service';
@@ -14,7 +15,6 @@ import { BoardCardService } from '@/services/board-card.service';
 import { BoardMemberService } from '@/services/board-member.service';
 import { DomainService } from '@/services/domain.service';
 import { EmailDraftService } from '@/services/email-draft.service';
-import { EmbeddingService } from '@/services/embedding.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { GmailAttachmentService } from '@/services/gmail-attachment.service';
 import { htmlToText } from '@/utils/email';
@@ -31,7 +31,8 @@ import { sleep } from '@/utils/time';
 const CREATE_NEW_EMAIL_MESSAGES_READ_DB_INTERVAL_MS = 60 * 1_000; // 60 seconds
 const CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS = 5 * 1_000; // 5 seconds
 const CREATE_EMAIL_MESSAGES_BATCH_LIMIT = ENV.NODE_ENV === 'production' ? 30 : 10;
-const MAX_INITIAL_BOARD_COUNT = 5;
+const MAX_INITIAL_BOARD_COLUMN_COUNT = 5;
+
 const CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3;
 const CIRCUIT_BREAKER_IGNORE_DURATION_MS = 20 * 60 * 1_000; // 20 minutes
 
@@ -68,6 +69,14 @@ export class EmailMessageService {
     { id, populate }: { id: string; populate?: Populate<EmailMessage, Hint> },
   ) {
     return orm.em.findOneOrFail(EmailMessage, { id, externalThreadId: boardCard.externalThreadId }, { populate });
+  }
+
+  static async findByIds<Hint extends string = never>(
+    ids: string[],
+    { populate }: { populate?: Populate<EmailMessage, Hint> } = {},
+  ) {
+    if (ids.length === 0) return [];
+    return orm.em.find(EmailMessage, { id: { $in: ids } }, { populate });
   }
 
   static async findEmailMessagesByBoardCard<Hint extends string = never>(
@@ -203,7 +212,6 @@ export class EmailMessageService {
 
     // Collect EmailMessages and Attachments
     let lastExternalHistoryId: string | undefined;
-    // Return type from parseEmailMessage
     const emailMessagesDescByThreadId: Record<
       string,
       Awaited<ReturnType<typeof EmailMessageService.parseEmailMessage>>[]
@@ -264,7 +272,7 @@ export class EmailMessageService {
       .filter(([category]) => category !== CATEGORIES.OTHER)
       .sort((a, b) => b[1].length - a[1].length)
       .map(([category]) => category)
-      .slice(0, MAX_INITIAL_BOARD_COUNT - 1);
+      .slice(0, MAX_INITIAL_BOARD_COLUMN_COUNT - 1);
     topCategories.push(CATEGORIES.OTHER);
 
     // Find existing Domains
@@ -281,6 +289,7 @@ export class EmailMessageService {
 
     // Create BoardColumns and BoardCards
     const boardColumnsByCategory: Record<string, BoardColumn> = {};
+    const emailMessageIdsByBoardCardId: Record<string, string[]> = {};
     for (const [initialCategory, threadIds] of Object.entries(emailThreadIdsByCategory)) {
       let category = initialCategory;
       if (!topCategories.includes(category)) {
@@ -299,9 +308,10 @@ export class EmailMessageService {
         boardColumnsByCategory[category] = boardColumn;
       }
 
+      // Update or create Domains, create EmailMessages
       for (const threadId of threadIds) {
-        // Update or create Domains, create EmailMessages
-        for (const emailMessage of emailMessagesDescByThreadId[threadId]!) {
+        const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!;
+        for (const emailMessage of emailMessagesDesc) {
           emailMessage.domain = await persistDomainOnce(emailMessage.loadedDomain);
           orm.em.persist(emailMessage);
         }
@@ -309,9 +319,11 @@ export class EmailMessageService {
         const boardCard = BoardCardService.buildFromEmailMessages({
           boardAccount,
           boardColumn: boardColumnsByCategory[category]!,
-          emailMessagesDesc: emailMessagesDescByThreadId[threadId]!,
+          emailMessagesDesc,
         });
         orm.em.persist(boardCard);
+
+        emailMessageIdsByBoardCardId[boardCard.id] = emailMessagesDesc.map((msg) => msg.id);
       }
     }
 
@@ -322,8 +334,16 @@ export class EmailMessageService {
 
     await orm.em.flush();
 
-    const allEmailMessages = Object.values(emailMessagesDescByThreadId).flat();
-    await EmbeddingService.indexEmailMessages(board, allEmailMessages);
+    // Enqueue indexing jobs
+    for (const [boardCardId, emailMessageIds] of Object.entries(emailMessageIdsByBoardCardId)) {
+      await enqueue(QUEUES.INDEX_ENTITY_RECORDS, {
+        boardId: board.id,
+        boardCardId,
+        entity: 'EmailMessage',
+        action: IndexAction.UPSERT,
+        ids: emailMessageIds,
+      });
+    }
 
     const boardMember = board.boardMembers.find((member) => !member.isAgent)!;
     await BoardMemberService.setInitialMemory(boardMember);
@@ -590,6 +610,7 @@ export class EmailMessageService {
       return domain;
     };
     // Handle add: create or update Domains & BoardCards
+    const upsertIndexMessageIdsByBoardCard = new Map<Loaded<BoardCard, 'boardColumn'>, string[]>();
     for (const externalMessageIds of addedEmailMessagesIds) {
       const { externalMessageId, externalThreadId } = externalMessageIds;
       if (alreadDeletedExternalMessageIds.has(externalMessageId)) continue; // Skip already deleted messages (404)
@@ -612,6 +633,12 @@ export class EmailMessageService {
         }) as typeof boardCard;
         orm.em.persist(rebuiltBoardCard);
         boardCardByThreadId[externalThreadId] = rebuiltBoardCard;
+
+        if (rebuiltBoardCard.state === BoardCardState.INBOX) {
+          const messageIds = upsertIndexMessageIdsByBoardCard.get(rebuiltBoardCard) ?? [];
+          messageIds.push(emailMessage.id);
+          upsertIndexMessageIdsByBoardCard.set(rebuiltBoardCard, messageIds);
+        }
       } else {
         const boardAccount = EmailMessageService.boardAccountToSyncWhenNoBoardCard({ emailMessage, gmailAccount })!;
         const boardColumnsAsc = boardColumnsAscByBoardId[boardAccount.board.id]!;
@@ -626,11 +653,18 @@ export class EmailMessageService {
         });
         orm.em.persist(boardCard);
         boardCardByThreadId[externalThreadId] = boardCard as (typeof boardCardByThreadId)[string];
+
+        if (boardCard.state === BoardCardState.INBOX) {
+          const messageIds = upsertIndexMessageIdsByBoardCard.get(boardCard as Loaded<BoardCard, 'boardColumn'>) ?? [];
+          messageIds.push(emailMessage.id);
+          upsertIndexMessageIdsByBoardCard.set(boardCard as Loaded<BoardCard, 'boardColumn'>, messageIds);
+        }
       }
     }
 
     // Handle delete: delete EmailMessages, update/delete BoardCards
     console.log(`[GMAIL] Processing deletions for ${gmailAccount.email}...`);
+    const deleteIndexMessageIdsByBoardCard = new Map<Loaded<BoardCard, 'boardColumn'>, string[]>();
     for (const externalMessageId of deletedExternalEmailMessageIds) {
       const emailMessageToDelete = affectedEmailMessageByExternalId[externalMessageId];
       if (!emailMessageToDelete) continue; // Already deleted
@@ -644,16 +678,22 @@ export class EmailMessageService {
       );
       emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
 
-      let boardCard = boardCardByThreadId[threadId]!;
-
+      const boardCard = boardCardByThreadId[threadId]!;
       if (emailMessagesDesc.length === 0) {
-        orm.em.remove(boardCard);
+        orm.em.remove(boardCard!);
         delete boardCardByThreadId[threadId];
       } else {
-        boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc }) as typeof boardCard;
-        orm.em.persist(boardCard);
-        boardCardByThreadId[threadId] = boardCard;
+        const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({
+          boardCard: boardCard!,
+          emailMessagesDesc,
+        });
+        orm.em.persist(rebuiltBoardCard);
+        boardCardByThreadId[threadId] = rebuiltBoardCard as (typeof boardCardByThreadId)[string];
       }
+
+      const messageIds = deleteIndexMessageIdsByBoardCard.get(boardCard) ?? [];
+      messageIds.push(emailMessageToDelete.id);
+      deleteIndexMessageIdsByBoardCard.set(boardCard, messageIds);
     }
 
     // Handle label changes (read / unread / trash / spam): update EmailMessages, update BoardCards
@@ -680,12 +720,20 @@ export class EmailMessageService {
 
       let boardCard = boardCardByThreadId[threadId]!;
       boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc }) as typeof boardCard;
-      if (boardCard.state !== BoardCardState.INBOX) {
-        nonInboxBoardCards.push(boardCard);
-      }
 
       orm.em.persist(boardCard);
       boardCardByThreadId[threadId] = boardCard;
+
+      if (boardCard.state === BoardCardState.INBOX) {
+        const messageIds = upsertIndexMessageIdsByBoardCard.get(boardCard) ?? [];
+        messageIds.push(emailMessage.id);
+        upsertIndexMessageIdsByBoardCard.set(boardCard, messageIds);
+      } else {
+        const messageIds = deleteIndexMessageIdsByBoardCard.get(boardCard) ?? [];
+        messageIds.push(emailMessage.id);
+        deleteIndexMessageIdsByBoardCard.set(boardCard, messageIds);
+        nonInboxBoardCards.push(boardCard);
+      }
     }
 
     if (lastExternalHistoryId) {
@@ -694,6 +742,25 @@ export class EmailMessageService {
     }
 
     await orm.em.flush();
+
+    // Enqueue indexing jobs
+    for (const [boardCard, messageIds] of upsertIndexMessageIdsByBoardCard) {
+      await enqueue(QUEUES.INDEX_ENTITY_RECORDS, {
+        boardId: boardCard.loadedBoardColumn.board.id,
+        boardCardId: boardCard.id,
+        entity: 'EmailMessage',
+        action: IndexAction.UPSERT,
+        ids: messageIds,
+      });
+    }
+    for (const [boardCard, messageIds] of deleteIndexMessageIdsByBoardCard) {
+      await enqueue(QUEUES.INDEX_ENTITY_RECORDS, {
+        boardId: boardCard.loadedBoardColumn.board.id,
+        entity: 'EmailMessage',
+        action: IndexAction.DELETE,
+        ids: messageIds,
+      });
+    }
 
     for (const boardCard of nonInboxBoardCards) {
       await EmailDraftService.delete(boardCard);

@@ -11,6 +11,7 @@ import { EmailDraft } from '@/entities/email-draft';
 import { EmailMessage } from '@/entities/email-message';
 import { FileAttachment } from '@/entities/file-attachment';
 import { GmailAttachment } from '@/entities/gmail-attachment';
+import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { BoardCardService } from '@/services/board-card.service';
 import { EmailDraftService } from '@/services/email-draft.service';
 import { orm } from '@/utils/orm';
@@ -87,5 +88,12 @@ export class BoardAccountService {
 
       await S3Client.deleteFiles({ keys: s3KeysToDelete });
     });
+
+    // Delete embedding table or records via background job
+    if (boardAccountCount === 1) {
+      await enqueue(QUEUES.DELETE_INDEX_RECORDS, { boardId: board.id, deleteTable: true });
+    } else {
+      await enqueue(QUEUES.DELETE_INDEX_RECORDS, { boardId: board.id, boardCardIds: boardCards.map((c) => c.id) });
+    }
   }
 }

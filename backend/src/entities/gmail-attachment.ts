@@ -86,6 +86,10 @@ export class GmailAttachment extends BaseEntity {
 ${items.join('\n')}`;
   }
 
+  static toIndex(gmailAttachment: Loaded<GmailAttachment>) {
+    return [gmailAttachment.filename, gmailAttachment.summary].filter(Boolean).join(': ');
+  }
+
   private validate() {
     if (!this.gmailAccount) throw new Error('Gmail Account is required');
     if (!this.emailMessage) throw new Error('Email Message is required');

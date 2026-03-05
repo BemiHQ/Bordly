@@ -3,6 +3,7 @@ import type { Board } from '@/entities/board';
 import type { BoardCard } from '@/entities/board-card';
 import { Comment } from '@/entities/comment';
 import type { User } from '@/entities/user';
+import { enqueue, IndexAction, QUEUES } from '@/pg-boss-queues';
 import { AgentService } from '@/services/agent.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { BoardMemberService } from '@/services/board-member.service';
@@ -43,6 +44,13 @@ export class CommentService {
     orm.em.persist([comment, boardCard]);
 
     await orm.em.flush();
+    await enqueue(QUEUES.INDEX_ENTITY_RECORDS, {
+      boardId: board.id,
+      boardCardId: boardCard.id,
+      entity: 'Comment',
+      action: IndexAction.UPSERT,
+      ids: [comment.id],
+    });
 
     if (isCommentForBordly(contentText) && !user.isBordly) {
       const userBoardMember = await BoardMemberService.findById(board, {
@@ -99,6 +107,13 @@ export class CommentService {
     }
 
     await orm.em.flush();
+    await enqueue(QUEUES.INDEX_ENTITY_RECORDS, {
+      boardId: board.id,
+      boardCardId: boardCard.id,
+      entity: 'Comment',
+      action: IndexAction.UPSERT,
+      ids: [comment.id],
+    });
 
     if (isCommentForBordly(contentText) && !user.isBordly) {
       const userBoardMember = await BoardMemberService.findById(board, {
@@ -119,7 +134,7 @@ export class CommentService {
     return { boardCard, comment };
   }
 
-  static async delete(boardCard: BoardCard, { user, commentId }: { user: Loaded<User>; commentId: string }) {
+  static async delete(boardCard: Loaded<BoardCard>, { user, commentId }: { user: Loaded<User>; commentId: string }) {
     const comment = await CommentService.findById(boardCard, { commentId, populate: ['user'] });
     if (comment.user.id !== user.id && !comment.loadedUser.isBordly) {
       throw new Error('You can only delete your own comments or comments from Bordly');
@@ -131,6 +146,16 @@ export class CommentService {
     orm.em.persist(boardCard);
 
     await orm.em.flush();
+
+    const { loadedBoardColumn: boardColumn } = await BoardCardService.populate(boardCard, ['boardColumn']);
+    await enqueue(QUEUES.INDEX_ENTITY_RECORDS, {
+      boardId: boardColumn.board.id,
+      boardCardId: boardCard.id,
+      entity: 'Comment',
+      action: IndexAction.DELETE,
+      ids: [commentId],
+    });
+
     return boardCard;
   }
 
@@ -143,6 +168,14 @@ export class CommentService {
     }: { populate?: Populate<Comment, Hint>; orderBy?: OrderDefinition<Comment>; limit?: number },
   ) {
     return orm.em.find(Comment, { boardCard }, { populate, orderBy, limit });
+  }
+
+  static async findByIds<Hint extends string = never>(
+    ids: string[],
+    { populate }: { populate?: Populate<Comment, Hint> } = {},
+  ) {
+    if (ids.length === 0) return [];
+    return orm.em.find(Comment, { id: { $in: ids } }, { populate });
   }
 
   // -------------------------------------------------------------------------------------------------------------------

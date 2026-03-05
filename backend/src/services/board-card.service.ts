@@ -10,6 +10,7 @@ import { EmailDraft } from '@/entities/email-draft';
 import type { EmailMessage } from '@/entities/email-message';
 import type { GmailAccount } from '@/entities/gmail-account';
 import type { User } from '@/entities/user';
+import { enqueue, QUEUES } from '@/pg-boss-queues';
 import { BoardService } from '@/services/board.service';
 import { BoardAccountService } from '@/services/board-account.service';
 import { BoardColumnService } from '@/services/board-column.service';
@@ -469,6 +470,9 @@ export class BoardCardService {
       await em.nativeDelete(BoardCardReadPosition, { boardCard });
       await em.nativeDelete(BoardCard, { id: boardCard.id });
     });
+
+    const { loadedBoardColumn: boardColumn } = await BoardCardService.populate(boardCard, ['boardColumn']);
+    await enqueue(QUEUES.DELETE_INDEX_RECORDS, { boardId: boardColumn.board.id, boardCardIds: [boardCard.id] });
   }
 
   // Unique by email
