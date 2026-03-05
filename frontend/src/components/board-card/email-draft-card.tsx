@@ -8,7 +8,7 @@ import { useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
 import { ToggleQuotesButton } from '@/components/board-card/toggle-quotes-button';
 import { Attachment, UploadingAttachment } from '@/components/editor/attachment';
-import { Editor, editorConfig } from '@/components/editor/editor';
+import { Editor, editorConfig, postProcessHtml } from '@/components/editor/editor';
 import { MenuBar } from '@/components/editor/menu-bar';
 import { Participants } from '@/components/editor/participants';
 import { Button } from '@/components/ui/button';
@@ -226,7 +226,7 @@ export const EmailDraftCard = ({
         boardId,
         boardCardId,
         subject: noMessages ? boardCard.subject : `Re: ${boardCard.subject}`,
-        bodyHtml: `${editor.getHTML()}${quotedHtml}`,
+        bodyHtml: `${postProcessHtml(editor.getHTML())}${quotedHtml}`,
         from: from.trim(),
         to: to ? parseParticipantsInput(to) : undefined,
         cc: cc ? parseParticipantsInput(cc) : undefined,
@@ -255,7 +255,7 @@ export const EmailDraftCard = ({
       boardId,
       boardCardId,
       subject: noMessages ? boardCard.subject : `Re: ${boardCard.subject}`,
-      bodyHtml: `${editor.getHTML()}${quotedHtml}`,
+      bodyHtml: `${postProcessHtml(editor.getHTML())}${quotedHtml}`,
       from: from.trim(),
       to: to ? parseParticipantsInput(to) : undefined,
       cc: cc ? parseParticipantsInput(cc) : undefined,

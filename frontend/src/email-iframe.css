@@ -38,3 +38,12 @@ body.bordly-email {
   padding-left: 0.25rem;
   margin-top: 0.5rem;
 }
+
+.bordly-email ul > ol,
+.bordly-email ul > ul,
+.bordly-email ol > ul,
+.bordly-email ol > ol,
+.bordly-email li > ul,
+.bordly-email li > ol {
+  margin-top: 0;
+}

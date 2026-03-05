@@ -73,7 +73,7 @@ export const editorConfig = ({ initialHtml }: { initialHtml?: string }): Paramet
   content: initialHtml || '',
   editorProps: {
     attributes: {
-      class: 'prose prose-sm max-w-none focus:outline-none px-4 my-2 text-sm',
+      class: 'max-w-none focus:outline-none px-4 my-2 text-sm',
     },
     handleClickOn(_view, _pos, _node, _nodePos, event) {
       const target = event.target as HTMLElement;
@@ -138,6 +138,24 @@ export const editorConfig = ({ initialHtml }: { initialHtml?: string }): Paramet
       .run();
   },
 });
+
+export const postProcessHtml = (html: string): string => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  const removeTopMarginFromNestedLists = (element: Element) => {
+    const lists = element.querySelectorAll('ul, ol');
+    lists.forEach((list) => {
+      if (list instanceof HTMLElement && list.parentElement?.tagName === 'LI') {
+        const currentStyle = list.getAttribute('style') || '';
+        list.setAttribute('style', currentStyle.replace(/margin-top:\s*[^;]+;?/, 'margin-top: 0;'));
+      }
+    });
+  };
+
+  removeTopMarginFromNestedLists(doc.body);
+  return doc.body.innerHTML;
+};
 
 export const Editor = ({ editor, onChange }: { editor: ReturnType<typeof useEditor>; onChange: () => void }) => {
   useEffect(() => {

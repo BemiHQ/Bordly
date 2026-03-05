@@ -184,3 +184,9 @@ code {
       color-mix(in oklch, var(--muted) 50%, transparent); /* thumb, track */
   }
 }
+
+.ProseMirror li > ul,
+.ProseMirror li > ol {
+  /* biome-ignore lint/complexity/noImportantStyles: override inline styles from tiptap editor */
+  margin-top: 0 !important;
+}
