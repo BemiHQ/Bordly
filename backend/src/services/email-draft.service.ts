@@ -118,15 +118,15 @@ export class EmailDraftService {
     const { emailDraft } = boardCard;
     if (!emailDraft) return;
 
-    orm.em.remove(emailDraft);
-    await FileAttachmentService.deleteAllForDraft(emailDraft);
-
     if (boardCard.noMessages) {
-      await BoardCardService.deleteAfterDeletingEmailDrafts(boardCard);
-    }
+      await BoardCardService.delete(boardCard);
+    } else {
+      orm.em.remove(emailDraft);
+      await FileAttachmentService.deleteAllForDraft(emailDraft);
 
-    await BoardCardService.rebuildLastEventAtAndSnippet(boardCard, { ignoreLastEventAt: emailDraft.updatedAt });
-    orm.em.persist(boardCard);
+      await BoardCardService.rebuildLastEventAtAndSnippet(boardCard, { ignoreLastEventAt: emailDraft.updatedAt });
+      orm.em.persist(boardCard);
+    }
 
     await orm.em.flush();
   }

@@ -104,19 +104,17 @@ export class EmailMessageService {
     > = {};
 
     while (true) {
-      const gmailAccounts = (
+      const gmailAccountsWithBoards = (
         await GmailAccountService.findActiveAccountsWithBoards({
           populate: ['boardAccounts.board.boardColumns', 'boardAccounts.board.boardMembers'],
         })
-      ).filter((acc) => {
-        if (promiseDataByGmailAccountId[acc.id]) return false; // Already processing
-        if (![...acc.boardAccounts].some((ba) => ba.loadedBoard.initialized)) return false; // No initialized boards
-        return true;
-      });
+      ).filter((acc) => [...acc.boardAccounts].some((ba) => ba.loadedBoard.initialized));
 
-      gmailAccounts.forEach((gmailAccount, i) => {
+      gmailAccountsWithBoards.forEach((gmailAccount, i) => {
+        if (promiseDataByGmailAccountId[gmailAccount.id]?.promise) return; // Already processing
+
         const promise = RequestContext.create(orm.em, async () => {
-          await sleep((i * CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS) / (gmailAccounts.length || 1));
+          await sleep((i * CREATE_NEW_EMAIL_MESSAGES_GMAIL_API_INTERVAL_MS) / (gmailAccountsWithBoards.length || 1));
           let promiseData = promiseDataByGmailAccountId[gmailAccount.id];
           try {
             while (promiseData && !promiseData.abortController.signal.aborted) {
@@ -165,7 +163,7 @@ export class EmailMessageService {
         };
       });
 
-      const gmailAccountIds = new Set(gmailAccounts.map((acc) => acc.id));
+      const gmailAccountIds = new Set(gmailAccountsWithBoards.map((acc) => acc.id));
       for (const gmailAccountId of Object.keys(promiseDataByGmailAccountId)) {
         if (gmailAccountIds.has(gmailAccountId)) continue; // Still exists
         Logger.info(`[GMAIL] Cancelling sync for account ${gmailAccountId} as it no longer exists.`);
@@ -602,7 +600,9 @@ export class EmailMessageService {
       return domain;
     };
     // Handle add: create or update Domains & BoardCards
+    const restoreFromArchiveBoardCards = [];
     const upsertIndexMessageIdsByBoardCard = new Map<Loaded<BoardCard, 'boardColumn'>, string[]>();
+    const deleteIndexMessageIdsByBoardCard = new Map<Loaded<BoardCard, 'boardColumn'>, string[]>();
     for (const externalMessageIds of addedEmailMessagesIds) {
       const { externalMessageId, externalThreadId } = externalMessageIds;
       if (alreadDeletedExternalMessageIds.has(externalMessageId)) continue; // Skip already deleted messages (404)
@@ -619,6 +619,7 @@ export class EmailMessageService {
       orm.em.persist(emailMessage);
 
       if (boardCard) {
+        const previouslyEmailMessagesArchivable = boardCard.emailMessagesArchivable;
         const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({
           boardCard,
           emailMessagesDesc,
@@ -626,10 +627,21 @@ export class EmailMessageService {
         orm.em.persist(rebuiltBoardCard);
         boardCardByThreadId[externalThreadId] = rebuiltBoardCard;
 
+        // Restore from archive
+        if (previouslyEmailMessagesArchivable && !rebuiltBoardCard.emailMessagesArchivable) {
+          restoreFromArchiveBoardCards.push(rebuiltBoardCard);
+        }
+
         if (rebuiltBoardCard.indexable) {
+          // Add to index
           const messageIds = upsertIndexMessageIdsByBoardCard.get(rebuiltBoardCard) ?? [];
           messageIds.push(emailMessage.id);
           upsertIndexMessageIdsByBoardCard.set(rebuiltBoardCard, messageIds);
+        } else {
+          // Delete from index
+          const messageIds = deleteIndexMessageIdsByBoardCard.get(rebuiltBoardCard) ?? [];
+          messageIds.push(emailMessage.id);
+          deleteIndexMessageIdsByBoardCard.set(rebuiltBoardCard, messageIds);
         }
       } else {
         const boardAccount = EmailMessageService.boardAccountToSyncWhenNoBoardCard({ emailMessage, gmailAccount })!;
@@ -647,6 +659,7 @@ export class EmailMessageService {
         boardCardByThreadId[externalThreadId] = boardCard as (typeof boardCardByThreadId)[string];
 
         if (boardCard.indexable) {
+          // Add to index
           const messageIds = upsertIndexMessageIdsByBoardCard.get(boardCard as Loaded<BoardCard, 'boardColumn'>) ?? [];
           messageIds.push(emailMessage.id);
           upsertIndexMessageIdsByBoardCard.set(boardCard as Loaded<BoardCard, 'boardColumn'>, messageIds);
@@ -656,24 +669,26 @@ export class EmailMessageService {
 
     // Handle delete: delete EmailMessages, update/delete BoardCards
     Logger.info(`[GMAIL] Processing deletions for ${gmailAccount.email}...`);
-    const deleteIndexMessageIdsByBoardCard = new Map<Loaded<BoardCard, 'boardColumn'>, string[]>();
     const deleteArchiveEmailMessageIds: string[] = [];
+    const deleteBoardCards = [];
     for (const externalMessageId of deletedExternalEmailMessageIds) {
       const emailMessageToDelete = affectedEmailMessageByExternalId[externalMessageId];
       if (!emailMessageToDelete) continue; // Already deleted
 
+      const threadId = emailMessageToDelete.externalThreadId;
+      const boardCard = boardCardByThreadId[threadId]!;
+      if (!boardCard.boardColumn.board.solo) continue; // Don't delete for non-solo boards
+
       orm.em.remove(emailMessageToDelete);
       delete affectedEmailMessageByExternalId[externalMessageId];
 
-      const threadId = emailMessageToDelete.externalThreadId;
       const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!.filter(
         (msg) => msg.externalId !== externalMessageId,
       );
       emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
 
-      const boardCard = boardCardByThreadId[threadId]!;
       if (emailMessagesDesc.length === 0) {
-        orm.em.remove(boardCard!);
+        deleteBoardCards.push(boardCard);
         delete boardCardByThreadId[threadId];
       } else {
         const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({
@@ -684,10 +699,11 @@ export class EmailMessageService {
         boardCardByThreadId[threadId] = rebuiltBoardCard as (typeof boardCardByThreadId)[string];
       }
 
+      // Delete from index
       const messageIds = deleteIndexMessageIdsByBoardCard.get(boardCard) ?? [];
       messageIds.push(emailMessageToDelete.id);
       deleteIndexMessageIdsByBoardCard.set(boardCard, messageIds);
-
+      // Delete from archive
       deleteArchiveEmailMessageIds.push(emailMessageToDelete.id);
     }
 
@@ -697,7 +713,11 @@ export class EmailMessageService {
     for (const labelChange of labelChanges) {
       const { externalMessageId } = labelChange;
       const emailMessage = affectedEmailMessageByExternalId[externalMessageId];
-      if (!emailMessage) continue; // Message not found
+      if (!emailMessage) continue; // Skipped or deleted message
+
+      const threadId = emailMessage.externalThreadId;
+      const boardCard = boardCardByThreadId[threadId]!;
+      if (!boardCard.boardColumn.board.solo) continue; // Don't update for non-solo boards
 
       const labels = labelChange.added
         ? unique([...emailMessage.labels, ...labelChange.added])
@@ -707,27 +727,36 @@ export class EmailMessageService {
       orm.em.persist(emailMessage);
       affectedEmailMessageByExternalId[externalMessageId] = emailMessage;
 
-      const threadId = emailMessage.externalThreadId;
       const emailMessagesDesc = emailMessagesDescByThreadId[threadId]!.map((msg) =>
         msg.externalId === externalMessageId ? emailMessage : msg,
       );
       emailMessagesDescByThreadId[threadId] = emailMessagesDesc;
 
-      let boardCard = boardCardByThreadId[threadId]!;
-      boardCard = BoardCardService.rebuildFromEmailMessages({ boardCard, emailMessagesDesc }) as typeof boardCard;
+      const previouslyEmailMessagesArchivable = boardCard.emailMessagesArchivable;
+      const rebuiltBoardCard = BoardCardService.rebuildFromEmailMessages({
+        boardCard,
+        emailMessagesDesc,
+      }) as typeof boardCard;
 
-      orm.em.persist(boardCard);
-      boardCardByThreadId[threadId] = boardCard;
+      orm.em.persist(rebuiltBoardCard);
+      boardCardByThreadId[threadId] = rebuiltBoardCard;
 
-      if (boardCard.indexable) {
-        const messageIds = upsertIndexMessageIdsByBoardCard.get(boardCard) ?? [];
+      // Restore from archive
+      if (previouslyEmailMessagesArchivable && !rebuiltBoardCard.emailMessagesArchivable) {
+        restoreFromArchiveBoardCards.push(rebuiltBoardCard);
+      }
+
+      if (rebuiltBoardCard.indexable) {
+        // Add to index
+        const messageIds = upsertIndexMessageIdsByBoardCard.get(rebuiltBoardCard) ?? [];
         messageIds.push(emailMessage.id);
-        upsertIndexMessageIdsByBoardCard.set(boardCard, messageIds);
+        upsertIndexMessageIdsByBoardCard.set(rebuiltBoardCard, messageIds);
       } else {
-        const messageIds = deleteIndexMessageIdsByBoardCard.get(boardCard) ?? [];
+        // Delete from index
+        const messageIds = deleteIndexMessageIdsByBoardCard.get(rebuiltBoardCard) ?? [];
         messageIds.push(emailMessage.id);
-        deleteIndexMessageIdsByBoardCard.set(boardCard, messageIds);
-        nonInboxBoardCards.push(boardCard);
+        deleteIndexMessageIdsByBoardCard.set(rebuiltBoardCard, messageIds);
+        nonInboxBoardCards.push(rebuiltBoardCard);
       }
     }
 
@@ -736,8 +765,14 @@ export class EmailMessageService {
       orm.em.persist(gmailAccount);
     }
 
+    for (const boardCard of deleteBoardCards) {
+      await BoardCardService.delete(boardCard);
+    }
     await orm.em.flush();
 
+    for (const boardCard of restoreFromArchiveBoardCards) {
+      await ArchiveService.restoreBoardCardEmailMessages(boardCard);
+    }
     await ArchiveService.deleteByEmailMessageIds(deleteArchiveEmailMessageIds);
 
     // Enqueue indexing jobs

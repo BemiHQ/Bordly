@@ -19,6 +19,7 @@ import { BoardMemberService } from '@/services/board-member.service';
 import { DomainService } from '@/services/domain.service';
 import { EmailDraftService } from '@/services/email-draft.service';
 import { EmailMessageService } from '@/services/email-message.service';
+import { FileAttachmentService } from '@/services/file-attachment.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
 import { SenderEmailAddressService } from '@/services/sender-email-address.service';
 import { htmlToText } from '@/utils/email';
@@ -369,6 +370,7 @@ export class BoardCardService {
     return boardCard;
   }
 
+  // Moves to INBOX if ARCHIVED
   // Returns originally passed boardCard type
   static rebuildFromEmailMessages({
     boardCard,
@@ -392,16 +394,16 @@ export class BoardCardService {
         boardCardReadPosition.setLastReadAt(lastReadAt);
       }
 
+      // Inherit state from gmail (may restore from archived)
       state = BoardCardService.stateFromEmailMessages(emailMessagesDesc);
-      if (boardCard.state === State.ARCHIVED && state === State.INBOX && !firstUnreadEmailMessage) {
-        state = State.ARCHIVED; // If archived and no new email arrived, keep archived
-      }
     } else {
       // Multi-member: do not change read positions
 
+      // Keep the same state
       state = boardCard.state;
+      // But if archived and a new email arrived, move back to inbox
       if (state === State.ARCHIVED && boardCard.emailMessageCount < emailMessagesDesc.length) {
-        state = State.INBOX; // If archived but a new email arrived, move back to inbox
+        state = State.INBOX;
       }
     }
 
@@ -472,11 +474,19 @@ export class BoardCardService {
     boardCard.setSnippet(lastEventAtAndSnippet.snippet);
   }
 
-  static async deleteAfterDeletingEmailDrafts(boardCard: Loaded<BoardCard>) {
+  static async delete(boardCard: Loaded<BoardCard, 'emailDraft.fileAttachments'>) {
     await orm.em.transactional(async (em) => {
+      await em.nativeDelete(EmailDraft, { boardCard });
       await em.nativeDelete(Comment, { boardCard });
       await em.nativeDelete(BoardCardReadPosition, { boardCard });
       await em.nativeDelete(BoardCard, { id: boardCard.id });
+
+      if (boardCard.emailDraft) {
+        await FileAttachmentService.deleteAllForDraft(boardCard.emailDraft);
+      }
+      if (boardCard.externalThreadId) {
+        await ArchiveService.deleteByExternalThreadIds([boardCard.externalThreadId]);
+      }
     });
 
     const { loadedBoardColumn: boardColumn } = await BoardCardService.populate(boardCard, ['boardColumn']);
