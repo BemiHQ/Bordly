@@ -56,6 +56,10 @@ export class DomainService {
     return orm.em.findOne(Domain, { name });
   }
 
+  static async findByIds(ids: string[]) {
+    return orm.em.find(Domain, { id: { $in: ids } });
+  }
+
   static async findDomainByName(domainNames: string[]) {
     if (domainNames.length === 0) return {};
     const domains = await orm.em.find(Domain, { name: { $in: domainNames } });

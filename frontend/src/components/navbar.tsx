@@ -25,7 +25,7 @@ export const Navbar = () => {
         {currentUser && (
           <DropdownMenu>
             <DropdownMenuTrigger className="focus-visible:ring-0" asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
+              <Button variant="ghost" size="icon" className="rounded-full justify-end">
                 <Avatar size="sm">
                   <AvatarImage src={currentUser.photoUrl} alt={currentUser.fullName} />
                 </Avatar>

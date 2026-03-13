@@ -85,6 +85,7 @@ async function runTests() {
     assertEqual(lastMessage!.externalThreadId, EXTERNAL_THREAD_ID);
     assertEqual(lastMessage!.subject, 'Test Subject 2');
     assertEqual(lastMessage!.bodyText, 'This is test email 2');
+    assertEqual(lastMessage!.domain.id, DOMAIN_ID);
 
     console.log('✓ Testing deletion by email message IDs...');
     await ArchiveService.deleteByEmailMessageIds([EMAIL_MESSAGES[1]!.id]);

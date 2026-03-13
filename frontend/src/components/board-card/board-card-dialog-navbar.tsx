@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { BoardCardState } from 'bordly-backend/utils/shared';
-import { Archive, Mail, OctagonX, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Mail, OctagonX, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,8 +18,14 @@ import { useOptimisticMutation } from '@/hooks/use-optimistic-mutation';
 import { useOptimisticMutationWithUndo } from '@/hooks/use-optimistic-mutation-with-undo';
 import { useRouteContext } from '@/hooks/use-route-context';
 import { type BoardColumn as BoardColumnType, type BoardMember, solo } from '@/query-helpers/board';
-import { type BoardCard, replaceBoardColumnIdData, setAssignedBoardMemberData } from '@/query-helpers/board-card';
 import {
+  type BoardCard,
+  replaceBoardCardData,
+  replaceBoardColumnIdData,
+  setAssignedBoardMemberData,
+} from '@/query-helpers/board-card';
+import {
+  addBoardCardData,
   changeBoardCardColumnData,
   removeBoardCardData,
   setBoardCardAssignedBoardMemberData,
@@ -79,6 +85,23 @@ export const BoardCardDialogNavbar = ({
 
   const boardCardsQueryKey = trpc.boardCard.getBoardCards.queryKey({ boardId });
   const setStateMutation = useMutation(trpc.boardCard.setState.mutationOptions());
+  const optimisticallyUnarchive = useOptimisticMutation({
+    queryClient,
+    queryKey: boardCardsQueryKey,
+    onExecute: () => {
+      replaceBoardCardData({
+        queryClient,
+        trpc,
+        params: { boardId, boardCard: { ...boardCard!, state: BoardCardState.INBOX } },
+      });
+    },
+    errorToast: 'Failed to unarchive the card. Please try again.',
+    mutation: useMutation(
+      trpc.boardCard.setState.mutationOptions({
+        onSuccess: ({ boardCard }) => addBoardCardData({ trpc, queryClient, params: { boardId, boardCard } }),
+      }),
+    ),
+  });
   const optimisticallyArchive = useOptimisticMutationWithUndo({
     queryClient,
     queryKey: boardCardsQueryKey,
@@ -125,28 +148,33 @@ export const BoardCardDialogNavbar = ({
   });
 
   const boardColumn = boardCard ? boardColumnsAsc.find((col) => col.id === boardCard.boardColumnId) : undefined;
+  const isArchived = boardCard?.state === BoardCardState.ARCHIVED;
 
   return (
     <div className="flex gap-8 items-center mr-11">
-      <Select
-        value={boardColumn?.id}
-        onValueChange={(value) =>
-          boardCard && optimisticallySetBoardColumn({ boardId, boardCardId: boardCard.id, boardColumnId: value })
-        }
-      >
-        <SelectTrigger size="sm" variant="ghost" className="font-medium text-muted-foreground p-0" hideChevron>
-          <SelectValue placeholder={boardColumn?.name} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {boardColumnsAsc.map((col) => (
-              <SelectItem key={col.id} value={col.id}>
-                {col.name}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+      {isArchived ? (
+        <div className="font-medium text-muted-foreground text-sm">{boardColumn?.name}</div>
+      ) : (
+        <Select
+          value={boardColumn?.id}
+          onValueChange={(value) =>
+            boardCard && optimisticallySetBoardColumn({ boardId, boardCardId: boardCard.id, boardColumnId: value })
+          }
+        >
+          <SelectTrigger size="sm" variant="ghost" className="font-medium text-muted-foreground p-0" hideChevron>
+            <SelectValue placeholder={boardColumn?.name} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {boardColumnsAsc.map((col) => (
+                <SelectItem key={col.id} value={col.id}>
+                  {col.name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      )}
       {boardCard && boardCard.emailMessageCount > 0 && (
         <div className="flex items-center gap-2">
           {!soloBoard &&
@@ -164,42 +192,64 @@ export const BoardCardDialogNavbar = ({
                 ))}
               />
             )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => {
-                  if (boardCardId) {
-                    optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
-                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-                  }
-                }}
-                className="flex text-muted-foreground cursor-pointer hover:bg-border"
-              >
-                <Archive className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Archive</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => {
-                  if (boardCardId) {
-                    optimisticallyMarkAsSpam({ boardId, boardCardId, state: BoardCardState.SPAM });
-                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-                  }
-                }}
-                className="flex text-muted-foreground cursor-pointer hover:bg-border"
-              >
-                <OctagonX className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Report spam</TooltipContent>
-          </Tooltip>
+          {isArchived ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => {
+                    if (boardCardId) {
+                      optimisticallyUnarchive({ boardId, boardCardId, state: BoardCardState.INBOX });
+                    }
+                  }}
+                  className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                >
+                  <ArchiveRestore className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Unarchive</TooltipContent>
+            </Tooltip>
+          ) : (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      if (boardCardId) {
+                        optimisticallyArchive({ boardId, boardCardId, state: BoardCardState.ARCHIVED });
+                        navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+                      }
+                    }}
+                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                  >
+                    <Archive className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Archive</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      if (boardCardId) {
+                        optimisticallyMarkAsSpam({ boardId, boardCardId, state: BoardCardState.SPAM });
+                        navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+                      }
+                    }}
+                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                  >
+                    <OctagonX className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Report spam</TooltipContent>
+              </Tooltip>
+            </>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -218,48 +268,37 @@ export const BoardCardDialogNavbar = ({
             </TooltipTrigger>
             <TooltipContent side="bottom">Delete</TooltipContent>
           </Tooltip>
-          <div className="w-px h-4 bg-ring mx-0.5" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => {
-                  if (boardCardId) {
-                    optimisticallyMarkAsUnread({ boardId, boardCardId });
-                    navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
-                  }
-                }}
-                className="flex text-muted-foreground cursor-pointer hover:bg-border"
-              >
-                <Mail className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              Mark as unread
-              {soloBoard ? '' : ' (only for you)'}
-            </TooltipContent>
-          </Tooltip>
+          {!isArchived && (
+            <>
+              <div className="w-px h-4 bg-ring mx-0.5" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      if (boardCardId) {
+                        optimisticallyMarkAsUnread({ boardId, boardCardId });
+                        navigate({ to: ROUTES.BOARD.replace('$boardId', boardId) });
+                      }
+                    }}
+                    className="flex text-muted-foreground cursor-pointer hover:bg-border"
+                  >
+                    <Mail className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Mark as unread
+                  {soloBoard ? '' : ' (only for you)'}
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
         </div>
       )}
       <div className="flex items-center ml-auto">
-        <Select
-          value={assignedMember?.id || 'unassigned'}
-          onValueChange={(value) =>
-            boardCard &&
-            optimisticallySetAssignee({
-              boardId,
-              boardCardId: boardCard.id,
-              assignedBoardMemberId: value === 'unassigned' ? null : value,
-            })
-          }
-        >
-          <SelectTrigger
-            size="sm"
-            variant="ghost"
-            className="font-medium text-muted-foreground p-0 gap-1.5"
-            hideChevron
-          >
+        {isArchived ? (
+          <div className="text-xs font-medium text-muted-foreground">
             {assignedMember ? (
               <div className="flex items-center gap-1.5">
                 <Avatar size="xs">
@@ -273,62 +312,95 @@ export const BoardCardDialogNavbar = ({
             ) : (
               <span>Unassigned</span>
             )}
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectGroup>
+          </div>
+        ) : (
+          <Select
+            value={assignedMember?.id || 'unassigned'}
+            onValueChange={(value) =>
+              boardCard &&
+              optimisticallySetAssignee({
+                boardId,
+                boardCardId: boardCard.id,
+                assignedBoardMemberId: value === 'unassigned' ? null : value,
+              })
+            }
+          >
+            <SelectTrigger
+              size="sm"
+              variant="ghost"
+              className="font-medium text-muted-foreground p-0 gap-1.5"
+              hideChevron
+            >
               {assignedMember ? (
-                <>
-                  <SelectItem value={assignedMember.id}>
-                    <div className="flex items-center gap-2">
-                      <Avatar size="xs">
-                        <AvatarImage src={assignedMember.user.photoUrl} alt={assignedMember.user.fullName} />
-                        <AvatarFallback hashForBgColor={assignedMember.user.fullName}>
-                          {assignedMember.user.fullName.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{assignedMember.user.fullName}</span>
-                    </div>
-                  </SelectItem>
-                  <SelectSeparator />
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                </>
+                <div className="flex items-center gap-1.5">
+                  <Avatar size="xs">
+                    <AvatarImage src={assignedMember.user.photoUrl} alt={assignedMember.user.fullName} />
+                    <AvatarFallback hashForBgColor={assignedMember.user.fullName}>
+                      {assignedMember.user.fullName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span>{assignedMember.user.fullName}</span>
+                </div>
               ) : (
-                <>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  <SelectSeparator />
-                  <SelectItem value={currentUserMember.id}>
-                    <div className="flex items-center gap-2">
-                      <Avatar size="xs">
-                        <AvatarImage src={currentUserMember.user.photoUrl} alt={currentUserMember.user.fullName} />
-                        <AvatarFallback hashForBgColor={currentUserMember.user.fullName}>
-                          {currentUserMember.user.fullName.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{currentUserMember.user.fullName}</span>
-                    </div>
-                  </SelectItem>
-                </>
+                <span>Unassigned</span>
               )}
-              {boardMembers
-                .filter(
-                  (m) => !m.isAgent && (assignedMember ? m.id !== assignedMember.id : m.id !== currentUserMember.id),
-                )
-                .map((member) => (
-                  <SelectItem key={member.id} value={member.id}>
-                    <div className="flex items-center gap-2">
-                      <Avatar size="xs">
-                        <AvatarImage src={member.user.photoUrl} alt={member.user.fullName} />
-                        <AvatarFallback hashForBgColor={member.user.fullName}>
-                          {member.user.fullName.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{member.user.fullName}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectGroup>
+                {assignedMember ? (
+                  <>
+                    <SelectItem value={assignedMember.id}>
+                      <div className="flex items-center gap-2">
+                        <Avatar size="xs">
+                          <AvatarImage src={assignedMember.user.photoUrl} alt={assignedMember.user.fullName} />
+                          <AvatarFallback hashForBgColor={assignedMember.user.fullName}>
+                            {assignedMember.user.fullName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{assignedMember.user.fullName}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectSeparator />
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                  </>
+                ) : (
+                  <>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    <SelectSeparator />
+                    <SelectItem value={currentUserMember.id}>
+                      <div className="flex items-center gap-2">
+                        <Avatar size="xs">
+                          <AvatarImage src={currentUserMember.user.photoUrl} alt={currentUserMember.user.fullName} />
+                          <AvatarFallback hashForBgColor={currentUserMember.user.fullName}>
+                            {currentUserMember.user.fullName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{currentUserMember.user.fullName}</span>
+                      </div>
+                    </SelectItem>
+                  </>
+                )}
+                {boardMembers
+                  .filter(
+                    (m) => !m.isAgent && (assignedMember ? m.id !== assignedMember.id : m.id !== currentUserMember.id),
+                  )
+                  .map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      <div className="flex items-center gap-2">
+                        <Avatar size="xs">
+                          <AvatarImage src={member.user.photoUrl} alt={member.user.fullName} />
+                          <AvatarFallback hashForBgColor={member.user.fullName}>
+                            {member.user.fullName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{member.user.fullName}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, useMatches, useNavigate } from '@tanstack/react-router';
-import { FALLBACK_SUBJECT } from 'bordly-backend/utils/shared';
+import { BoardCardState, FALLBACK_SUBJECT } from 'bordly-backend/utils/shared';
 import { useEffect, useState } from 'react';
 import { BoardCardDialogNavbar } from '@/components/board-card/board-card-dialog-navbar';
 import { CommentInput } from '@/components/board-card/comment-input';
@@ -163,6 +163,7 @@ function BoardCardComponent() {
   }, [boardCard?.emailDraft?.lastEditedByUserId, boardCard?.emailDraft?.updatedAt, currentUser.id]);
 
   const noMessages = boardCard?.emailMessageCount === 0;
+  const showCommentInput = boardCard && boardCard.state !== BoardCardState.ARCHIVED;
 
   return (
     <RouteProvider value={{ trpc, queryClient, currentUser }}>
@@ -193,7 +194,10 @@ function BoardCardComponent() {
                   boardMembers={boardMembers}
                 />
               </DialogHeader>
-              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 mb-10">
+              <div
+                ref={scrollContainerRef}
+                className={cn('flex-1 overflow-y-auto scrollbar-thin px-5', showCommentInput && 'mb-13')}
+              >
                 <div className={isEditingSubject ? 'mt-1 mb-2' : 'mb-3 mt-2'}>
                   {isEditingSubject && noMessages ? (
                     <Input
@@ -231,7 +235,7 @@ function BoardCardComponent() {
                     emailMessages={emailMessagesAsc}
                     comments={commentsAsc}
                     boardId={boardId}
-                    boardCardId={boardCardId}
+                    boardCard={boardCard}
                     boardMembers={boardMembers}
                     onReply={(emailMessage) => {
                       setReplyToEmailMessage(emailMessage);
@@ -248,18 +252,20 @@ function BoardCardComponent() {
                       onDiscard={() => setShowReply(false)}
                     />
                   )}
-                  <div ref={bottomRef} className="mt-4" />
                 </div>
+                <div ref={bottomRef} className="mt-5" />
               </div>
-              <CommentInput
-                boardId={boardId}
-                boardCardId={boardCardId}
-                context={context}
-                boardMembers={boardMembers}
-                scrollToBottom={() => {
-                  setTimeout(() => scrollToBottom(), SCROLL_DELAY_MS);
-                }}
-              />
+              {showCommentInput && (
+                <CommentInput
+                  boardId={boardId}
+                  boardCardId={boardCardId}
+                  context={context}
+                  boardMembers={boardMembers}
+                  scrollToBottom={() => {
+                    setTimeout(() => scrollToBottom(), SCROLL_DELAY_MS);
+                  }}
+                />
+              )}
             </>
           )}
         </DialogContent>

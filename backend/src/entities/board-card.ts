@@ -164,7 +164,7 @@ export class BoardCard extends BaseEntity {
   }
 
   get emailMessagesArchivable() {
-    return this.state === State.ARCHIVED && !this.noMessages;
+    return this.state === State.ARCHIVED && !this.noMessages && this.externalThreadId;
   }
 
   setBoardColumn(boardColumn: BoardColumn) {

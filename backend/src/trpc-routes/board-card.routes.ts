@@ -4,9 +4,11 @@ import { z } from 'zod';
 import { BoardCard, State } from '@/entities/board-card';
 import { Comment } from '@/entities/comment';
 import { EmailMessage } from '@/entities/email-message';
+import { ArchiveService } from '@/services/archive.service';
 import { BoardCardService } from '@/services/board-card.service';
 import { CommentService } from '@/services/comment.service';
 import { EmailMessageService } from '@/services/email-message.service';
+import { IndexService } from '@/services/index.service';
 import { authAsBoardMember, type Context, publicProcedure } from '@/trpc-config';
 import { POPULATE as COMMENT_POPULATE } from '@/trpc-routes/comment.routes';
 
@@ -35,10 +37,17 @@ export const BOARD_CARD_ROUTES = {
     get: publicProcedure.input(z.object({ boardId: z.uuid(), boardCardId: z.uuid() })).query(async ({ input, ctx }) => {
       const { board } = authAsBoardMember({ ctx, input });
       const boardCard = await BoardCardService.findById(board, { boardCardId: input.boardCardId, populate: POPULATE });
-      const emailMessagesAsc = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
-        populate: ['domain', 'gmailAttachments'],
-        orderBy: { externalCreatedAt: 'ASC' },
-      });
+
+      let emailMessagesAsc: Loaded<EmailMessage, 'domain' | 'gmailAttachments'>[];
+      if (boardCard.emailMessagesArchivable) {
+        emailMessagesAsc = await ArchiveService.emailMessagesAscByExternalThreadId(boardCard.externalThreadId!);
+      } else {
+        emailMessagesAsc = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
+          populate: ['domain', 'gmailAttachments'],
+          orderBy: { externalCreatedAt: 'ASC' },
+        });
+      }
+
       const comments = await CommentService.findCommentsByBoardCard(boardCard, {
         populate: COMMENT_POPULATE,
         orderBy: { createdAt: 'ASC' },
@@ -118,6 +127,13 @@ export const BOARD_CARD_ROUTES = {
         const { board } = authAsBoardMember({ ctx, input });
         await BoardCardService.setSubject(board, { boardCardId: input.boardCardId, subject: input.subject });
         return { success: true };
+      }),
+    search: publicProcedure
+      .input(z.object({ boardId: z.uuid(), query: z.string(), limit: z.number().optional() }))
+      .query(async ({ input, ctx }) => {
+        const { board } = authAsBoardMember({ ctx, input });
+        const results = await IndexService.searchFullText(board.id, { query: input.query, limit: input.limit });
+        return { results };
       }),
   } satisfies TRPCRouterRecord,
 };

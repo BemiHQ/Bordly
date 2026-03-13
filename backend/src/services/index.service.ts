@@ -187,20 +187,21 @@ export class IndexService {
     {
       query,
       excludeBoardCardId,
-      limit = SEARCH_REFINE_FACTOR,
+      limit = SEARCH_REFINE_FACTOR * 2,
     }: { query: string; excludeBoardCardId?: string; limit?: number },
   ) {
     const tableName = `${boardId}_records`;
     const table = await IndexService.getOrCreateTable(tableName);
     const queryVector = await IndexService.generateEmbedding(query);
+    const queryLimit = Math.max(limit, SEARCH_REFINE_FACTOR * 2);
 
     let search = table
       .vectorSearch(queryVector)
       .distanceType('cosine')
       .distanceRange(0.0, SEARCH_MAX_DISTANCE)
       .select(['id', 'entity', 'board_card_id', 'updated_at', '_distance'])
-      .limit(limit)
-      .refineFactor(SEARCH_REFINE_FACTOR);
+      .limit(queryLimit)
+      .refineFactor(Math.ceil(queryLimit / 2));
 
     if (excludeBoardCardId) {
       search = search.where(`board_card_id != ${uuidToQuotedHex(excludeBoardCardId)}`);
@@ -208,6 +209,7 @@ export class IndexService {
 
     const records = await search.toArray();
 
+    const seenBoardCardIds = new Set<string>();
     return records
       .map((record) => ({
         id: bufferToUuid(record.id),
@@ -216,12 +218,19 @@ export class IndexService {
         updatedAt: new Date(record.updated_at),
         distance: record._distance as number,
       }))
-      .sort((a, b) => a.distance - b.distance);
+      .sort((a, b) => a.distance - b.distance)
+      .filter((record) => {
+        if (seenBoardCardIds.has(record.boardCardId)) return false;
+        seenBoardCardIds.add(record.boardCardId);
+        return true;
+      })
+      .slice(0, limit);
   }
 
   static async searchFullText(boardId: string, { query, limit = 10 }: { query: string; limit?: number }) {
     const tableName = `${boardId}_records`;
     const table = await IndexService.getOrCreateTable(tableName);
+    const queryLimit = limit * 2;
 
     const records = await table
       .search(query)
@@ -235,19 +244,27 @@ export class IndexService {
         'updated_at',
         '_score',
       ])
-      .limit(limit)
+      .limit(queryLimit)
       .toArray();
 
-    return records.map((record) => ({
-      id: bufferToUuid(record.id),
-      entity: record.entity as string,
-      boardCardId: bufferToUuid(record.board_card_id),
-      boardCardLastEventAt: new Date(record.board_card_last_event_at),
-      boardCardSubject: record.board_card_subject as string,
-      text: record.text as string,
-      updatedAt: new Date(record.updated_at),
-      score: record._score as number,
-    }));
+    const seenBoardCardIds = new Set<string>();
+    return records
+      .map((record) => ({
+        id: bufferToUuid(record.id),
+        entity: record.entity as string,
+        boardCardId: bufferToUuid(record.board_card_id),
+        boardCardLastEventAt: new Date(record.board_card_last_event_at),
+        boardCardSubject: record.board_card_subject as string,
+        text: record.text as string,
+        updatedAt: new Date(record.updated_at),
+        score: record._score as number,
+      }))
+      .filter((record) => {
+        if (seenBoardCardIds.has(record.boardCardId)) return false;
+        seenBoardCardIds.add(record.boardCardId);
+        return true;
+      })
+      .slice(0, limit);
   }
 
   static async generateEmbedding(text: string): Promise<number[]> {

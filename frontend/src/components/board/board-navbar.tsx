@@ -4,6 +4,7 @@ import { BrainCog, Ellipsis, Link2, ListFilter, MailPlus, UsersRound } from 'luc
 import { useEffect, useRef, useState } from 'react';
 import { AgentMemoryDialog } from '@/components/board/agent-memory-dialog';
 import { BoardMembersDialog } from '@/components/board/board-members-dialog';
+import { BoardSearchButton } from '@/components/board/board-search-button';
 import { EmailAccountsDialog } from '@/components/board/email-accounts-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -45,7 +46,7 @@ const ComposeButton = ({ boardId, boardAccounts }: { boardId: string; boardAccou
             </Link>
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">New email</TooltipContent>
+        <TooltipContent side="bottom">New email</TooltipContent>
       </Tooltip>
     );
   }
@@ -304,6 +305,7 @@ export const BoardNavbar = ({
           </h1>
         )}
         <div className="flex items-center gap-2">
+          <BoardSearchButton boardId={board.id} />
           <ComposeButton boardId={board.id} boardAccounts={boardAccounts} />
           <FilterButton boardAccounts={boardAccounts} />
           <MenuButton board={board} boardMembers={boardMembers} boardAccounts={boardAccounts} />

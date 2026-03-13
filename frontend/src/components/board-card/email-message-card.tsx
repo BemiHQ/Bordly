@@ -1,3 +1,4 @@
+import { BoardCardState } from 'bordly-backend/utils/shared';
 import { ChevronDownIcon, Paperclip, Reply, ShieldAlert } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ToggleQuotesButton } from '@/components/board-card/toggle-quotes-button';
@@ -10,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEmailIframe } from '@/hooks/use-email-iframe';
 import type { BoardMember } from '@/query-helpers/board';
-import type { EmailMessage } from '@/query-helpers/board-card';
+import type { BoardCard, EmailMessage } from '@/query-helpers/board-card';
 import { sanitizedDisplayHtml } from '@/utils/email';
 import { cn, pluralize } from '@/utils/strings';
 import { formattedShortTime, shortDateTime } from '@/utils/time';
@@ -123,14 +124,14 @@ const EmailMessageBody = ({
 export const EmailMessageCard = ({
   emailMessage,
   boardId,
-  boardCardId,
+  boardCard,
   boardMembers,
   onReply,
   isLast = true,
 }: {
   emailMessage: EmailMessage;
   boardId: string;
-  boardCardId: string;
+  boardCard: BoardCard;
   boardMembers: BoardMember[];
   onReply: (emailMessage: EmailMessage) => void;
   isLast: boolean;
@@ -174,6 +175,8 @@ export const EmailMessageCard = ({
   const nonInlineAttachments = emailMessage.gmailAttachments.filter(
     (attachment) => !inlineImageAttachmentIds.includes(attachment.id),
   );
+
+  const isArchived = boardCard.state === BoardCardState.ARCHIVED;
 
   return (
     <Card className="p-4 pt-3 flex flex-col gap-3">
@@ -293,7 +296,7 @@ export const EmailMessageCard = ({
               <div className={cn('text-xs text-muted-foreground mt-2', isLast && 'mr-2.5')}>
                 {formattedShortTime(new Date(emailMessage.externalCreatedAt))}
               </div>
-              {!isLast && (
+              {!isLast && !isArchived && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon-sm" onClick={() => onReply(emailMessage)}>
@@ -310,7 +313,7 @@ export const EmailMessageCard = ({
       <EmailMessageBody
         emailMessage={emailMessage}
         boardId={boardId}
-        boardCardId={boardCardId}
+        boardCardId={boardCard.id}
         setBlockedTrackerDomains={setBlockedTrackerDomains}
         setInlineImageAttachmentIds={setInlineImageAttachmentIds}
       />
@@ -328,7 +331,7 @@ export const EmailMessageCard = ({
               .map((attachment) => (
                 <a
                   key={attachment.id}
-                  href={`${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCardId}&gmailAttachmentId=${attachment.id}`}
+                  href={`${API_ENDPOINTS.PROXY_GMAIL_ATTACHMENT}?boardId=${boardId}&boardCardId=${boardCard.id}&gmailAttachmentId=${attachment.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -338,7 +341,7 @@ export const EmailMessageCard = ({
           </div>
         </div>
       )}
-      {isLast && (
+      {isLast && !isArchived && (
         <Button variant="outline" size="sm" onClick={() => onReply(emailMessage)} className="gap-2 self-start mt-2">
           <Reply className="size-4" />
           Reply

@@ -5,8 +5,10 @@ import { Field, FixedSizeBinary, Schema, Timestamp, TimeUnit, Utf8 } from 'apach
 import type { BoardCard } from '@/entities/board-card';
 import { EmailMessage } from '@/entities/email-message';
 import { GmailAttachment } from '@/entities/gmail-attachment';
+import { DomainService } from '@/services/domain.service';
 import { EmailMessageService } from '@/services/email-message.service';
 import { connect, ensureIndexesExist, IndexType, uuidToBuffer, uuidToQuotedHex } from '@/utils/lancedb';
+import { mapBy } from '@/utils/lists';
 import { Logger } from '@/utils/logger';
 import { orm } from '@/utils/orm';
 
@@ -113,6 +115,28 @@ export class ArchiveService {
     );
   }
 
+  static async emailMessagesAscByExternalThreadId(externalThreadId: string) {
+    const table = await ArchiveService.getOrCreateTable();
+    const results = (
+      await table
+        .query()
+        .where(`external_thread_id = '${externalThreadId}'`)
+        .select(['email_message', 'gmail_attachments', 'external_created_at'])
+        .toArray()
+    ).sort((a, b) => (a.external_created_at as number) - (b.external_created_at as number));
+
+    const emailMessages = results.map((record: { email_message: string; gmail_attachments: string }) =>
+      ArchiveService.deserializeEmailMessage(JSON.parse(record.email_message), JSON.parse(record.gmail_attachments)),
+    );
+
+    const domainIds = emailMessages.map((emailMessage) => emailMessage.domain.id);
+    const domainById = mapBy(await DomainService.findByIds(domainIds), (domain) => domain.id);
+    return emailMessages.map((emailMessage) => {
+      emailMessage.domain = domainById[emailMessage.domain.id]!;
+      return emailMessage as Loaded<EmailMessage, 'domain' | 'gmailAttachments'>;
+    });
+  }
+
   static async deleteByExternalThreadIds(externalThreadIds: string[]) {
     if (externalThreadIds.length === 0) return;
 
@@ -148,7 +172,19 @@ export class ArchiveService {
   }
 
   private static serializeEntity(entity: Loaded<EmailMessage> | Loaded<GmailAttachment>) {
-    return wrap(entity).toObject();
+    if (entity instanceof EmailMessage) {
+      return {
+        ...wrap(entity).toObject(),
+        gmailAccount: { id: entity.gmailAccount.id },
+        domain: { id: entity.domain.id },
+      };
+    } else if (entity instanceof GmailAttachment) {
+      return {
+        ...wrap(entity).toObject(),
+        gmailAccount: { id: entity.gmailAccount.id },
+        emailMessage: { id: entity.emailMessage.id },
+      };
+    }
   }
 
   private static deserializeEmailMessage(
