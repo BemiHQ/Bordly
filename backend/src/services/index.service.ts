@@ -17,7 +17,7 @@ const S3_PREFIX_INDEXES = 'indexes';
 
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 const EMBEDDING_DIMENSION = 1536;
-const EMBEDDING_MAX_TOKENS = 8191; // Maximum input tokens for text-embedding-3-small
+const EMBEDDING_MAX_TOKENS = 8192; // Maximum input tokens for text-embedding-3-small
 const EMBEDDING_CHARS_PER_TOKEN = 4; // Average characters per token for English text
 
 const SEARCH_REFINE_FACTOR = 5; // Rerank the top 5 results using exact cosine similarity after the initial approximate search
@@ -30,6 +30,7 @@ interface IndexRecord extends Record<string, unknown> {
   board_card_last_event_at: Date;
   board_card_subject: string;
   text: string;
+  snippet: string;
   vector: number[];
   updated_at: Date;
 }
@@ -41,6 +42,7 @@ const ARROW_SCHEMA = new Schema([
   new Field('board_card_last_event_at', new Timestamp(TimeUnit.MILLISECOND)),
   new Field('board_card_subject', new Utf8()),
   new Field('text', new Utf8()),
+  new Field('snippet', new Utf8()),
   new Field('vector', new FixedSizeList(EMBEDDING_DIMENSION, new Field('item', new Float32()))),
   new Field('updated_at', new Timestamp(TimeUnit.MILLISECOND)),
 ]);
@@ -90,13 +92,14 @@ export class IndexService {
         if (existingUpdatedAt && emailMessage.updatedAt.getTime() === existingUpdatedAt.getTime()) continue;
 
         const text = EmailMessage.toIndex(emailMessage);
-        const vector = await IndexService.generateEmbedding(text);
+        const vector = await IndexService.generateEmbedding(EmailMessage.toIndex(emailMessage));
         records.push({
           id: uuidToBuffer(emailMessage.id),
           entity: 'EmailMessage',
           board_card_id: uuidToBuffer(boardCardId),
           board_card_last_event_at: boardCard.lastEventAt,
           board_card_subject: boardCard.subject,
+          snippet: EmailMessage.toSnippet(emailMessage),
           text,
           vector,
           updated_at: emailMessage.updatedAt,
@@ -118,6 +121,7 @@ export class IndexService {
           board_card_last_event_at: boardCard.lastEventAt,
           board_card_subject: boardCard.subject,
           text,
+          snippet: Comment.toSnippet(comment),
           vector,
           updated_at: comment.updatedAt,
         });
@@ -240,7 +244,7 @@ export class IndexService {
         'board_card_id',
         'board_card_last_event_at',
         'board_card_subject',
-        'text',
+        'snippet',
         'updated_at',
         '_score',
       ])
@@ -255,7 +259,7 @@ export class IndexService {
         boardCardId: bufferToUuid(record.board_card_id),
         boardCardLastEventAt: new Date(record.board_card_last_event_at),
         boardCardSubject: record.board_card_subject as string,
-        text: record.text as string,
+        snippet: record.snippet as string,
         updatedAt: new Date(record.updated_at),
         score: record._score as number,
       }))
@@ -267,7 +271,7 @@ export class IndexService {
       .slice(0, limit);
   }
 
-  static async generateEmbedding(text: string): Promise<number[]> {
+  static async generateEmbedding(text: string) {
     const estimatedTokens = Math.ceil(text.length / EMBEDDING_CHARS_PER_TOKEN);
 
     let inputText = text;
@@ -279,13 +283,30 @@ export class IndexService {
       );
     }
 
-    const response = await IndexService.openai.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: inputText,
-      encoding_format: 'float',
-    });
-
-    return response.data[0]!.embedding;
+    try {
+      const response = await IndexService.openai.embeddings.create({
+        model: EMBEDDING_MODEL,
+        input: inputText,
+        encoding_format: 'float',
+      });
+      return response.data[0]!.embedding;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('maximum context length')) {
+        const reducedText = inputText.substring(0, Math.floor(inputText.length / 2));
+        reportError(
+          `[INDEX] Retrying embedding with reduced text: original length: ${inputText.length} vs reduced length: ${reducedText.length}`,
+        );
+        const response = await IndexService.openai.embeddings.create({
+          model: EMBEDDING_MODEL,
+          input: reducedText,
+          encoding_format: 'float',
+        });
+        return response.data[0]!.embedding;
+      } else {
+        throw error;
+      }
+    }
   }
 
   static s3Prefix() {

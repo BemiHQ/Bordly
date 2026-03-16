@@ -76,16 +76,6 @@ export class BoardCardService {
     return orm.em.find(BoardCard, { boardAccount }, { populate });
   }
 
-  static async findByBoard<Hint extends string = never>({
-    board,
-    populate = [],
-  }: {
-    board: Board;
-    populate?: Populate<BoardCard, Hint>;
-  }) {
-    return orm.em.find(BoardCard, { boardColumn: { board } }, { populate });
-  }
-
   static async populate<Hint extends string = never>(
     boardCard: Loaded<BoardCard>,
     populate: readonly AutoPath<BoardCard, Hint, PopulatePath.ALL>[],

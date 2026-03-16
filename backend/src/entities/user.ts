@@ -77,6 +77,10 @@ export class User extends BaseEntity {
     return `${user.fullName} <${user.email}>`;
   }
 
+  static toSnippet(user: Loaded<User>) {
+    return user.fullName;
+  }
+
   private validate() {
     if (!this.email) throw new Error('Email is required');
     if (!this.fullName) throw new Error('Full name is required');

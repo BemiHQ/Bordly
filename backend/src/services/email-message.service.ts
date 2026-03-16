@@ -679,6 +679,7 @@ export class EmailMessageService {
       const boardCard = boardCardByThreadId[threadId]!;
       if (!boardCard.boardColumn.board.solo) continue; // Don't delete for non-solo boards
 
+      orm.em.remove(emailMessageToDelete.gmailAttachments);
       orm.em.remove(emailMessageToDelete);
       delete affectedEmailMessageByExternalId[externalMessageId];
 

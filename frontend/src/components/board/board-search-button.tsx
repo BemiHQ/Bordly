@@ -107,7 +107,7 @@ export const BoardSearchButton = ({ boardId }: { boardId: string }) => {
                   <Link
                     key={result.id}
                     to={ROUTES.BOARD_CARD.replace('$boardId', boardId).replace('$boardCardId', result.boardCardId)}
-                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseDown={(e: React.MouseEvent) => e.preventDefault()}
                     onClick={handleClose}
                     className="block px-4 py-3 hover:bg-accent border-b last:border-b-0 cursor-pointer flex flex-col gap-0.5"
                   >
@@ -117,7 +117,7 @@ export const BoardSearchButton = ({ boardId }: { boardId: string }) => {
                         {formattedTimeAgo(result.boardCardLastEventAt)}
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground line-clamp-2">{result.text}</div>
+                    <div className="text-xs text-muted-foreground line-clamp-2">{result.snippet}</div>
                   </Link>
                 ))}
               </div>

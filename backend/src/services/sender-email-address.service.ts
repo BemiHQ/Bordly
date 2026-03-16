@@ -5,6 +5,7 @@ import { SenderEmailAddress } from '@/entities/sender-email-address';
 import type { User } from '@/entities/user';
 import { BoardAccountService } from '@/services/board-account.service';
 import { GmailAccountService } from '@/services/gmail-account.service';
+import { reportError } from '@/utils/error-tracking';
 import { GmailApi, VERIFICATION_STATUS_ACCEPTED } from '@/utils/gmail-api';
 import { mapBy } from '@/utils/lists';
 import { orm } from '@/utils/orm';
@@ -17,23 +18,41 @@ export class SenderEmailAddressService {
 
   static async persistNewAddresses(gmailAccount: GmailAccount) {
     const gmail = await GmailAccountService.initGmail(gmailAccount);
-    const sendAsItems = await GmailApi.listSendAs(gmail);
-
     const emailAddresses: SenderEmailAddress[] = [];
-    for (const sendAs of sendAsItems) {
-      if (!sendAs.sendAsEmail || (!sendAs.isPrimary && sendAs.verificationStatus !== VERIFICATION_STATUS_ACCEPTED)) {
-        continue;
-      }
 
-      const emailAddress = new SenderEmailAddress({
-        gmailAccount,
-        isPrimary: sendAs.isPrimary || false,
-        isDefault: sendAs.isDefault || false,
-        email: sendAs.sendAsEmail,
-        name: sendAs.displayName || undefined,
-        replyTo: sendAs.replyToAddress || undefined,
-      });
-      emailAddresses.push(emailAddress);
+    try {
+      const sendAsItems = await GmailApi.listSendAs(gmail);
+      for (const sendAs of sendAsItems) {
+        if (!sendAs.sendAsEmail || (!sendAs.isPrimary && sendAs.verificationStatus !== VERIFICATION_STATUS_ACCEPTED)) {
+          continue;
+        }
+
+        const emailAddress = new SenderEmailAddress({
+          gmailAccount,
+          isPrimary: sendAs.isPrimary || false,
+          isDefault: sendAs.isDefault || false,
+          email: sendAs.sendAsEmail,
+          name: sendAs.displayName || undefined,
+          replyTo: sendAs.replyToAddress || undefined,
+        });
+        emailAddresses.push(emailAddress);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Request had insufficient authentication scopes')) {
+        emailAddresses.push(
+          new SenderEmailAddress({
+            gmailAccount,
+            isPrimary: true,
+            isDefault: true,
+            email: gmailAccount.email,
+            name: gmailAccount.name,
+          }),
+        );
+        reportError(error);
+      } else {
+        throw error;
+      }
     }
 
     orm.em.persist(emailAddresses);

@@ -188,16 +188,20 @@ ${items.join('\n')}`;
 
     const items = [
       `From: ${participantToString(emailMessage.from)}`,
-      `${bodyText}`,
-      emailMessage.gmailAttachments.length > 0 &&
-        `Attachments:\n${emailMessage.gmailAttachments.map(GmailAttachment.toIndex).join('\n')}`,
       emailMessage.to && emailMessage.to.length > 0 && `To: ${emailMessage.to.map(participantToString).join(', ')}`,
       emailMessage.cc && emailMessage.cc.length > 0 && `CC: ${emailMessage.cc.map(participantToString).join(', ')}`,
       emailMessage.bcc && emailMessage.bcc.length > 0 && `BCC: ${emailMessage.bcc.map(participantToString).join(', ')}`,
       `${emailMessage.subject}`,
+      `${bodyText}`,
+      emailMessage.gmailAttachments.length > 0 &&
+        `Attachments:\n${emailMessage.gmailAttachments.map(GmailAttachment.toIndex).join('\n')}`,
     ].filter(Boolean);
 
     return items.join('\n');
+  }
+
+  static toSnippet(emailMessage: Loaded<EmailMessage>) {
+    return `From: ${participantToString(emailMessage.from)} ${emailMessage.snippet}`;
   }
 
   private validate() {

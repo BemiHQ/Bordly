@@ -3,7 +3,6 @@ import { GmailAccount } from '@/entities/gmail-account';
 import { BORDLY_USER_ID, User } from '@/entities/user';
 import { BoardInviteService } from '@/services/board-invite.service';
 import { SenderEmailAddressService } from '@/services/sender-email-address.service';
-import { reportError } from '@/utils/error-tracking';
 import { orm } from '@/utils/orm';
 import { GmailAccountState } from '@/utils/shared';
 
@@ -53,11 +52,7 @@ export class UserService {
     orm.em.persist([user, gmailAccount]);
 
     await BoardInviteService.acceptPendingInvites({ email, user });
-    try {
-      await SenderEmailAddressService.persistNewAddresses(gmailAccount);
-    } catch (error) {
-      reportError(error, { email });
-    }
+    await SenderEmailAddressService.persistNewAddresses(gmailAccount);
     await orm.em.flush();
 
     return user;
