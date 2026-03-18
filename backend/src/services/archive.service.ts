@@ -97,7 +97,7 @@ export class ArchiveService {
     await table.delete(`external_thread_id = '${boardCard.externalThreadId}'`);
   }
 
-  static async getLastEmailMessage(externalThreadId: string) {
+  static async emailMessagesDescByExternalThreadId(externalThreadId: string) {
     const table = await ArchiveService.getOrCreateTable();
     const results = (
       await table
@@ -106,24 +106,6 @@ export class ArchiveService {
         .select(['email_message', 'gmail_attachments', 'external_created_at'])
         .toArray()
     ).sort((a, b) => (b.external_created_at as number) - (a.external_created_at as number));
-    if (results.length === 0) return null;
-
-    const record = results[0] as { email_message: string; gmail_attachments: string };
-    return ArchiveService.deserializeEmailMessage(
-      JSON.parse(record.email_message),
-      JSON.parse(record.gmail_attachments),
-    );
-  }
-
-  static async emailMessagesAscByExternalThreadId(externalThreadId: string) {
-    const table = await ArchiveService.getOrCreateTable();
-    const results = (
-      await table
-        .query()
-        .where(`external_thread_id = '${externalThreadId}'`)
-        .select(['email_message', 'gmail_attachments', 'external_created_at'])
-        .toArray()
-    ).sort((a, b) => (a.external_created_at as number) - (b.external_created_at as number));
 
     const emailMessages = results.map((record: { email_message: string; gmail_attachments: string }) =>
       ArchiveService.deserializeEmailMessage(JSON.parse(record.email_message), JSON.parse(record.gmail_attachments)),

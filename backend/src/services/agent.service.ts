@@ -151,18 +151,27 @@ export class AgentService {
     mimeType: string;
   }) {
     const agent = AgentService.createAgent(AGENT_ATTACHMENT_SUMMARY);
-
     console.log(`[AGENT] Generating summary for attachment ${filename}...`);
-    const response = await agent.generate([
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Summarize the following email attachment' },
-          { type: 'file', filename, mediaType: mimeType, data },
-        ],
-      },
-    ]);
 
-    return response.text.slice(0, 255);
+    try {
+      const response = await agent.generate([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Summarize the following email attachment' },
+            { type: 'file', filename, mediaType: mimeType, data },
+          ],
+        },
+      ]);
+      return response.text.slice(0, 255);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('The document has no pages')) {
+        Logger.info(`[AGENT] Failed to generate attachment summary for ${filename}: The document has no pages.`);
+        return;
+      } else {
+        throw error;
+      }
+    }
   }
 }

@@ -170,9 +170,6 @@ export class EmailMessage extends BaseEntity {
 \`\`\`
 ${emailMessage.bodyText || emailMessage.bodyHtml}
 \`\`\``,
-      emailMessage.gmailAttachments.length > 0 &&
-        `- Gmail Attachments:
-${emailMessage.gmailAttachments.map(GmailAttachment.toPrompt).join('\n')}`,
     ].filter(Boolean);
 
     return `Email Message:

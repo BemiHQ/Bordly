@@ -40,7 +40,9 @@ export const BOARD_CARD_ROUTES = {
 
       let emailMessagesAsc: Loaded<EmailMessage, 'domain' | 'gmailAttachments'>[];
       if (boardCard.emailMessagesArchivable) {
-        emailMessagesAsc = await ArchiveService.emailMessagesAscByExternalThreadId(boardCard.externalThreadId!);
+        emailMessagesAsc = (
+          await ArchiveService.emailMessagesDescByExternalThreadId(boardCard.externalThreadId!)
+        ).toReversed();
       } else {
         emailMessagesAsc = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
           populate: ['domain', 'gmailAttachments'],

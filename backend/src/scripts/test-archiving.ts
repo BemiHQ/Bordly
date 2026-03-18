@@ -79,7 +79,7 @@ async function runTests() {
     assert(!!removedMessages.find((msg) => msg.id === EMAIL_MESSAGES[1]!.id));
 
     console.log('✓ Getting last archived email message...');
-    let lastMessage = await ArchiveService.getLastEmailMessage(EXTERNAL_THREAD_ID);
+    let lastMessage = (await ArchiveService.emailMessagesDescByExternalThreadId(EXTERNAL_THREAD_ID))[0];
     assert(!!lastMessage);
     assertEqual(lastMessage!.id, EMAIL_MESSAGES[1]!.id);
     assertEqual(lastMessage!.externalThreadId, EXTERNAL_THREAD_ID);
@@ -89,13 +89,13 @@ async function runTests() {
 
     console.log('✓ Testing deletion by email message IDs...');
     await ArchiveService.deleteByEmailMessageIds([EMAIL_MESSAGES[1]!.id]);
-    lastMessage = await ArchiveService.getLastEmailMessage(EXTERNAL_THREAD_ID);
+    lastMessage = (await ArchiveService.emailMessagesDescByExternalThreadId(EXTERNAL_THREAD_ID))[0];
     assert(!!lastMessage);
     assertEqual(lastMessage!.id, EMAIL_MESSAGES[0]!.id);
 
     console.log('✓ Testing deletion by external thread IDs...');
     await ArchiveService.deleteByExternalThreadIds([EXTERNAL_THREAD_ID]);
-    lastMessage = await ArchiveService.getLastEmailMessage(EXTERNAL_THREAD_ID);
+    lastMessage = (await ArchiveService.emailMessagesDescByExternalThreadId(EXTERNAL_THREAD_ID))[0];
     assert(!lastMessage);
 
     console.log('✓ Re-archiving email messages...');
@@ -113,7 +113,7 @@ async function runTests() {
     assert(!!persistedMessages.find((msg) => msg.id === EMAIL_MESSAGES[1]!.id));
 
     console.log('✓ Verifying archival deletion...');
-    lastMessage = await ArchiveService.getLastEmailMessage(EXTERNAL_THREAD_ID);
+    lastMessage = (await ArchiveService.emailMessagesDescByExternalThreadId(EXTERNAL_THREAD_ID))[0];
     assert(!lastMessage);
 
     console.log('✅ All tests passed!\n');

@@ -447,7 +447,7 @@ export class EmailMessageService {
           mimeType,
           data,
         });
-        attachment.setSummary(summary);
+        if (summary) attachment.setSummary(summary);
       }
 
       attachments.push(attachment);

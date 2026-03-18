@@ -318,7 +318,7 @@ export const EmailMessageCard = ({
         setInlineImageAttachmentIds={setInlineImageAttachmentIds}
       />
       {nonInlineAttachments.length > 0 && (
-        <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
+        <div className="flex flex-col gap-2 pt-4 border-t">
           <div className="flex items-center gap-1.5">
             <Paperclip className="size-4 flex-shrink-0 text-muted-foreground" />
             <div className="text-sm font-medium">

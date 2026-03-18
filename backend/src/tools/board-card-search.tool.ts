@@ -6,6 +6,7 @@ import { BoardCard } from '@/entities/board-card';
 import { Comment } from '@/entities/comment';
 import { EmailDraft } from '@/entities/email-draft';
 import { EmailMessage } from '@/entities/email-message';
+import { GmailAttachment } from '@/entities/gmail-attachment';
 import type { Context } from '@/services/agent.service';
 import { ArchiveService } from '@/services/archive.service';
 import { BoardCardService } from '@/services/board-card.service';
@@ -54,34 +55,35 @@ export const buildBoardCardContext = async (initialBoardCard: Loaded<BoardCard>)
     'comments.user',
   ]);
 
-  let lastEmailMessage: Loaded<EmailMessage, 'gmailAttachments'> | null = null;
+  let emailMessagesDesc: Loaded<EmailMessage, 'gmailAttachments'>[] = [];
 
   if (boardCard.emailMessagesArchivable) {
     if (boardCard.externalThreadId) {
-      const archivedMessage = await ArchiveService.getLastEmailMessage(boardCard.externalThreadId);
-      lastEmailMessage = archivedMessage ?? null;
+      emailMessagesDesc = await ArchiveService.emailMessagesDescByExternalThreadId(boardCard.externalThreadId);
     }
   } else {
-    const messages = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
+    emailMessagesDesc = await EmailMessageService.findEmailMessagesByBoardCard(boardCard, {
       populate: ['gmailAttachments'],
       orderBy: { externalCreatedAt: 'DESC' },
-      limit: 1,
     });
-    lastEmailMessage = messages[0] ?? null;
   }
 
+  const lastEmailMessage = emailMessagesDesc[0] ?? null;
   const commentsAsc = [...boardCard.comments].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const gmailAttachments = emailMessagesDesc.flatMap((m) => [...m.gmailAttachments]);
 
   const boardCardContext = {
     boardCard: BoardCard.toPrompt(boardCard),
     emailDraft: boardCard.emailDraft && EmailDraft.toPrompt(boardCard.emailDraft),
     lastEmailMessage: lastEmailMessage && EmailMessage.toPrompt(lastEmailMessage),
     commentsAsc: commentsAsc.map(Comment.toPrompt),
+    gmailAttachments: gmailAttachments.map(GmailAttachment.toPrompt),
   };
   Logger.debug(boardCardContext.boardCard);
   if (boardCardContext.emailDraft) Logger.debug(boardCardContext.emailDraft);
   if (boardCardContext.lastEmailMessage) Logger.debug(boardCardContext.lastEmailMessage);
   Logger.debugObjects(boardCardContext.commentsAsc);
+  Logger.debugObjects(boardCardContext.gmailAttachments);
 
   return { boardCard, boardCardContext };
 };
