@@ -1,5 +1,5 @@
 import type { Connection, Table } from '@lancedb/lancedb';
-import { wrap } from '@mikro-orm/core';
+import { Collection, wrap } from '@mikro-orm/core';
 import type { Loaded } from '@mikro-orm/postgresql';
 import { Field, FixedSizeBinary, Schema, Timestamp, TimeUnit, Utf8 } from 'apache-arrow';
 import type { BoardCard } from '@/entities/board-card';
@@ -83,9 +83,7 @@ export class ArchiveService {
       .toArray();
     if (results.length === 0) return;
     const emailMessages = results.map((record: { email_message: string; gmail_attachments: string }) =>
-      ArchiveService.deserializeEmailMessage(JSON.parse(record.email_message), JSON.parse(record.gmail_attachments), {
-        insertable: true,
-      }),
+      ArchiveService.deserializeEmailMessage(JSON.parse(record.email_message), JSON.parse(record.gmail_attachments)),
     );
 
     for (const emailMessage of emailMessages) {
@@ -159,6 +157,7 @@ export class ArchiveService {
         ...wrap(entity).toObject(),
         gmailAccount: { id: entity.gmailAccount.id },
         domain: { id: entity.domain.id },
+        gmailAttachments: undefined,
       };
     } else if (entity instanceof GmailAttachment) {
       return {
@@ -172,12 +171,15 @@ export class ArchiveService {
   private static deserializeEmailMessage(
     data: Record<string, unknown>,
     gmailAttachments: Array<Record<string, unknown>>,
-    { insertable = false } = {},
   ) {
-    const emailMessage = orm.em.create(EmailMessage, data as never, { managed: !insertable });
-    emailMessage.gmailAttachments.set(
-      gmailAttachments.map((a) => orm.em.create(GmailAttachment, a as never, { managed: !insertable })),
-    );
+    const emailMessage = Object.create(EmailMessage.prototype);
+    Object.assign(emailMessage, data);
+    emailMessage.gmailAttachments = new Collection<GmailAttachment>(emailMessage);
+    for (const a of gmailAttachments) {
+      const attachment = Object.create(GmailAttachment.prototype);
+      Object.assign(attachment, { ...a, emailMessage });
+      emailMessage.gmailAttachments.add(attachment);
+    }
     return emailMessage as Loaded<EmailMessage, 'gmailAttachments'>;
   }
 

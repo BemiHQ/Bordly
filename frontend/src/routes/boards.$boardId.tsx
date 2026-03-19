@@ -298,6 +298,7 @@ function BoardComponent() {
   const params = Route.useParams();
   const matches = useMatches();
   const navigate = Route.useNavigate();
+  const [newBoard, setNewBoard] = useState(false);
 
   const { data: boardData, error } = useQuery({
     ...trpc.board.get.queryOptions({ boardId: extractUuid(params.boardId) }),
@@ -318,13 +319,17 @@ function BoardComponent() {
       if (!hasActiveGmailAccount) {
         window.location.href = API_ENDPOINTS.AUTH_GOOGLE;
       }
+
+      if (boardData.boardColumnsAsc.length === 0) {
+        setNewBoard(true);
+      }
     }
   }, [boardData]);
 
   const { data: boardCardsData } = useQuery({
     ...trpc.boardCard.getBoardCards.queryOptions({ boardId: extractUuid(params.boardId) }),
-    refetchInterval:
-      !boardData || boardData.boardColumnsAsc.length === 0 ? REFETCH_NEW_BOARD_INTERVAL_MS : REFETCH_CARDS_INTERVAL_MS,
+    refetchInterval: ({ state: { data } }) =>
+      newBoard && data && data.boardCardsDesc.length === 0 ? REFETCH_NEW_BOARD_INTERVAL_MS : REFETCH_CARDS_INTERVAL_MS,
     refetchIntervalInBackground: true,
     enabled: boardData && boardData.boardColumnsAsc.length > 0,
     retry: false,
